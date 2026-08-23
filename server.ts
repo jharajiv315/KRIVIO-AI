@@ -2,7 +2,6 @@ import express, { Request, Response, NextFunction } from 'express';
 import path from 'path';
 import jwt from 'jsonwebtoken';
 import { GoogleGenAI, Type } from '@google/genai';
-import { createServer as createViteServer } from 'vite';
 import { Pool } from 'pg';
 import bcrypt from 'bcryptjs';
 
@@ -12,7 +11,7 @@ const pgPool = new Pool({
 });
 
 const app = express();
-const PORT = 3000;
+const PORT = process.env.PORT ? parseInt(process.env.PORT, 10) : 3000;
 const JWT_SECRET = process.env.JWT_SECRET || 'krivio_secret_key_2026';
 
 // Initialize Gemini Client
@@ -26,6 +25,14 @@ const ai = new GoogleGenAI({
 });
 
 app.use(express.json({ limit: '15mb' }));
+
+// URL Normalizer for Vercel serverless environment
+app.use((req: Request, res: Response, next: NextFunction) => {
+  if (req.url && !req.url.startsWith('/api') && !req.url.startsWith('/diagnostic') && !req.url.startsWith('/assets') && !req.url.startsWith('/favicon') && req.url !== '/' && req.url !== '/index.html') {
+    req.url = '/api' + (req.url.startsWith('/') ? req.url : '/' + req.url);
+  }
+  next();
+});
 
 // In-Memory Database for Demo/MVP Persistence
 interface UserRecord {
@@ -2363,6 +2370,7 @@ async function startServer() {
   await initPgDatabase();
 
   if (process.env.NODE_ENV !== 'production') {
+    const { createServer: createViteServer } = await import('vite');
     const vite = await createViteServer({
       server: { middlewareMode: true },
       appType: 'spa',
