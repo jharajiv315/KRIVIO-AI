@@ -1,0 +1,6 @@
+{
+  "name": "KRIVIO AI",
+  "description": "Voice-first AI business mentor for rural entrepreneurs, artisans, SHGs, and small farmers.",
+  "requestFramePermissions": ["microphone"],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}

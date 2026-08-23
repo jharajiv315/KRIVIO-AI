@@ -1,0 +1,60 @@
+@import "tailwindcss";
+
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=Poppins:wght@500;600;700;800&display=swap');
+
+@theme {
+  --font-poppins: 'Poppins', sans-serif;
+  --font-inter: 'Inter', sans-serif;
+
+  --color-forest: #0F5132;
+  --color-leaf: #2E7D32;
+  --color-sage: #66BB6A;
+  --color-gold: #D4AF37;
+  --color-gold-hover: #C29F2B;
+  --color-brand-dark: #1A1A1A;
+  --color-brand-bg-light: #F8F9F5;
+  --color-brand-bg-dark: #0B1911;
+}
+
+:root {
+  font-family: 'Inter', sans-serif;
+  color-scheme: light dark;
+}
+
+h1, h2, h3, h4, .font-heading, .font-poppins {
+  font-family: 'Poppins', sans-serif;
+}
+
+body {
+  font-family: 'Inter', sans-serif;
+  background-color: #F8F9F5;
+  color: #1A1A1A;
+}
+
+.dark body {
+  background-color: #0B1911;
+  color: #E2F1E7;
+}
+
+/* Scrollbar customization matching brand */
+::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+::-webkit-scrollbar-thumb {
+  background: #2E7D3233;
+  border-radius: 9999px;
+}
+
+.dark ::webkit-scrollbar-thumb {
+  background: #66BB6A33;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: #0F513288;
+}
