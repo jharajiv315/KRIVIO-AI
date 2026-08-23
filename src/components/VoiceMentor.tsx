@@ -213,8 +213,8 @@ export const VoiceMentor: React.FC = () => {
                 <h1 className="text-xl font-bold text-slate-900 dark:text-white font-display">
                   Voice AI Business Mentor
                 </h1>
-                <span className="px-2 py-0.5 text-[10px] font-bold bg-amber-100 dark:bg-amber-950/80 text-amber-800 dark:text-amber-300 rounded-full">
-                  Gemini Powered
+                <span className="px-2 py-0.5 text-[10px] font-bold bg-emerald-100 dark:bg-emerald-950/80 text-emerald-800 dark:text-emerald-300 rounded-full">
+                  AI Active
                 </span>
               </div>
               <p className="text-xs text-slate-500 dark:text-slate-400">
@@ -233,6 +233,7 @@ export const VoiceMentor: React.FC = () => {
             >
               <option value="English">English Voice</option>
               <option value="Hindi">हिंदी (Hindi Voice)</option>
+              <option value="Gujarati">ગુજરાતી (Gujarati Voice)</option>
               <option value="Tamil">தமிழ் (Tamil Voice)</option>
               <option value="Telugu">తెలుగు (Telugu Voice)</option>
               <option value="Bengali">বাংলা (Bengali Voice)</option>

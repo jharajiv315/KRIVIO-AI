@@ -28,24 +28,30 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const closeAuthModal = () => setIsAuthModalOpen(false);
 
   const refreshUser = async () => {
+    const storedToken = getStoredToken();
+    if (!storedToken) {
+      setUser(null);
+      setToken(null);
+      setIsLoading(false);
+      return;
+    }
+
     try {
       setIsLoading(true);
       const res = await authApi.getMe();
-      setUser(res.user);
-      setToken(getStoredToken());
+      if (res && res.user) {
+        setUser(res.user);
+        setToken(storedToken);
+      } else {
+        removeStoredToken();
+        setUser(null);
+        setToken(null);
+      }
     } catch (err) {
-      console.error('Failed to load user session', err);
-      // Fallback user for smooth offline/first-time experience
-      setUser({
-        id: 'usr_demo_101',
-        name: 'Sunita Devi',
-        email: 'sunita@krivio.ai',
-        role: 'artisan',
-        businessName: 'Devi Handlooms & Terracotta',
-        location: 'Madhubani, Bihar',
-        subscriptionPlan: 'free',
-        createdAt: new Date().toISOString(),
-      });
+      console.warn('Session expired or invalid, clearing authentication state');
+      removeStoredToken();
+      setUser(null);
+      setToken(null);
     } finally {
       setIsLoading(false);
     }
@@ -70,7 +76,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   };
 
   const loginWithGoogle = async () => {
-    const res = await authApi.googleSignIn('Sunita Devi', 'sunita.google@krivio.ai');
+    const res = await authApi.googleSignIn();
     setUser(res.user);
     setToken(res.token);
     closeAuthModal();

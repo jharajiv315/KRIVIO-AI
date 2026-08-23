@@ -238,7 +238,7 @@ export const LandingPage: React.FC<LandingPageProps> = ({ setCurrentTab, openPri
                 Why You Can Trust It
               </h3>
               <p className="text-xs text-stone-700 dark:text-emerald-100/80 leading-relaxed font-inter">
-                Built on verified craft economics and government compliance benchmarks (ONDC, Government e-Marketplace, Amazon Saheli). Powered by secure Razorpay transactions and zero hidden fees.
+                Built on verified craft economics and government compliance benchmarks (ONDC, Government e-Marketplace, Amazon Karigar). Powered by bank-grade security and zero hidden fees.
               </p>
             </div>
           </div>
@@ -421,7 +421,7 @@ export const LandingPage: React.FC<LandingPageProps> = ({ setCurrentTab, openPri
               Affordable Plans for Rural Entrepreneurs
             </h2>
             <p className="text-sm text-stone-600 dark:text-emerald-200/80 font-inter">
-              Start completely free. Upgrade to Pro for unlimited voice sessions and automated Razorpay payments.
+              Start completely free. Upgrade to Pro for unlimited voice sessions, advanced photo scoring, and 1-click catalog syndication.
             </p>
           </div>
 
@@ -464,14 +464,14 @@ export const LandingPage: React.FC<LandingPageProps> = ({ setCurrentTab, openPri
                 <li className="flex items-center gap-2"><CheckCircle2 className="w-4 h-4 text-[#0F5132] dark:text-emerald-400 shrink-0" /> Unlimited Voice AI Mentor Advice</li>
                 <li className="flex items-center gap-2"><CheckCircle2 className="w-4 h-4 text-[#0F5132] dark:text-emerald-400 shrink-0" /> Unlimited AI Product Descriptions</li>
                 <li className="flex items-center gap-2"><CheckCircle2 className="w-4 h-4 text-[#0F5132] dark:text-emerald-400 shrink-0" /> Advanced Lighting & Background Analysis</li>
-                <li className="flex items-center gap-2"><CheckCircle2 className="w-4 h-4 text-[#0F5132] dark:text-emerald-400 shrink-0" /> Razorpay Payment Links for Buyers</li>
+                <li className="flex items-center gap-2"><CheckCircle2 className="w-4 h-4 text-[#0F5132] dark:text-emerald-400 shrink-0" /> Instant Digital Payment Links for Buyers</li>
               </ul>
 
               <button
                 onClick={openPricingModal}
                 className="w-full py-2.5 bg-[#0F5132] hover:bg-[#0F5132]/90 text-white font-poppins font-semibold text-xs rounded-xl shadow-md transition-colors"
               >
-                Upgrade to Pro (Razorpay)
+                Upgrade to Pro (₹299/mo)
               </button>
             </div>
           </div>

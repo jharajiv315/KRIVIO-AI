@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { useAuth } from '../context/AuthContext';
 import { useTheme } from '../context/ThemeContext';
+import { authApi } from '../services/api';
 import {
   Settings,
   Moon,
@@ -13,7 +14,6 @@ import {
   KeyRound,
   Save,
   AlertCircle,
-  Database,
 } from 'lucide-react';
 
 export const SettingsView: React.FC = () => {
@@ -47,14 +47,13 @@ export const SettingsView: React.FC = () => {
 
     setIsSubmittingPw(true);
     try {
-      // Simulate password update endpoint or call backend
-      await new Promise((res) => setTimeout(res, 800));
-      setPwMessage({ type: 'success', text: 'Password changed successfully in PostgreSQL!' });
+      const res = await authApi.changePassword(currentPassword, newPassword);
+      setPwMessage({ type: 'success', text: 'Password updated successfully!' });
       setCurrentPassword('');
       setNewPassword('');
       setConfirmPassword('');
     } catch (err: any) {
-      setPwMessage({ type: 'error', text: 'Failed to update password.' });
+      setPwMessage({ type: 'error', text: err.message || 'Failed to update password.' });
     } finally {
       setIsSubmittingPw(false);
     }
@@ -69,7 +68,7 @@ export const SettingsView: React.FC = () => {
             <Settings className="w-6 h-6 text-emerald-600" /> Workspace Settings
           </h1>
           <p className="text-xs text-slate-500 dark:text-slate-400 mt-1">
-            Manage theme display, primary language, PostgreSQL security, and alert preferences.
+            Manage theme display, primary language, account security, and alert preferences.
           </p>
         </div>
       </div>
@@ -109,11 +108,11 @@ export const SettingsView: React.FC = () => {
               >
                 <option value="Hindi">हिंदी (Hindi)</option>
                 <option value="English">English</option>
+                <option value="Gujarati">ગુજરાતી (Gujarati)</option>
                 <option value="Bengali">বাংলা (Bengali)</option>
                 <option value="Tamil">தமிழ் (Tamil)</option>
                 <option value="Telugu">తెలుగు (Telugu)</option>
                 <option value="Marathi">मराठी (Marathi)</option>
-                <option value="Gujarati">ગુજરાતી (Gujarati)</option>
                 <option value="Kannada">ಕನ್ನಡ (Kannada)</option>
               </select>
               <p className="text-[11px] text-slate-500">
@@ -126,12 +125,12 @@ export const SettingsView: React.FC = () => {
         {/* Card 2: Account & Security */}
         <div className="bg-white dark:bg-slate-900 p-6 rounded-2xl border border-slate-200 dark:border-slate-800 shadow-xs space-y-6">
           <h2 className="text-sm font-bold text-slate-900 dark:text-white font-display flex items-center gap-2">
-            <Database className="w-4 h-4 text-emerald-600" /> PostgreSQL Account Identity
+            <ShieldCheck className="w-4 h-4 text-emerald-600" /> Enterprise Account Identity
           </h2>
 
           <div className="space-y-3 text-xs">
             <div className="flex justify-between py-2 border-b border-slate-100 dark:border-slate-800">
-              <span className="text-slate-500">Database Record ID</span>
+              <span className="text-slate-500">Enterprise ID</span>
               <span className="font-mono text-[11px] font-semibold text-slate-800 dark:text-slate-200">
                 {user?.id || 'usr_active'}
               </span>
@@ -152,7 +151,7 @@ export const SettingsView: React.FC = () => {
             <div className="flex justify-between py-2">
               <span className="text-slate-500">Security Verification</span>
               <span className="text-emerald-600 dark:text-emerald-400 font-bold flex items-center gap-1">
-                <CheckCircle2 className="w-3.5 h-3.5" /> JWT Auth + bcrypt
+                <CheckCircle2 className="w-3.5 h-3.5" /> Bank-Grade Security Enabled
               </span>
             </div>
           </div>

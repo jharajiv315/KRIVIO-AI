@@ -164,7 +164,7 @@ export const SubscriptionView: React.FC<SubscriptionViewProps> = ({ openPricingM
           <ul className="space-y-3 text-xs text-slate-200">
             <li className="flex items-center gap-2.5">
               <Zap className="w-4 h-4 text-amber-400 shrink-0" />
-              <span>Unlimited Voice & Text AI Mentor in Hindi/English</span>
+              <span>Unlimited Voice & Text AI Mentor in 7 Regional Languages</span>
             </li>
             <li className="flex items-center gap-2.5">
               <Zap className="w-4 h-4 text-amber-400 shrink-0" />
@@ -172,15 +172,15 @@ export const SubscriptionView: React.FC<SubscriptionViewProps> = ({ openPricingM
             </li>
             <li className="flex items-center gap-2.5">
               <Zap className="w-4 h-4 text-amber-400 shrink-0" />
-              <span>Advanced smartphone camera image background cleanup</span>
+              <span>Advanced smartphone camera lighting & background analysis</span>
             </li>
             <li className="flex items-center gap-2.5">
               <Zap className="w-4 h-4 text-amber-400 shrink-0" />
-              <span>Priority ONDC & GeM channel onboarding support</span>
+              <span>Priority ONDC, Amazon Karigar & GeM fast-track</span>
             </li>
             <li className="flex items-center gap-2.5">
               <Zap className="w-4 h-4 text-amber-400 shrink-0" />
-              <span>PostgreSQL data backup & export</span>
+              <span>Automated Cloud Catalog Backup & 1-Click Export</span>
             </li>
           </ul>
 
@@ -189,11 +189,11 @@ export const SubscriptionView: React.FC<SubscriptionViewProps> = ({ openPricingM
               onClick={openPricingModal}
               className="w-full py-3 bg-[#D4AF37] hover:bg-[#b8972e] text-[#1A1A1A] font-extrabold text-xs rounded-xl shadow-md transition-all font-poppins"
             >
-              Upgrade Now via Razorpay (₹299)
+              Upgrade to Pro Plan (₹299/mo)
             </button>
           ) : (
             <div className="p-3 bg-emerald-900/60 rounded-xl border border-emerald-500/40 text-center text-xs font-bold text-emerald-300">
-              ✓ Pro Membership Active on PostgreSQL Account
+              ✓ Pro Membership Active on Your Enterprise Account
             </div>
           )}
         </div>

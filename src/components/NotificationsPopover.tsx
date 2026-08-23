@@ -20,7 +20,7 @@ const INITIAL_NOTIFICATIONS: NotificationItem[] = [
   {
     id: 'notif-1',
     title: 'Welcome to KRIVIO AI Workspace',
-    message: 'Your account is authenticated via PostgreSQL with bcrypt security. Explore your rural business dashboard.',
+    message: 'Your enterprise account is securely set up. Welcome to your business growth workspace.',
     time: 'Just now',
     read: false,
     type: 'success',
@@ -38,7 +38,7 @@ const INITIAL_NOTIFICATIONS: NotificationItem[] = [
   {
     id: 'notif-3',
     title: 'Voice AI Mentor Tip',
-    message: 'Ask your mentor in Hindi or English regarding calculating your handmade product cost and shipping.',
+    message: 'Ask your mentor in Hindi, English, or regional voices to calculate your handmade product cost and fair margins.',
     time: '1 day ago',
     read: true,
     type: 'mentor',
@@ -173,7 +173,7 @@ export const NotificationsPopover: React.FC<NotificationsPopoverProps> = ({ onSe
                 >
                   <Trash2 className="w-3.5 h-3.5" /> Clear list
                 </button>
-                <span className="text-slate-400">PostgreSQL Sync</span>
+                <span className="text-slate-400">Live Cloud Sync</span>
               </div>
             )}
           </div>

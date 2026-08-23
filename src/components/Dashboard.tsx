@@ -12,10 +12,12 @@ import { SubscriptionView } from './SubscriptionView';
 import { ProfileView } from './ProfileView';
 import { SettingsView } from './SettingsView';
 import { BusinessProfileView } from './BusinessProfileView';
+import { ImageStudio } from './ImageStudio';
 import {
   LayoutDashboard,
   Package,
   Mic,
+  Camera,
   Store,
   Landmark,
   Crown,
@@ -109,7 +111,7 @@ export const Dashboard: React.FC<DashboardProps> = ({ currentTab, setCurrentTab,
     }
   };
 
-  // Auth Guard: If not logged in, prompt user to login
+  // Auth Guard: If not logged in, prompt user to sign in
   if (!user) {
     return (
       <div className="max-w-md mx-auto my-16 p-8 bg-white dark:bg-slate-900 rounded-3xl border border-slate-200 dark:border-slate-800 shadow-xl text-center space-y-6 font-inter">
@@ -118,18 +120,26 @@ export const Dashboard: React.FC<DashboardProps> = ({ currentTab, setCurrentTab,
         </div>
         <div className="space-y-2">
           <h2 className="text-xl font-bold font-display text-slate-900 dark:text-white">
-            Workspace Authentication Required
+            Sign In Required
           </h2>
           <p className="text-xs text-slate-500 leading-relaxed">
-            Please sign in to your PostgreSQL authenticated account to access your entrepreneur workspace, AI mentor, and product catalog.
+            Please sign in to access your business workspace, product studio, and AI voice mentor.
           </p>
         </div>
-        <button
-          onClick={openAuthModal}
-          className="w-full py-3 bg-emerald-600 hover:bg-emerald-500 text-white font-bold text-xs rounded-xl shadow-md transition-all font-poppins"
-        >
-          Sign In / Register
-        </button>
+        <div className="flex flex-col gap-3">
+          <button
+            onClick={openAuthModal}
+            className="w-full py-3 bg-emerald-600 hover:bg-emerald-500 text-white font-bold text-xs rounded-xl shadow-md transition-all font-poppins cursor-pointer"
+          >
+            Sign In / Register
+          </button>
+          <button
+            onClick={() => setCurrentTab('landing')}
+            className="w-full py-2.5 bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-200 font-semibold text-xs rounded-xl transition-all cursor-pointer"
+          >
+            Back to Home
+          </button>
+        </div>
       </div>
     );
   }
@@ -139,6 +149,7 @@ export const Dashboard: React.FC<DashboardProps> = ({ currentTab, setCurrentTab,
     { id: 'business-profile', label: 'Business Profile', icon: Building2 },
     { id: 'products', label: 'Product Studio', icon: Package },
     { id: 'mentor', label: 'AI Mentor', icon: Mic, badge: 'Voice AI' },
+    { id: 'images', label: 'Image Studio', icon: Camera, badge: 'Vision' },
     { id: 'marketplace', label: 'Marketplace', icon: Store },
     { id: 'schemes', label: 'Government Schemes', icon: Landmark },
     { id: 'subscriptions', label: 'Subscriptions', icon: Crown },
@@ -160,6 +171,9 @@ export const Dashboard: React.FC<DashboardProps> = ({ currentTab, setCurrentTab,
         return <ProductStudio />;
       case 'mentor':
         return <VoiceMentor />;
+      case 'images':
+      case 'image-studio':
+        return <ImageStudio />;
       case 'marketplace':
         return <MarketplaceReadiness />;
       case 'schemes':
@@ -186,14 +200,14 @@ export const Dashboard: React.FC<DashboardProps> = ({ currentTab, setCurrentTab,
                     </span>
                     <span className="text-xs text-emerald-300 font-medium flex items-center gap-1">
                       <MapPin className="w-3.5 h-3.5" />
-                      {user.location || 'Madhubani, Bihar'}
+                      {user.location || 'India'}
                     </span>
                   </div>
                   <h1 className="text-2xl sm:text-3xl font-bold font-display">
-                    Welcome back, {user.name || user.full_name || 'Sunita Devi'}!
+                    Welcome back, {user.name || user.full_name || 'Entrepreneur'}!
                   </h1>
                   <p className="text-xs sm:text-sm text-slate-300 max-w-xl">
-                    {user.businessName || 'Rural Artisan Business'} is currently <strong className="text-emerald-400 font-semibold">{stats?.healthScore || 80}% Marketplace Ready</strong> for ONDC and Amazon Saheli.
+                    {user.businessName || 'Your Enterprise'} is currently <strong className="text-emerald-400 font-semibold">{stats?.healthScore || 80}% Marketplace Ready</strong> for ONDC and Amazon Saheli.
                   </p>
                 </div>
 
@@ -221,7 +235,7 @@ export const Dashboard: React.FC<DashboardProps> = ({ currentTab, setCurrentTab,
               <h2 className="text-xs font-bold text-slate-400 uppercase tracking-wider font-poppins">
                 Quick Actions Workspace
               </h2>
-              <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-3">
+              <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3">
                 <button
                   onClick={() => setCurrentTab('products')}
                   className="p-3.5 bg-white dark:bg-slate-900 hover:border-emerald-500 border border-slate-200 dark:border-slate-800 rounded-2xl flex flex-col items-center justify-center gap-2 text-center shadow-2xs transition-all hover:scale-[1.02]"
@@ -239,7 +253,17 @@ export const Dashboard: React.FC<DashboardProps> = ({ currentTab, setCurrentTab,
                   <div className="w-9 h-9 rounded-xl bg-emerald-500/10 text-emerald-600 flex items-center justify-center">
                     <Mic className="w-5 h-5" />
                   </div>
-                  <span className="text-xs font-bold text-slate-800 dark:text-slate-200">Talk to AI Mentor</span>
+                  <span className="text-xs font-bold text-slate-800 dark:text-slate-200">AI Voice Mentor</span>
+                </button>
+
+                <button
+                  onClick={() => setCurrentTab('images')}
+                  className="p-3.5 bg-white dark:bg-slate-900 hover:border-emerald-500 border border-slate-200 dark:border-slate-800 rounded-2xl flex flex-col items-center justify-center gap-2 text-center shadow-2xs transition-all hover:scale-[1.02]"
+                >
+                  <div className="w-9 h-9 rounded-xl bg-teal-500/10 text-teal-600 flex items-center justify-center">
+                    <Camera className="w-5 h-5" />
+                  </div>
+                  <span className="text-xs font-bold text-slate-800 dark:text-slate-200">Image Studio</span>
                 </button>
 
                 <button
@@ -249,22 +273,22 @@ export const Dashboard: React.FC<DashboardProps> = ({ currentTab, setCurrentTab,
                   <div className="w-9 h-9 rounded-xl bg-purple-500/10 text-purple-600 flex items-center justify-center">
                     <Store className="w-5 h-5" />
                   </div>
-                  <span className="text-xs font-bold text-slate-800 dark:text-slate-200">View Marketplace</span>
+                  <span className="text-xs font-bold text-slate-800 dark:text-slate-200">Marketplaces</span>
                 </button>
 
                 <button
                   onClick={() => setCurrentTab('schemes')}
                   className="p-3.5 bg-white dark:bg-slate-900 hover:border-emerald-500 border border-slate-200 dark:border-slate-800 rounded-2xl flex flex-col items-center justify-center gap-2 text-center shadow-2xs transition-all hover:scale-[1.02]"
                 >
-                  <div className="w-9 h-9 rounded-xl bg-teal-500/10 text-teal-600 flex items-center justify-center">
+                  <div className="w-9 h-9 rounded-xl bg-blue-500/10 text-blue-600 flex items-center justify-center">
                     <Landmark className="w-5 h-5" />
                   </div>
-                  <span className="text-xs font-bold text-slate-800 dark:text-slate-200">Explore Schemes</span>
+                  <span className="text-xs font-bold text-slate-800 dark:text-slate-200">Schemes</span>
                 </button>
 
                 <button
                   onClick={() => setCurrentTab('subscriptions')}
-                  className="p-3.5 bg-white dark:bg-slate-900 hover:border-amber-500 border border-slate-200 dark:border-slate-800 rounded-2xl flex flex-col items-center justify-center gap-2 text-center shadow-2xs transition-all hover:scale-[1.02] col-span-2 sm:col-span-1"
+                  className="p-3.5 bg-white dark:bg-slate-900 hover:border-amber-500 border border-slate-200 dark:border-slate-800 rounded-2xl flex flex-col items-center justify-center gap-2 text-center shadow-2xs transition-all hover:scale-[1.02]"
                 >
                   <div className="w-9 h-9 rounded-xl bg-amber-500/10 text-amber-500 flex items-center justify-center">
                     <Crown className="w-5 h-5" />
@@ -281,7 +305,7 @@ export const Dashboard: React.FC<DashboardProps> = ({ currentTab, setCurrentTab,
                   Real Business Health
                 </h2>
                 <span className="text-[11px] text-emerald-600 dark:text-emerald-400 font-semibold">
-                  PostgreSQL Synchronized
+                  Live Cloud Sync
                 </span>
               </div>
 
@@ -493,7 +517,7 @@ export const Dashboard: React.FC<DashboardProps> = ({ currentTab, setCurrentTab,
                       <div className="w-2 h-2 rounded-full bg-emerald-500 mt-1.5 shrink-0" />
                       <div>
                         <p className="font-semibold text-slate-800 dark:text-slate-200">
-                          PostgreSQL Authentication Session Verified
+                          Secure Session Active
                         </p>
                         <p className="text-[10px] text-slate-400">Today, 09:10 AM</p>
                       </div>
@@ -503,7 +527,7 @@ export const Dashboard: React.FC<DashboardProps> = ({ currentTab, setCurrentTab,
                       <div className="w-2 h-2 rounded-full bg-amber-500 mt-1.5 shrink-0" />
                       <div>
                         <p className="font-semibold text-slate-800 dark:text-slate-200">
-                          Profile details synchronized with database
+                          Profile details synchronized & backed up
                         </p>
                         <p className="text-[10px] text-slate-400">Yesterday, 04:15 PM</p>
                       </div>
@@ -687,7 +711,7 @@ export const Dashboard: React.FC<DashboardProps> = ({ currentTab, setCurrentTab,
                 </span>
               </div>
               <p className="text-[10px] text-slate-400 leading-tight">
-                PostgreSQL DB connected.
+                All systems operating normally.
               </p>
             </div>
           )}

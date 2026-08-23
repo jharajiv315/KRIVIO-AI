@@ -54,8 +54,8 @@ export const PricingModal: React.FC<PricingModalProps> = ({ isOpen, onClose }) =
             }
           },
           prefill: {
-            name: user?.name || 'Sunita Devi',
-            email: user?.email || 'sunita@krivio.ai',
+            name: user?.name || user?.full_name || '',
+            email: user?.email || '',
           },
           theme: {
             color: '#123524',
@@ -72,7 +72,7 @@ export const PricingModal: React.FC<PricingModalProps> = ({ isOpen, onClose }) =
           });
 
           if (verifyRes.success) {
-            setSuccessMessage('🎉 Payment verified via Razorpay! Upgraded to KRIVIO AI Pro.');
+            setSuccessMessage('🎉 Payment successful! Upgraded to KRIVIO AI Pro.');
             await refreshUser();
             setTimeout(() => {
               onClose();
@@ -107,7 +107,7 @@ export const PricingModal: React.FC<PricingModalProps> = ({ isOpen, onClose }) =
             Upgrade Your Business Mentor
           </h2>
           <p className="text-xs text-slate-600 dark:text-emerald-200/70 font-inter">
-            Unlimited voice queries in regional languages & automatic Razorpay payment links for buyers.
+            Unlimited voice queries in regional languages, automated craft stories, and catalog export.
           </p>
         </div>
 
@@ -130,11 +130,11 @@ export const PricingModal: React.FC<PricingModalProps> = ({ isOpen, onClose }) =
           <ul className="space-y-2 text-xs text-emerald-100/90 font-inter">
             <li className="flex items-center gap-2">
               <CheckCircle2 className="w-4 h-4 text-[#D4AF37] shrink-0" />
-              <span>Unlimited Voice Mentor Queries in 6 Regional Voices</span>
+              <span>Unlimited Voice Mentor Queries in 7 Regional Voices</span>
             </li>
             <li className="flex items-center gap-2">
               <CheckCircle2 className="w-4 h-4 text-[#D4AF37] shrink-0" />
-              <span>Unlimited AI E-Commerce Product Listings (Gemini)</span>
+              <span>Unlimited AI E-Commerce Product Listings & Stories</span>
             </li>
             <li className="flex items-center gap-2">
               <CheckCircle2 className="w-4 h-4 text-[#D4AF37] shrink-0" />
@@ -142,7 +142,7 @@ export const PricingModal: React.FC<PricingModalProps> = ({ isOpen, onClose }) =
             </li>
             <li className="flex items-center gap-2">
               <CheckCircle2 className="w-4 h-4 text-[#D4AF37] shrink-0" />
-              <span>Direct ONDC, Amazon Saheli, and GeM Fast-Track</span>
+              <span>Direct ONDC, Amazon Karigar, and GeM Fast-Track</span>
             </li>
           </ul>
         </div>
@@ -155,7 +155,7 @@ export const PricingModal: React.FC<PricingModalProps> = ({ isOpen, onClose }) =
           </div>
         )}
 
-        {/* Razorpay Action Button */}
+        {/* Action Button */}
         <div className="space-y-3">
           <button
             id="btn-razorpay-pay-now"
@@ -168,14 +168,14 @@ export const PricingModal: React.FC<PricingModalProps> = ({ isOpen, onClose }) =
               {user?.subscriptionPlan === 'pro'
                 ? 'Current Subscription Active (Pro)'
                 : submitting
-                ? 'Processing Razorpay Order...'
-                : 'Pay ₹299 with Razorpay (UPI / Card / NetBanking)'}
+                ? 'Processing Secure Payment...'
+                : 'Pay ₹299 (UPI / Card / NetBanking)'}
             </span>
           </button>
 
           <p className="text-[10px] text-center text-slate-500 dark:text-emerald-300/60 flex items-center justify-center gap-1 font-inter">
             <Lock className="w-3 h-3 text-[#D4AF37]" />
-            <span>Secured with 256-bit SSL Encryption via Razorpay Checkout</span>
+            <span>Secured with 256-bit Bank-Grade SSL Encryption</span>
           </p>
         </div>
       </div>

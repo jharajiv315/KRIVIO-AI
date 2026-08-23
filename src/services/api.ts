@@ -79,6 +79,13 @@ export const authApi = {
   getMe: async (): Promise<{ user: User }> => {
     return fetchWithAuth('/api/auth/me');
   },
+
+  changePassword: async (currentPassword: string, newPassword: string): Promise<{ status: string; message: string }> => {
+    return fetchWithAuth('/api/auth/change-password', {
+      method: 'POST',
+      body: JSON.stringify({ currentPassword, newPassword }),
+    });
+  },
 };
 
 export const dashboardApi = {
@@ -191,6 +198,37 @@ export const productsApi = {
     targetPrice?: number;
   }): Promise<{ data: any }> => {
     return fetchWithAuth('/api/products/generate-details', {
+      method: 'POST',
+      body: JSON.stringify(params),
+    });
+  },
+
+  suggestBrand: async (params: {
+    craftType?: string;
+    region?: string;
+    personality?: string;
+    language?: string;
+  }): Promise<{ suggestions: Array<{ name: string; meaning: string; whyItFits: string; personality: string; tagline: string }> }> => {
+    return fetchWithAuth('/api/products/suggest-brand', {
+      method: 'POST',
+      body: JSON.stringify(params),
+    });
+  },
+
+  generateIdentity: async (params: {
+    imageBase64?: string;
+    productName?: string;
+    detectedSubject?: string;
+    brandName?: string;
+    materials?: string;
+    whatMakesSpecial?: string;
+    region?: string;
+    targetAudience?: string;
+    priceRange?: string;
+    language?: string;
+    listingMode?: string;
+  }): Promise<{ data: any }> => {
+    return fetchWithAuth('/api/products/generate-identity', {
       method: 'POST',
       body: JSON.stringify(params),
     });

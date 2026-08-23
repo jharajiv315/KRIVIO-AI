@@ -273,7 +273,7 @@ export const BusinessProfileView: React.FC = () => {
                 type="text"
                 value={profile.ownerName || ''}
                 onChange={(e) => setProfile({ ...profile, ownerName: e.target.value })}
-                placeholder="e.g. Sunita Devi"
+                placeholder="e.g. Ramesh Kumar"
                 className="w-full px-4 py-2.5 rounded-xl bg-slate-50 dark:bg-slate-800/60 border border-slate-200 dark:border-slate-700 text-xs text-slate-900 dark:text-white focus:ring-2 focus:ring-emerald-500 outline-none"
               />
             </div>

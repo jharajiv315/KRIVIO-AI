@@ -282,8 +282,8 @@ export const ProductStudio: React.FC = () => {
             <h1 className="text-xl font-bold text-slate-900 dark:text-white font-display">
               Product Catalog Management
             </h1>
-            <span className="px-2 py-0.5 text-[10px] font-bold bg-amber-100 dark:bg-amber-950 text-amber-800 dark:text-amber-300 rounded-full">
-              Gemini Powered
+            <span className="px-2 py-0.5 text-[10px] font-bold bg-emerald-100 dark:bg-emerald-950 text-emerald-800 dark:text-emerald-300 rounded-full">
+              AI Assisted
             </span>
           </div>
           <p className="text-xs text-slate-500 dark:text-slate-400">
@@ -387,7 +387,7 @@ export const ProductStudio: React.FC = () => {
           </div>
           <h3 className="text-sm font-bold text-slate-900 dark:text-white">No products found</h3>
           <p className="text-xs text-slate-500 max-w-sm mx-auto">
-            Click "Add New Product" above to create your first item or auto-generate details with Gemini AI.
+            Click "Add New Product" above to create your first item or auto-generate details with AI.
           </p>
         </div>
       ) : (
@@ -512,7 +512,7 @@ export const ProductStudio: React.FC = () => {
                 {editingId ? 'Edit Product Listing' : 'Add New Artisan Craft'}
               </h2>
               <p className="text-xs text-slate-500">
-                Type basic words about your item and let Gemini AI auto-fill e-commerce stories and keywords.
+                Type basic words about your item and let AI auto-fill e-commerce stories and keywords.
               </p>
             </div>
 
@@ -528,7 +528,7 @@ export const ProductStudio: React.FC = () => {
               <div className="flex items-center justify-between">
                 <span className="text-xs font-bold text-amber-900 dark:text-amber-300 flex items-center gap-1.5">
                   <Sparkles className="w-4 h-4 text-amber-500" />
-                  Gemini AI Auto-Generator
+                  AI Story & Listing Generator
                 </span>
                 {aiGeneratedSuccess && (
                   <span className="text-[11px] font-bold text-emerald-600 dark:text-emerald-400 flex items-center gap-1">
@@ -562,7 +562,7 @@ export const ProductStudio: React.FC = () => {
                 className="w-full py-2.5 bg-emerald-600 hover:bg-emerald-700 text-white font-semibold text-xs rounded-xl shadow-xs transition-all flex items-center justify-center gap-2 disabled:opacity-50"
               >
                 <Sparkles className="w-4 h-4 text-amber-300 animate-spin" />
-                <span>{generatingAI ? 'Gemini Craft AI is writing listing...' : 'Auto-Generate Title, Story & Keywords'}</span>
+                <span>{generatingAI ? 'Craft AI is creating listing...' : 'Auto-Generate Title, Story & Keywords'}</span>
               </button>
             </div>
 

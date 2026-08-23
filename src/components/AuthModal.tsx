@@ -46,7 +46,7 @@ export const AuthModal: React.FC = () => {
           businessName: businessName || `${name}'s Business`,
           location: location || 'India',
         });
-        setSuccessMsg('Account created and saved in PostgreSQL database!');
+        setSuccessMsg('Account created successfully! Loading your workspace...');
       } else if (mode === 'forgot') {
         if (!email) {
           throw new Error('Please enter your registered email address.');
@@ -60,7 +60,7 @@ export const AuthModal: React.FC = () => {
         setSuccessMsg(data.message || `Password reset instructions sent to ${email}`);
       }
     } catch (err: any) {
-      setError(err.message || 'Authentication failed. Please verify credentials.');
+      setError(err.message || 'Incorrect email or password. Please try again.');
     } finally {
       setSubmitting(false);
     }
@@ -106,7 +106,7 @@ export const AuthModal: React.FC = () => {
             {mode === 'login'
               ? 'Access your Voice AI mentor & product studio'
               : mode === 'register'
-              ? 'Store your profile in connected PostgreSQL database'
+              ? 'Save your enterprise profile and access your business workspace'
               : 'Enter your registered email to receive reset instructions'}
           </p>
         </div>
@@ -179,7 +179,7 @@ export const AuthModal: React.FC = () => {
                     type="text"
                     value={name}
                     onChange={(e) => setName(e.target.value)}
-                    placeholder="Sunita Devi"
+                    placeholder="e.g. Ramesh Kumar"
                     required
                     className="w-full pl-9 pr-3 py-2 bg-emerald-50/50 dark:bg-[#0B1911] border border-emerald-200 dark:border-emerald-800/60 rounded-xl text-xs text-slate-900 dark:text-white focus:ring-2 focus:ring-[#2E7D32] outline-none font-inter"
                   />
@@ -208,7 +208,7 @@ export const AuthModal: React.FC = () => {
                       type="text"
                       value={location}
                       onChange={(e) => setLocation(e.target.value)}
-                      placeholder="Bihar, India"
+                      placeholder="e.g. Varanasi, UP"
                       className="w-full pl-8 pr-2.5 py-2 bg-emerald-50/50 dark:bg-[#0B1911] border border-emerald-200 dark:border-emerald-800/60 rounded-xl text-xs text-slate-900 dark:text-white focus:ring-2 focus:ring-[#2E7D32] outline-none font-inter"
                     />
                   </div>
@@ -223,7 +223,7 @@ export const AuthModal: React.FC = () => {
                     type="text"
                     value={businessName}
                     onChange={(e) => setBusinessName(e.target.value)}
-                    placeholder="Devi Handlooms"
+                    placeholder="e.g. Ganga Silk Handlooms"
                     className="w-full pl-9 pr-3 py-2 bg-emerald-50/50 dark:bg-[#0B1911] border border-emerald-200 dark:border-emerald-800/60 rounded-xl text-xs text-slate-900 dark:text-white focus:ring-2 focus:ring-[#2E7D32] outline-none font-inter"
                   />
                 </div>
@@ -239,7 +239,7 @@ export const AuthModal: React.FC = () => {
                 type="email"
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
-                placeholder="sunita@krivio.ai"
+                placeholder="e.g. ramesh@example.com"
                 required
                 className="w-full pl-9 pr-3 py-2 bg-emerald-50/50 dark:bg-[#0B1911] border border-emerald-200 dark:border-emerald-800/60 rounded-xl text-xs text-slate-900 dark:text-white focus:ring-2 focus:ring-[#2E7D32] outline-none font-inter"
               />
@@ -282,12 +282,12 @@ export const AuthModal: React.FC = () => {
             {submitting ? (
               <>
                 <Loader2 className="w-4 h-4 animate-spin text-emerald-300" />
-                <span>Processing in PostgreSQL...</span>
+                <span>{mode === 'login' ? 'Signing In...' : mode === 'register' ? 'Creating Account...' : 'Sending Link...'}</span>
               </>
             ) : mode === 'login' ? (
-              'Sign In (JWT)'
+              'Sign In'
             ) : mode === 'register' ? (
-              'Create Account (PostgreSQL)'
+              'Create Account'
             ) : (
               'Send Reset Link'
             )}

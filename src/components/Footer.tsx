@@ -62,6 +62,7 @@ export const Footer: React.FC<FooterProps> = ({ setCurrentTab }) => {
             <ul className="grid grid-cols-2 gap-2 text-xs text-emerald-200/70 font-inter">
               <li className="flex items-center gap-1.5"><Globe className="w-3.5 h-3.5 text-[#D4AF37]" /> English</li>
               <li className="flex items-center gap-1.5"><Globe className="w-3.5 h-3.5 text-[#D4AF37]" /> हिंदी (Hindi)</li>
+              <li className="flex items-center gap-1.5"><Globe className="w-3.5 h-3.5 text-[#D4AF37]" /> ગુજરાતી (Gujarati)</li>
               <li className="flex items-center gap-1.5"><Globe className="w-3.5 h-3.5 text-[#D4AF37]" /> தமிழ் (Tamil)</li>
               <li className="flex items-center gap-1.5"><Globe className="w-3.5 h-3.5 text-[#D4AF37]" /> తెలుగు (Telugu)</li>
               <li className="flex items-center gap-1.5"><Globe className="w-3.5 h-3.5 text-[#D4AF37]" /> বাংলা (Bengali)</li>

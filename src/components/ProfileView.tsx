@@ -71,7 +71,7 @@ export const ProfileView: React.FC<ProfileViewProps> = ({ setCurrentTab, openPri
       }
 
       await refreshUser();
-      setMessage({ type: 'success', text: 'Profile details updated in PostgreSQL database successfully!' });
+      setMessage({ type: 'success', text: 'Profile details saved successfully!' });
     } catch (err: any) {
       setMessage({ type: 'error', text: err.message || 'Error updating profile' });
     } finally {
@@ -115,7 +115,7 @@ export const ProfileView: React.FC<ProfileViewProps> = ({ setCurrentTab, openPri
               <div className="flex items-center gap-2">
                 <h1 className="text-2xl font-bold font-poppins text-white">{user.name || user.full_name}</h1>
                 <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[10px] font-bold bg-emerald-400/20 text-emerald-200 border border-emerald-400/30">
-                  <CheckCircle2 className="w-3 h-3 text-emerald-400" /> PostgreSQL Verified
+                  <CheckCircle2 className="w-3 h-3 text-emerald-400" /> Verified Entrepreneur
                 </span>
               </div>
               <p className="text-xs text-emerald-200/80 font-inter mt-1">
@@ -168,11 +168,11 @@ export const ProfileView: React.FC<ProfileViewProps> = ({ setCurrentTab, openPri
             </h3>
             <div className="space-y-3 text-xs font-inter text-slate-600 dark:text-emerald-200/80">
               <div className="flex justify-between py-2 border-b border-emerald-900/5 dark:border-emerald-800/30">
-                <span className="text-slate-500 dark:text-emerald-300/60">Database</span>
-                <span className="font-semibold text-emerald-700 dark:text-emerald-300">Connected PostgreSQL</span>
+                <span className="text-slate-500 dark:text-emerald-300/60">Cloud Sync</span>
+                <span className="font-semibold text-emerald-700 dark:text-emerald-300">Active & Protected</span>
               </div>
               <div className="flex justify-between py-2 border-b border-emerald-900/5 dark:border-emerald-800/30">
-                <span className="text-slate-500 dark:text-emerald-300/60">User ID</span>
+                <span className="text-slate-500 dark:text-emerald-300/60">Account ID</span>
                 <span className="font-mono text-[11px] text-slate-800 dark:text-emerald-100">{user.id}</span>
               </div>
               <div className="flex justify-between py-2 border-b border-emerald-900/5 dark:border-emerald-800/30">
@@ -182,8 +182,8 @@ export const ProfileView: React.FC<ProfileViewProps> = ({ setCurrentTab, openPri
                 </span>
               </div>
               <div className="flex justify-between py-2 border-b border-emerald-900/5 dark:border-emerald-800/30">
-                <span className="text-slate-500 dark:text-emerald-300/60">Auth Type</span>
-                <span className="font-semibold text-slate-800 dark:text-emerald-200">JWT + bcrypt</span>
+                <span className="text-slate-500 dark:text-emerald-300/60">Security Level</span>
+                <span className="font-semibold text-slate-800 dark:text-emerald-200">Bank-Grade 256-bit</span>
               </div>
               <div className="flex justify-between py-2">
                 <span className="text-slate-500 dark:text-emerald-300/60">Member Since</span>
@@ -315,7 +315,7 @@ export const ProfileView: React.FC<ProfileViewProps> = ({ setCurrentTab, openPri
                 className="px-6 py-2.5 bg-[#0F5132] hover:bg-[#123524] text-white font-poppins text-xs font-semibold rounded-xl shadow-md transition-all flex items-center gap-2"
               >
                 <Save className="w-4 h-4" />
-                <span>{isSubmitting ? 'Saving to Database...' : 'Save Changes in PostgreSQL'}</span>
+                <span>{isSubmitting ? 'Saving Changes...' : 'Save Profile Details'}</span>
               </button>
             </div>
           </form>
