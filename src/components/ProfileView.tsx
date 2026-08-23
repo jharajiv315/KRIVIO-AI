@@ -23,7 +23,7 @@ interface ProfileViewProps {
 }
 
 export const ProfileView: React.FC<ProfileViewProps> = ({ setCurrentTab, openPricingModal }) => {
-  const { user, logout, refreshUser } = useAuth();
+  const { user, logout, updateUser } = useAuth();
   const [name, setName] = useState(user?.name || user?.full_name || '');
   const [email, setEmail] = useState(user?.email || '');
   const [phone, setPhone] = useState(user?.phone || user?.phone_number || '');
@@ -50,27 +50,16 @@ export const ProfileView: React.FC<ProfileViewProps> = ({ setCurrentTab, openPri
     setMessage(null);
 
     try {
-      const res = await fetch('/api/users/profile', {
-        method: 'PUT',
-        headers: {
-          'Content-Type': 'application/json',
-          Authorization: `Bearer ${localStorage.getItem('krivio_auth_token') || ''}`,
-        },
-        body: JSON.stringify({
-          name,
-          phone,
-          role,
-          businessName,
-          location,
-        }),
+      updateUser({
+        name,
+        full_name: name,
+        phone,
+        phone_number: phone,
+        role: role as any,
+        businessName,
+        location,
       });
 
-      if (!res.ok) {
-        const errData = await res.json().catch(() => ({}));
-        throw new Error(errData.detail || errData.error || 'Failed to update profile');
-      }
-
-      await refreshUser();
       setMessage({ type: 'success', text: 'Profile details saved successfully!' });
     } catch (err: any) {
       setMessage({ type: 'error', text: err.message || 'Error updating profile' });

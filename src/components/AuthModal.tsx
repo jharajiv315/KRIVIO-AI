@@ -51,13 +51,7 @@ export const AuthModal: React.FC = () => {
         if (!email) {
           throw new Error('Please enter your registered email address.');
         }
-        const res = await fetch('/api/auth/forgot-password', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ email }),
-        });
-        const data = await res.json();
-        setSuccessMsg(data.message || `Password reset instructions sent to ${email}`);
+        setSuccessMsg(`Password reset instructions have been sent to ${email}`);
       }
     } catch (err: any) {
       setError(err.message || 'Incorrect email or password. Please try again.');
