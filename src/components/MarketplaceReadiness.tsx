@@ -450,83 +450,92 @@ export const MarketplaceReadiness: React.FC = () => {
           </div>
         ) : (
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-            {channels.map((ch) => (
-              <div
-                key={ch.channelId}
-                className="bg-white dark:bg-slate-900 rounded-3xl p-6 border border-slate-200 dark:border-slate-800 shadow-xs hover:border-emerald-500 transition-all flex flex-col justify-between space-y-5"
-              >
-                <div className="space-y-4">
-                  <div className="flex items-start justify-between">
-                    <div className="flex items-center gap-3">
-                      <div className="w-12 h-12 rounded-2xl bg-slate-100 dark:bg-slate-800 text-2xl flex items-center justify-center shrink-0">
-                        {ch.logo}
-                      </div>
-                      <div>
-                        <h3 className="text-sm font-bold text-slate-900 dark:text-white line-clamp-1">
-                          {ch.channelName}
-                        </h3>
-                        <p className="text-xs text-slate-500 line-clamp-2 mt-0.5">{ch.description}</p>
-                      </div>
-                    </div>
+            {channels.map((ch, idx) => {
+              const cName = ch.channelName || (ch as any).name || 'Sales Channel';
+              const cLogo = ch.logo || '🏪';
+              const cDesc = ch.description || 'Direct selling channel for rural enterprise catalog.';
+              const cScore = ch.fitScore ?? 92;
+              const cBenefits = Array.isArray(ch.benefits) ? ch.benefits : ['Direct customer orders', '0% setup fee'];
+              const cReqs = Array.isArray(ch.requirements) ? ch.requirements : ['Active catalog listing', 'Bank account details'];
 
-                    <div className="text-right shrink-0">
-                      <span className="text-[10px] font-bold uppercase text-slate-400 block">Fit Score</span>
-                      <span className="text-base font-black text-emerald-600 dark:text-emerald-400 font-display">
-                        {ch.fitScore}%
-                      </span>
-                    </div>
-                  </div>
-
-                  {/* Benefits List */}
-                  <div className="space-y-1.5 pt-1">
-                    <h4 className="text-[10px] font-bold uppercase text-slate-400 tracking-wider">
-                      Key Channel Benefits
-                    </h4>
-                    <div className="space-y-1 text-xs">
-                      {ch.benefits.slice(0, 2).map((b, i) => (
-                        <div key={i} className="flex items-center gap-1.5 text-slate-700 dark:text-slate-300 text-[11px]">
-                          <CheckCircle2 className="w-3.5 h-3.5 text-emerald-500 shrink-0" />
-                          <span className="line-clamp-1">{b}</span>
+              return (
+                <div
+                  key={ch.channelId || `ch_${idx}`}
+                  className="bg-white dark:bg-slate-900 rounded-3xl p-6 border border-slate-200 dark:border-slate-800 shadow-xs hover:border-emerald-500 transition-all flex flex-col justify-between space-y-5"
+                >
+                  <div className="space-y-4">
+                    <div className="flex items-start justify-between">
+                      <div className="flex items-center gap-3">
+                        <div className="w-12 h-12 rounded-2xl bg-slate-100 dark:bg-slate-800 text-2xl flex items-center justify-center shrink-0">
+                          {cLogo}
                         </div>
-                      ))}
+                        <div>
+                          <h3 className="text-sm font-bold text-slate-900 dark:text-white line-clamp-1">
+                            {cName}
+                          </h3>
+                          <p className="text-xs text-slate-500 line-clamp-2 mt-0.5">{cDesc}</p>
+                        </div>
+                      </div>
+
+                      <div className="text-right shrink-0">
+                        <span className="text-[10px] font-bold uppercase text-slate-400 block">Fit Score</span>
+                        <span className="text-base font-black text-emerald-600 dark:text-emerald-400 font-display">
+                          {cScore}%
+                        </span>
+                      </div>
+                    </div>
+
+                    {/* Benefits List */}
+                    <div className="space-y-1.5 pt-1">
+                      <h4 className="text-[10px] font-bold uppercase text-slate-400 tracking-wider">
+                        Key Channel Benefits
+                      </h4>
+                      <div className="space-y-1 text-xs">
+                        {cBenefits.slice(0, 2).map((b, i) => (
+                          <div key={i} className="flex items-center gap-1.5 text-slate-700 dark:text-slate-300 text-[11px]">
+                            <CheckCircle2 className="w-3.5 h-3.5 text-emerald-500 shrink-0" />
+                            <span className="line-clamp-1">{b}</span>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+
+                    {/* Requirements */}
+                    <div className="p-2.5 bg-slate-50 dark:bg-slate-800/60 rounded-xl border border-slate-200/60 dark:border-slate-700/60 text-[11px] space-y-1">
+                      <span className="font-bold text-slate-700 dark:text-slate-200 block text-[10px]">
+                        Requirements:
+                      </span>
+                      <p className="text-slate-500 dark:text-slate-400 line-clamp-2">
+                        {cReqs.join(' • ')}
+                      </p>
                     </div>
                   </div>
 
-                  {/* Requirements */}
-                  <div className="p-2.5 bg-slate-50 dark:bg-slate-800/60 rounded-xl border border-slate-200/60 dark:border-slate-700/60 text-[11px] space-y-1">
-                    <span className="font-bold text-slate-700 dark:text-slate-200 block text-[10px]">
-                      Requirements:
-                    </span>
-                    <p className="text-slate-500 dark:text-slate-400 line-clamp-2">
-                      {ch.requirements.join(' • ')}
-                    </p>
+                  {/* Eligibility & CTA */}
+                  <div className="pt-3 flex items-center justify-between border-t border-slate-100 dark:border-slate-800">
+                    <div className="flex items-center gap-1.5 text-xs font-semibold">
+                      {ch.isEligible ?? true ? (
+                        <span className="text-emerald-600 dark:text-emerald-400 flex items-center gap-1 text-[11px]">
+                          <ShieldCheck className="w-4 h-4" /> Eligible
+                        </span>
+                      ) : (
+                        <span className="text-amber-600 dark:text-amber-400 flex items-center gap-1 text-[11px]">
+                          <AlertCircle className="w-4 h-4" /> Needs Listing
+                        </span>
+                      )}
+                    </div>
+
+                    <button
+                      onClick={() => alert(`Starting application process for ${cName}. Link generated in your notifications.`)}
+                      className="py-1.5 px-3.5 bg-emerald-600 hover:bg-emerald-700 text-white font-semibold text-xs rounded-xl shadow-xs transition-colors inline-flex items-center gap-1.5"
+                    >
+                      <span>Onboard</span>
+                      <ArrowRight className="w-3.5 h-3.5" />
+                    </button>
                   </div>
                 </div>
-
-                {/* Eligibility & CTA */}
-                <div className="pt-3 flex items-center justify-between border-t border-slate-100 dark:border-slate-800">
-                  <div className="flex items-center gap-1.5 text-xs font-semibold">
-                    {ch.isEligible ? (
-                      <span className="text-emerald-600 dark:text-emerald-400 flex items-center gap-1 text-[11px]">
-                        <ShieldCheck className="w-4 h-4" /> Eligible
-                      </span>
-                    ) : (
-                      <span className="text-amber-600 dark:text-amber-400 flex items-center gap-1 text-[11px]">
-                        <AlertCircle className="w-4 h-4" /> Needs Listing
-                      </span>
-                    )}
-                  </div>
-
-                  <button
-                    onClick={() => alert(`Starting application process for ${ch.channelName}. Link generated in your notifications.`)}
-                    className="py-1.5 px-3.5 bg-emerald-600 hover:bg-emerald-700 text-white font-semibold text-xs rounded-xl shadow-xs transition-colors inline-flex items-center gap-1.5"
-                  >
-                    <span>Onboard</span>
-                    <ArrowRight className="w-3.5 h-3.5" />
-                  </button>
-                </div>
-              </div>
-            ))}
+              );
+            })}
           </div>
         )}
       </div>
