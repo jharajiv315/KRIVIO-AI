@@ -25,6 +25,8 @@ export const removeStoredToken = (): void => {
   localStorage.removeItem(TOKEN_KEY);
 };
 
+const API_BASE = (import.meta.env.VITE_API_URL || '').replace(/\/$/, '');
+
 const fetchWithAuth = async (url: string, options: RequestInit = {}) => {
   const token = getStoredToken();
   const headers = {
@@ -33,7 +35,8 @@ const fetchWithAuth = async (url: string, options: RequestInit = {}) => {
     ...(options.headers || {}),
   };
 
-  const response = await fetch(url, { ...options, headers });
+  const targetUrl = url.startsWith('http') ? url : `${API_BASE}${url}`;
+  const response = await fetch(targetUrl, { ...options, headers });
   if (!response.ok) {
     const errorData = await response.json().catch(() => ({}));
     throw new Error(errorData.error || `HTTP error ${response.status}`);

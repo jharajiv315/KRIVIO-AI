@@ -50,7 +50,7 @@ body {
   border-radius: 9999px;
 }
 
-.dark ::webkit-scrollbar-thumb {
+.dark ::-webkit-scrollbar-thumb {
   background: #66BB6A33;
 }
 
