@@ -23,9 +23,9 @@
   --color-border-dark: rgba(52, 211, 153, 0.2);
 }
 
-:root {
+:root, html {
   font-family: 'Inter', sans-serif;
-  color-scheme: light;
+  color-scheme: only light;
   --bg-page: #F8F9F5;
   --bg-card: #FFFFFF;
   --bg-card-elevated: #F1F3ED;
@@ -37,7 +37,7 @@
   --text-muted: #718096;
 }
 
-.dark {
+html.dark, .dark {
   color-scheme: dark;
   --bg-page: #0B1911;
   --bg-card: #13251B;
@@ -50,7 +50,6 @@
   --text-muted: #719E86;
 }
 
-
 h1, h2, h3, h4, .font-heading, .font-poppins {
   font-family: 'Poppins', sans-serif;
 }
@@ -59,14 +58,17 @@ body {
   font-family: 'Inter', sans-serif;
   background-color: #F8F9F5;
   color: #1A1A1A;
+  color-scheme: only light;
   overflow-x: hidden;
   -webkit-tap-highlight-color: transparent;
 }
 
-.dark body {
+.dark body, body.dark {
   background-color: #0B1911;
   color: #E2F1E7;
+  color-scheme: dark;
 }
+
 
 /* Reusable semantic utility classes */
 .krivio-card {

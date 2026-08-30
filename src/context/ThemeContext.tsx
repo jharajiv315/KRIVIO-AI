@@ -12,7 +12,7 @@ const ThemeContext = createContext<ThemeContextType | undefined>(undefined);
 export const ThemeProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const [theme, setTheme] = useState<Theme>(() => {
     // Check if user explicitly chose a theme previously
-    const saved = localStorage.getItem('krivio_theme_v2');
+    const saved = localStorage.getItem('krivio_theme_v3');
     if (saved === 'dark' || saved === 'light') return saved;
     // Default to KRIVIO signature light theme across all devices (mobile & desktop)
     return 'light';
@@ -20,12 +20,19 @@ export const ThemeProvider: React.FC<{ children: React.ReactNode }> = ({ childre
 
   useEffect(() => {
     const root = document.documentElement;
+    const metaColorScheme = document.querySelector('meta[name="color-scheme"]');
     if (theme === 'dark') {
       root.classList.add('dark');
+      if (metaColorScheme) {
+        metaColorScheme.setAttribute('content', 'dark');
+      }
     } else {
       root.classList.remove('dark');
+      if (metaColorScheme) {
+        metaColorScheme.setAttribute('content', 'only light');
+      }
     }
-    localStorage.setItem('krivio_theme_v2', theme);
+    localStorage.setItem('krivio_theme_v3', theme);
   }, [theme]);
 
   const toggleTheme = () => {
@@ -46,4 +53,5 @@ export const useTheme = (): ThemeContextType => {
   }
   return context;
 };
+
 
