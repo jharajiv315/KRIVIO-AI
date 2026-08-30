@@ -154,11 +154,20 @@ export interface NotificationItem {
   linkTab?: string;
 }
 
-export interface UserSettings {
-  theme: 'light' | 'dark' | 'system';
-  language: string;
-  emailAlerts: boolean;
-  whatsappTaskAlerts: boolean;
-  aiSuggestionsDigest: boolean;
+export interface PublicStorefrontData {
+  artisan: {
+    id: string;
+    name: string;
+    businessName: string;
+    location: string;
+    craftType: string;
+    story: string;
+    phone: string;
+    isVerified: boolean;
+    joinedDate: string;
+  };
+  products: Product[];
+  totalProducts: number;
 }
+
 

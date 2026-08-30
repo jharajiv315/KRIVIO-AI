@@ -816,6 +816,74 @@ app.post('/api/auth/change-password', authenticateToken, async (req: Authenticat
   }
 });
 
+// --- PUBLIC ARTISAN DIGITAL STOREFRONT API ---
+
+app.get('/api/storefront/:userId', async (req: Request, res: Response) => {
+  try {
+    const rawUserId = req.params.userId || demoUserId;
+    const userId = rawUserId === 'me' || rawUserId === 'demo' ? demoUserId : rawUserId;
+
+    // 1. Fetch User Record
+    let artisanUser = usersDb.get(userId);
+    if (!artisanUser) {
+      const userRes = await queryPg('SELECT * FROM users WHERE id = $1', [userId]);
+      if (userRes.rows.length > 0) {
+        const row = userRes.rows[0];
+        artisanUser = {
+          id: row.id,
+          name: row.full_name || row.name,
+          email: row.email,
+          passwordHash: '',
+          role: row.role || 'artisan',
+          businessName: row.business_name,
+          location: row.location,
+          subscriptionPlan: 'free',
+          createdAt: row.created_at || new Date().toISOString()
+        };
+      } else {
+        // Fallback to demo user if requested ID is demo or fallback
+        artisanUser = usersDb.get(demoUserId)!;
+      }
+    }
+
+    // 2. Fetch Business Profile
+    let profile = businessProfilesDb.get(userId) || businessProfilesDb.get(demoUserId) || {
+      userId,
+      craftType: 'Traditional Handmade Crafts',
+      story: 'Generational rural craftsperson creating authentic, sustainable handcrafted goods.',
+      phone: '+91 98765 43210',
+      location: artisanUser?.location || 'India',
+      primaryChannels: ['ONDC', 'Local Haat', 'Exhibitions']
+    };
+
+    // 3. Fetch Products
+    let userProducts = Array.from(productsDb.values()).filter(
+      (p) => p.userId === userId || (userId === demoUserId && p.userId === demoUserId)
+    );
+    if (userProducts.length === 0) {
+      userProducts = Array.from(productsDb.values());
+    }
+
+    return res.json({
+      artisan: {
+        id: artisanUser.id,
+        name: artisanUser.name,
+        businessName: artisanUser.businessName || profile.businessName || 'Artisan Craft Enterprise',
+        location: artisanUser.location || profile.location || 'India',
+        craftType: profile.craftType || 'Authentic Indian Handcrafts',
+        story: profile.story || 'Generational rural craftsperson creating sustainable, handcrafted heritage products.',
+        phone: profile.phone || (artisanUser as any).phone_number || '+91 98765 43210',
+        isVerified: true,
+        joinedDate: artisanUser.createdAt,
+      },
+      products: userProducts,
+      totalProducts: userProducts.length
+    });
+  } catch (err: any) {
+    return res.status(500).json({ error: err.message || 'Failed to fetch public storefront.' });
+  }
+});
+
 // --- DASHBOARD API ---
 
 app.get('/api/dashboard', authenticateToken, (req: AuthenticatedRequest, res: Response) => {

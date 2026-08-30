@@ -1,11 +1,12 @@
-import React, { useState, Suspense, lazy } from 'react';
+import React, { useState, useEffect, Suspense, lazy } from 'react';
 import { ThemeProvider } from './context/ThemeContext';
-import { AuthProvider } from './context/AuthContext';
+import { AuthProvider, useAuth } from './context/AuthContext';
 import { Navbar } from './components/Navbar';
 import { Footer } from './components/Footer';
 import { LandingPage } from './components/LandingPage';
 import { AuthModal } from './components/AuthModal';
 import { PricingModal } from './components/PricingModal';
+import { PublicStorefront } from './components/PublicStorefront';
 
 // Lazily imported studio and heavy feature components for optimized initial loading performance
 const Dashboard = lazy(() => import('./components/Dashboard').then(m => ({ default: m.Dashboard })));
@@ -20,8 +21,34 @@ const LoadingFallback: React.FC = () => (
 );
 
 const MainContent: React.FC = () => {
+  const { openAuthModal } = useAuth();
   const [currentTab, setCurrentTab] = useState<string>('landing');
   const [pricingModalOpen, setPricingModalOpen] = useState<boolean>(false);
+  const [publicStoreId, setPublicStoreId] = useState<string | null>(null);
+
+  // Check URL query parameters for public storefront links (?store=usr_demo_1 or ?storefront=...)
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    const storeParam = params.get('store') || params.get('storefront') || params.get('artisan');
+    if (storeParam) {
+      setPublicStoreId(storeParam);
+      setCurrentTab('public-store');
+    }
+  }, []);
+
+  if (currentTab === 'public-store') {
+    return (
+      <PublicStorefront
+        userId={publicStoreId || 'usr_demo_1'}
+        onNavigateHome={() => {
+          // Clear search params cleanly
+          window.history.pushState({}, '', window.location.pathname);
+          setCurrentTab('landing');
+        }}
+        onOpenAuth={openAuthModal}
+      />
+    );
+  }
 
   const isWorkspace = currentTab !== 'landing';
 
@@ -72,3 +99,4 @@ export default function App() {
     </ThemeProvider>
   );
 }
+

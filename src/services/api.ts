@@ -10,7 +10,9 @@ import {
   TaskItem,
   ChannelRecommendation,
   PaymentOrder,
+  PublicStorefrontData,
 } from '../types';
+
 
 const TOKEN_KEY = 'krivio_auth_token';
 const PRODUCTS_STORAGE_KEY = 'krivio_products_cache';
@@ -844,4 +846,32 @@ export const paymentsApi = {
     }
   },
 };
+
+export const storefrontApi = {
+  get: async (userId: string = 'usr_demo_1'): Promise<PublicStorefrontData> => {
+    try {
+      const res = await fetch(`${API_BASE}/api/storefront/${userId}`);
+      if (!res.ok) throw new Error('Storefront fetch error');
+      return await res.json();
+    } catch {
+      const products = getStoredProducts();
+      return {
+        artisan: {
+          id: userId || 'usr_demo_1',
+          name: 'Sunita Devi',
+          businessName: 'Sunita Hastkala SHG',
+          location: 'Madhubani, Bihar',
+          craftType: 'Handmade Terracotta & Madhubani Art',
+          story: 'Generational rural craftsperson creating sustainable, eco-friendly terracotta cookware and sacred Mithila folk paintings with natural botanical dyes.',
+          phone: '+91 98765 43210',
+          isVerified: true,
+          joinedDate: '2025-06-15',
+        },
+        products,
+        totalProducts: products.length,
+      };
+    }
+  },
+};
+
 

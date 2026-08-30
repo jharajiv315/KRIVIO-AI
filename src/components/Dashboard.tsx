@@ -13,6 +13,7 @@ import { ProfileView } from './ProfileView';
 import { SettingsView } from './SettingsView';
 import { BusinessProfileView } from './BusinessProfileView';
 import { ImageStudio } from './ImageStudio';
+import { PublicStorefront } from './PublicStorefront';
 import {
   LayoutDashboard,
   Package,
@@ -45,6 +46,11 @@ import {
   Menu,
   X,
   Layers,
+  Share2,
+  ExternalLink,
+  MessageCircle,
+  Copy,
+  Check,
 } from 'lucide-react';
 import { Logo } from './Logo';
 
@@ -65,6 +71,8 @@ export const Dashboard: React.FC<DashboardProps> = ({ currentTab, setCurrentTab,
   const [isSidebarCollapsed, setIsSidebarCollapsed] = useState(false);
   const [mobileDrawerOpen, setMobileDrawerOpen] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
+  const [storeLinkCopied, setStoreLinkCopied] = useState(false);
+
 
   const loadDashboardData = async () => {
     try {
@@ -140,6 +148,7 @@ export const Dashboard: React.FC<DashboardProps> = ({ currentTab, setCurrentTab,
 
   const navMenuItems = [
     { id: 'dashboard', label: 'Dashboard', icon: LayoutDashboard },
+    { id: 'storefront', label: 'My Public Store', icon: Store, badge: 'Live' },
     { id: 'business-profile', label: 'Business Profile', icon: Building2 },
     { id: 'products', label: 'Product Studio', icon: Package },
     { id: 'mentor', label: 'AI Voice Mentor', icon: Mic, badge: 'Voice AI' },
@@ -156,7 +165,7 @@ export const Dashboard: React.FC<DashboardProps> = ({ currentTab, setCurrentTab,
     { id: 'dashboard', label: 'Home', icon: LayoutDashboard },
     { id: 'mentor', label: 'AI Mentor', icon: Mic, isSpecial: true },
     { id: 'products', label: 'Products', icon: Package },
-    { id: 'marketplace', label: 'Channels', icon: Store },
+    { id: 'storefront', label: 'My Store', icon: Store },
     { id: 'schemes', label: 'Schemes', icon: Landmark },
   ];
 
@@ -168,6 +177,8 @@ export const Dashboard: React.FC<DashboardProps> = ({ currentTab, setCurrentTab,
 
   const renderActiveView = () => {
     switch (currentTab) {
+      case 'storefront':
+        return <PublicStorefront userId={user?.id || 'usr_demo_1'} onNavigateHome={() => setCurrentTab('dashboard')} />;
       case 'business-profile':
         return <BusinessProfileView />;
       case 'products':
@@ -217,14 +228,14 @@ export const Dashboard: React.FC<DashboardProps> = ({ currentTab, setCurrentTab,
                 <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2.5 shrink-0">
                   <button
                     onClick={() => setCurrentTab('mentor')}
-                    className="inline-flex items-center justify-center gap-2 px-5 py-3 bg-[#D4AF37] hover:bg-[#C29F2B] text-[#1A1A1A] font-bold text-xs rounded-xl shadow-md transition-all font-poppins active:scale-98"
+                    className="inline-flex items-center justify-center gap-2 px-5 py-3 bg-[#D4AF37] hover:bg-[#C29F2B] text-[#1A1A1A] font-bold text-xs rounded-xl shadow-md transition-all font-poppins active:scale-98 cursor-pointer"
                   >
                     <Mic className="w-4 h-4 text-[#1A1A1A]" />
                     <span>Talk to Voice Mentor</span>
                   </button>
                   <button
                     onClick={() => setCurrentTab('products')}
-                    className="inline-flex items-center justify-center gap-2 px-5 py-3 bg-white/10 hover:bg-white/20 text-white font-bold text-xs rounded-xl border border-white/20 shadow-sm transition-all font-poppins"
+                    className="inline-flex items-center justify-center gap-2 px-5 py-3 bg-white/10 hover:bg-white/20 text-white font-bold text-xs rounded-xl border border-white/20 shadow-sm transition-all font-poppins cursor-pointer"
                   >
                     <Plus className="w-4 h-4" />
                     <span>Add Product</span>
@@ -232,6 +243,67 @@ export const Dashboard: React.FC<DashboardProps> = ({ currentTab, setCurrentTab,
                 </div>
               </div>
             </div>
+
+            {/* Live Digital Storefront Card */}
+            <div className="bg-white dark:bg-[#13251B] p-5 sm:p-6 rounded-3xl border border-[#0F5132]/20 dark:border-emerald-800/60 shadow-md flex flex-col md:flex-row items-start md:items-center justify-between gap-5 relative overflow-hidden">
+              <div className="flex items-start gap-4">
+                <div className="w-12 h-12 rounded-2xl bg-[#0F5132]/10 dark:bg-emerald-950 text-[#0F5132] dark:text-[#34D399] flex items-center justify-center shrink-0">
+                  <Store className="w-6 h-6" />
+                </div>
+                <div className="space-y-1">
+                  <div className="flex items-center gap-2">
+                    <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-[#D4AF37] text-[#1A1A1A] font-poppins uppercase">
+                      Live Storefront
+                    </span>
+                    <span className="text-[11px] text-stone-500 dark:text-emerald-400/70 font-medium">
+                      WhatsApp Orders Enabled
+                    </span>
+                  </div>
+                  <h2 className="text-base sm:text-lg font-bold text-[#0F5132] dark:text-white font-poppins">
+                    {user.businessName || 'Your Artisan Enterprise'} Digital Showcase
+                  </h2>
+                  <p className="text-xs text-stone-600 dark:text-emerald-200/80 font-inter">
+                    Share your live product catalog link with buyers on WhatsApp & Instagram to receive direct zero-commission orders.
+                  </p>
+                </div>
+              </div>
+
+              <div className="w-full md:w-auto flex flex-wrap items-center gap-2.5 shrink-0">
+                <button
+                  onClick={() => setCurrentTab('storefront')}
+                  className="flex-1 sm:flex-initial inline-flex items-center justify-center gap-1.5 px-4 py-2.5 bg-[#0F5132] hover:bg-[#0B3D26] text-white font-bold text-xs rounded-xl shadow-xs transition-all font-poppins cursor-pointer active:scale-98"
+                >
+                  <ExternalLink className="w-3.5 h-3.5" />
+                  <span>Preview Store</span>
+                </button>
+
+                <button
+                  onClick={() => {
+                    const storeUrl = `${window.location.origin}/?store=${user.id || 'usr_demo_1'}`;
+                    navigator.clipboard.writeText(storeUrl);
+                    setStoreLinkCopied(true);
+                    setTimeout(() => setStoreLinkCopied(false), 2500);
+                  }}
+                  className="flex-1 sm:flex-initial inline-flex items-center justify-center gap-1.5 px-4 py-2.5 bg-white dark:bg-[#183023] hover:bg-stone-50 dark:hover:bg-emerald-900/40 border border-[#0F5132]/25 text-[#0F5132] dark:text-emerald-300 font-bold text-xs rounded-xl shadow-xs transition-all font-poppins cursor-pointer active:scale-98"
+                >
+                  {storeLinkCopied ? <Check className="w-3.5 h-3.5 text-[#0F5132] dark:text-[#34D399]" /> : <Copy className="w-3.5 h-3.5" />}
+                  <span>{storeLinkCopied ? 'Link Copied!' : 'Copy Link'}</span>
+                </button>
+
+                <a
+                  href={`https://wa.me/?text=${encodeURIComponent(
+                    `Namaste! Please explore our authentic handcrafted catalog from ${user.businessName || 'our enterprise'} on KRIVIO AI: ${window.location.origin}/?store=${user.id || 'usr_demo_1'}`
+                  )}`}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="inline-flex items-center justify-center gap-1.5 px-4 py-2.5 bg-[#25D366] hover:bg-[#1EBE5D] text-white font-bold text-xs rounded-xl shadow-xs transition-all font-poppins cursor-pointer active:scale-98"
+                >
+                  <MessageCircle className="w-3.5 h-3.5 fill-white" />
+                  <span>Share on WhatsApp</span>
+                </a>
+              </div>
+            </div>
+
 
             {/* Quick Actions Bar */}
             <div className="space-y-3">
