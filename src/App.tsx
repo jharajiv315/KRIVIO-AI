@@ -11,10 +11,10 @@ import { PricingModal } from './components/PricingModal';
 const Dashboard = lazy(() => import('./components/Dashboard').then(m => ({ default: m.Dashboard })));
 
 const LoadingFallback: React.FC = () => (
-  <div className="flex flex-col items-center justify-center min-h-[50vh] gap-3 text-emerald-800 dark:text-emerald-300 py-12">
-    <div className="w-10 h-10 border-3 border-emerald-600/30 border-t-emerald-600 dark:border-emerald-400/30 dark:border-t-emerald-400 rounded-full animate-spin" />
-    <span className="text-xs font-semibold tracking-wide uppercase font-poppins text-slate-500 dark:text-emerald-300/80">
-      Loading Workspace...
+  <div className="flex flex-col items-center justify-center min-h-[50vh] gap-3 text-[#0F5132] dark:text-[#34D399] py-12">
+    <div className="w-10 h-10 border-3 border-[#0F5132]/30 border-t-[#0F5132] dark:border-[#34D399]/30 dark:border-t-[#34D399] rounded-full animate-spin" />
+    <span className="text-xs font-semibold tracking-wide uppercase font-poppins text-stone-500 dark:text-emerald-200/80">
+      Loading KRIVIO AI Workspace...
     </span>
   </div>
 );
@@ -26,7 +26,7 @@ const MainContent: React.FC = () => {
   const isWorkspace = currentTab !== 'landing';
 
   return (
-    <div className="min-h-screen flex flex-col bg-slate-50 dark:bg-slate-950 text-slate-900 dark:text-slate-100 transition-colors font-inter">
+    <div className="min-h-screen flex flex-col bg-[#F8F9F5] dark:bg-[#0B1911] text-[#1A1A1A] dark:text-[#E2F1E7] transition-colors font-inter selection:bg-[#0F5132] selection:text-white">
       {!isWorkspace && (
         <Navbar
           currentTab={currentTab}

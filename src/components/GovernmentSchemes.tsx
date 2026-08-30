@@ -99,38 +99,38 @@ export const GovernmentSchemes: React.FC = () => {
   });
 
   return (
-    <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 space-y-8 font-inter">
+    <div className="max-w-7xl mx-auto px-2 sm:px-6 lg:px-8 py-4 sm:py-8 space-y-6 sm:space-y-8 font-inter">
       {/* Banner */}
-      <div className="bg-gradient-to-r from-emerald-950 via-teal-900 to-slate-900 text-white p-6 sm:p-8 rounded-3xl shadow-xl border border-emerald-800/40 relative overflow-hidden">
-        <div className="absolute right-0 top-0 w-80 h-80 bg-emerald-500/10 rounded-full blur-3xl pointer-events-none" />
+      <div className="bg-[#0F5132] text-white p-5 sm:p-8 rounded-3xl shadow-xl border border-[#2E7D32]/50 relative overflow-hidden">
+        <div className="absolute right-0 top-0 w-80 h-80 bg-white/5 rounded-full blur-3xl pointer-events-none" />
         <div className="relative z-10 max-w-3xl space-y-3">
-          <div className="inline-flex items-center gap-2 px-3 py-1 bg-amber-400 text-slate-950 text-[11px] font-bold uppercase tracking-wider rounded-full">
+          <div className="inline-flex items-center gap-2 px-3 py-1 bg-[#D4AF37] text-stone-950 text-[11px] font-bold uppercase tracking-wider rounded-full font-poppins">
             <Landmark className="w-3.5 h-3.5" /> Direct Government Assistance
           </div>
-          <h1 className="text-2xl sm:text-3xl font-extrabold font-display">
+          <h1 className="text-xl sm:text-3xl font-extrabold font-poppins">
             Government Schemes & Grants for Rural Entrepreneurs
           </h1>
-          <p className="text-xs sm:text-sm text-slate-300 leading-relaxed">
+          <p className="text-xs sm:text-sm text-emerald-100/90 leading-relaxed font-inter">
             Explore verified government financial schemes, toolkit subsidies, PM Vishwakarma loans, MUDRA micro-credits, and SHG bank linkage programs tailored for Indian artisans and small business owners.
           </p>
         </div>
       </div>
 
       {/* Search & Category Filter Toolbar */}
-      <div className="bg-white dark:bg-slate-900 p-4 sm:p-5 rounded-2xl border border-slate-200 dark:border-slate-800 shadow-xs flex flex-col sm:flex-row gap-4 items-center justify-between">
+      <div className="bg-white dark:bg-[#13251B] p-4 sm:p-5 rounded-2xl border border-[#0F5132]/15 dark:border-emerald-800/60 shadow-xs flex flex-col sm:flex-row gap-4 items-center justify-between font-inter">
         <div className="relative w-full sm:w-80">
-          <Search className="w-4 h-4 text-slate-400 absolute left-3.5 top-3.5" />
+          <Search className="w-4 h-4 text-stone-400 dark:text-emerald-400/60 absolute left-3.5 top-3.5" />
           <input
             type="text"
             placeholder="Search schemes (e.g. Vishwakarma, Mudra)..."
             value={searchTerm}
             onChange={(e) => setSearchTerm(e.target.value)}
-            className="w-full pl-10 pr-4 py-2 bg-slate-50 dark:bg-slate-800/70 border border-slate-200 dark:border-slate-700/80 rounded-xl text-xs text-slate-900 dark:text-white focus:ring-2 focus:ring-emerald-500 outline-none"
+            className="w-full pl-10 pr-4 py-2.5 bg-[#F8F9F5] dark:bg-[#0E2016] border border-[#0F5132]/20 dark:border-emerald-800/60 rounded-xl text-xs text-stone-900 dark:text-white focus:ring-2 focus:ring-[#0F5132] outline-none font-inter"
           />
         </div>
 
-        <div className="flex items-center gap-2 w-full sm:w-auto overflow-x-auto pb-1 sm:pb-0">
-          <Filter className="w-4 h-4 text-slate-400 shrink-0" />
+        <div className="flex items-center gap-2 w-full sm:w-auto overflow-x-auto pb-1 sm:pb-0 no-scrollbar">
+          <Filter className="w-4 h-4 text-stone-400 dark:text-emerald-400/60 shrink-0" />
           {[
             { id: 'all', label: 'All Categories' },
             { id: 'loan', label: 'Micro Loans' },
@@ -140,10 +140,10 @@ export const GovernmentSchemes: React.FC = () => {
             <button
               key={cat.id}
               onClick={() => setCategoryFilter(cat.id)}
-              className={`px-3 py-1.5 rounded-xl text-xs font-semibold whitespace-nowrap transition-all ${
+              className={`px-3.5 py-2 rounded-xl text-xs font-semibold whitespace-nowrap transition-all font-poppins cursor-pointer ${
                 categoryFilter === cat.id
-                  ? 'bg-emerald-600 text-white shadow-xs'
-                  : 'bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300 hover:bg-slate-200 dark:hover:bg-slate-700'
+                  ? 'bg-[#0F5132] text-white shadow-xs'
+                  : 'bg-stone-100 dark:bg-[#0E2016] text-stone-600 dark:text-emerald-300/80 hover:bg-stone-200 dark:hover:bg-[#183023]'
               }`}
             >
               {cat.label}
@@ -153,38 +153,38 @@ export const GovernmentSchemes: React.FC = () => {
       </div>
 
       {/* Schemes Grid */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 sm:gap-6">
         {filteredSchemes.map((scheme) => (
           <div
             key={scheme.id}
-            className="bg-white dark:bg-slate-900 p-6 rounded-2xl border border-slate-200 dark:border-slate-800 shadow-xs hover:border-emerald-500/60 dark:hover:border-emerald-500/60 transition-all flex flex-col justify-between space-y-5"
+            className="bg-white dark:bg-[#13251B] p-5 sm:p-6 rounded-2xl border border-[#0F5132]/15 dark:border-emerald-800/60 shadow-xs hover:border-[#0F5132] transition-all flex flex-col justify-between space-y-5 font-inter"
           >
             <div className="space-y-3">
               <div className="flex items-start justify-between gap-2">
-                <span className="px-2.5 py-0.5 bg-emerald-100 dark:bg-emerald-950/80 text-emerald-800 dark:text-emerald-300 text-[10px] font-bold rounded-md uppercase tracking-wider">
+                <span className="px-2.5 py-0.5 bg-[#0F5132]/10 dark:bg-emerald-950/80 text-[#0F5132] dark:text-emerald-300 text-[10px] font-bold rounded-md uppercase tracking-wider font-poppins">
                   {scheme.category.toUpperCase()}
                 </span>
-                <span className="text-[10px] text-slate-400 font-mono">Verified Scheme</span>
+                <span className="text-[10px] text-stone-400 dark:text-emerald-400/60 font-mono">Verified Scheme</span>
               </div>
 
               <div>
-                <h3 className="text-base font-bold text-slate-900 dark:text-white font-display">
+                <h3 className="text-base font-bold text-stone-900 dark:text-white font-poppins">
                   {scheme.name}
                 </h3>
-                <p className="text-[11px] font-medium text-emerald-700 dark:text-emerald-400 mt-0.5">
+                <p className="text-[11px] font-medium text-[#0F5132] dark:text-[#34D399] mt-0.5 font-inter">
                   {scheme.department}
                 </p>
               </div>
 
-              <p className="text-xs text-slate-600 dark:text-slate-300 leading-relaxed line-clamp-3">
+              <p className="text-xs text-stone-600 dark:text-emerald-200/80 leading-relaxed line-clamp-3 font-inter">
                 {scheme.description}
               </p>
 
-              <div className="bg-slate-50 dark:bg-slate-800/50 p-3 rounded-xl border border-slate-100 dark:border-slate-800 space-y-1.5 text-xs">
-                <div className="font-semibold text-slate-800 dark:text-slate-200 flex items-center gap-1.5">
-                  <Award className="w-3.5 h-3.5 text-amber-500" /> Benefit Highlight
+              <div className="bg-[#F8F9F5] dark:bg-[#183023]/60 p-3.5 rounded-xl border border-[#0F5132]/15 dark:border-emerald-800/60 space-y-1.5 text-xs font-inter">
+                <div className="font-semibold text-stone-800 dark:text-white flex items-center gap-1.5 font-poppins">
+                  <Award className="w-3.5 h-3.5 text-[#D4AF37]" /> Benefit Highlight
                 </div>
-                <p className="text-[11px] text-slate-600 dark:text-slate-300 font-medium leading-relaxed">
+                <p className="text-[11px] text-stone-600 dark:text-emerald-200/90 font-medium leading-relaxed font-inter">
                   {scheme.benefit}
                 </p>
               </div>
@@ -193,7 +193,7 @@ export const GovernmentSchemes: React.FC = () => {
             <div className="pt-2 flex items-center gap-2">
               <button
                 onClick={() => setSelectedScheme(scheme)}
-                className="flex-1 py-2 bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 text-slate-800 dark:text-slate-200 font-bold text-xs rounded-xl transition-all"
+                className="flex-1 py-2.5 bg-stone-100 dark:bg-[#183023] hover:bg-stone-200 dark:hover:bg-emerald-900/40 text-stone-800 dark:text-emerald-200 font-bold text-xs rounded-xl transition-all font-poppins cursor-pointer active:scale-98"
               >
                 View Checklist
               </button>
@@ -201,7 +201,7 @@ export const GovernmentSchemes: React.FC = () => {
                 href={scheme.officialUrl}
                 target="_blank"
                 rel="noopener noreferrer"
-                className="px-3.5 py-2 bg-emerald-600 hover:bg-emerald-500 text-white font-bold text-xs rounded-xl flex items-center gap-1 shadow-sm transition-all"
+                className="px-4 py-2.5 bg-[#0F5132] hover:bg-[#0B3D26] text-white font-bold text-xs rounded-xl flex items-center gap-1 shadow-xs transition-all font-poppins cursor-pointer active:scale-98"
               >
                 <span>Apply</span>
                 <ExternalLink className="w-3.5 h-3.5" />
@@ -213,47 +213,48 @@ export const GovernmentSchemes: React.FC = () => {
 
       {/* Scheme Detail Modal */}
       {selectedScheme && (
-        <div className="fixed inset-0 z-50 bg-slate-950/70 backdrop-blur-xs flex items-center justify-center p-4">
-          <div className="bg-white dark:bg-slate-900 max-w-xl w-full rounded-3xl p-6 sm:p-8 border border-slate-200 dark:border-slate-800 shadow-2xl space-y-6 max-h-[90vh] overflow-y-auto">
-            <div className="flex items-start justify-between border-b border-slate-100 dark:border-slate-800 pb-4">
+        <div className="fixed inset-0 z-50 bg-black/70 backdrop-blur-xs flex items-center justify-center p-3 sm:p-4">
+          <div className="bg-white dark:bg-[#13251B] max-w-xl w-full rounded-3xl p-5 sm:p-8 border border-[#0F5132]/20 dark:border-emerald-800/80 shadow-2xl space-y-6 max-h-[90vh] overflow-y-auto font-inter">
+            <div className="flex items-start justify-between border-b border-stone-100 dark:border-emerald-900/40 pb-4">
               <div>
-                <span className="px-2.5 py-0.5 bg-emerald-100 dark:bg-emerald-950 text-emerald-800 dark:text-emerald-300 text-[10px] font-bold rounded-md uppercase">
+                <span className="px-2.5 py-0.5 bg-[#0F5132]/10 dark:bg-emerald-950 text-[#0F5132] dark:text-emerald-300 text-[10px] font-bold rounded-md uppercase font-poppins">
                   {selectedScheme.category}
                 </span>
-                <h3 className="text-lg font-bold text-slate-900 dark:text-white font-display mt-1">
+                <h3 className="text-base sm:text-lg font-bold text-stone-900 dark:text-white font-poppins mt-1">
                   {selectedScheme.name}
                 </h3>
-                <p className="text-xs text-slate-500">{selectedScheme.department}</p>
+                <p className="text-xs text-stone-500 dark:text-emerald-300/70">{selectedScheme.department}</p>
               </div>
               <button
                 onClick={() => setSelectedScheme(null)}
-                className="text-slate-400 hover:text-slate-600 dark:hover:text-white text-lg font-bold p-1"
+                aria-label="Close modal"
+                className="text-stone-400 hover:text-stone-600 dark:hover:text-white text-lg font-bold p-1 cursor-pointer"
               >
                 ✕
               </button>
             </div>
 
-            <div className="space-y-4 text-xs text-slate-600 dark:text-slate-300">
+            <div className="space-y-4 text-xs text-stone-600 dark:text-emerald-200/90 font-inter">
               <div>
-                <h4 className="font-bold text-slate-900 dark:text-white mb-1">Description</h4>
+                <h4 className="font-bold text-stone-900 dark:text-white mb-1 font-poppins">Description</h4>
                 <p className="leading-relaxed">{selectedScheme.description}</p>
               </div>
 
               <div>
-                <h4 className="font-bold text-slate-900 dark:text-white mb-1">Eligibility Criteria</h4>
-                <p className="p-3 bg-amber-50 dark:bg-amber-950/40 border border-amber-200/80 dark:border-amber-800/80 rounded-xl text-amber-900 dark:text-amber-200 leading-relaxed font-medium">
+                <h4 className="font-bold text-stone-900 dark:text-white mb-1 font-poppins">Eligibility Criteria</h4>
+                <p className="p-3 bg-[#D4AF37]/10 dark:bg-[#183023]/70 border border-[#D4AF37]/30 dark:border-amber-700/50 rounded-xl text-stone-800 dark:text-emerald-100 leading-relaxed font-medium">
                   {selectedScheme.eligibility}
                 </p>
               </div>
 
               <div>
-                <h4 className="font-bold text-slate-900 dark:text-white mb-1.5 flex items-center gap-1.5">
-                  <FileText className="w-4 h-4 text-emerald-600" /> Required Application Documents
+                <h4 className="font-bold text-stone-900 dark:text-white mb-1.5 flex items-center gap-1.5 font-poppins">
+                  <FileText className="w-4 h-4 text-[#0F5132] dark:text-emerald-400" /> Required Application Documents
                 </h4>
                 <ul className="space-y-2">
                   {selectedScheme.documentsNeeded.map((doc, idx) => (
-                    <li key={idx} className="flex items-center gap-2 text-slate-700 dark:text-slate-200">
-                      <CircleCheck className="w-4 h-4 text-emerald-500 shrink-0" />
+                    <li key={idx} className="flex items-center gap-2 text-stone-700 dark:text-emerald-200">
+                      <CircleCheck className="w-4 h-4 text-[#0F5132] dark:text-[#34D399] shrink-0" />
                       <span>{doc}</span>
                     </li>
                   ))}
@@ -261,10 +262,10 @@ export const GovernmentSchemes: React.FC = () => {
               </div>
             </div>
 
-            <div className="pt-4 border-t border-slate-100 dark:border-slate-800 flex justify-end gap-3">
+            <div className="pt-4 border-t border-stone-100 dark:border-emerald-900/40 flex flex-col-reverse sm:flex-row justify-end gap-2.5 sm:gap-3">
               <button
                 onClick={() => setSelectedScheme(null)}
-                className="px-5 py-2.5 bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300 text-xs font-bold rounded-xl"
+                className="px-5 py-2.5 bg-stone-100 dark:bg-[#183023] text-stone-700 dark:text-emerald-200 text-xs font-bold rounded-xl font-poppins cursor-pointer"
               >
                 Close
               </button>
@@ -272,7 +273,7 @@ export const GovernmentSchemes: React.FC = () => {
                 href={selectedScheme.officialUrl}
                 target="_blank"
                 rel="noopener noreferrer"
-                className="px-5 py-2.5 bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-bold rounded-xl flex items-center gap-1.5 shadow-md"
+                className="px-5 py-2.5 bg-[#0F5132] hover:bg-[#0B3D26] text-white text-xs font-bold rounded-xl flex items-center justify-center gap-1.5 shadow-md font-poppins cursor-pointer"
               >
                 <span>Visit Official Portal</span>
                 <ExternalLink className="w-4 h-4" />
@@ -284,3 +285,4 @@ export const GovernmentSchemes: React.FC = () => {
     </div>
   );
 };
+

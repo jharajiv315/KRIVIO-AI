@@ -99,28 +99,30 @@ export const BusinessProfileView: React.FC = () => {
   if (loading) {
     return (
       <div className="flex items-center justify-center min-h-[400px]">
-        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-emerald-600"></div>
+        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-[#0F5132]"></div>
       </div>
     );
   }
 
+  const inputClass = "w-full px-3.5 py-2.5 rounded-xl bg-[#F8F9F5] dark:bg-[#0E2016] border border-[#0F5132]/20 dark:border-emerald-800/60 text-xs text-stone-900 dark:text-white focus:ring-2 focus:ring-[#0F5132] outline-none font-inter";
+
   return (
-    <div className="max-w-5xl mx-auto px-4 sm:px-6 lg:px-8 py-8 space-y-8">
+    <div className="max-w-5xl mx-auto px-2 sm:px-6 lg:px-8 py-4 sm:py-8 space-y-6 sm:space-y-8 font-inter">
       {/* Header Banner */}
-      <div className="bg-white dark:bg-slate-900 rounded-3xl p-6 sm:p-8 border border-slate-200 dark:border-slate-800 shadow-xs flex flex-col md:flex-row items-start md:items-center justify-between gap-6">
+      <div className="bg-white dark:bg-[#13251B] rounded-3xl p-5 sm:p-8 border border-[#0F5132]/15 dark:border-emerald-800/60 shadow-xs flex flex-col sm:flex-row items-start sm:items-center justify-between gap-5 sm:gap-6">
         <div className="flex items-center gap-4">
-          <div className="w-16 h-16 rounded-2xl bg-emerald-100 dark:bg-emerald-950/80 text-emerald-700 dark:text-emerald-300 flex items-center justify-center font-bold text-2xl font-display border border-emerald-200 dark:border-emerald-800 shrink-0">
+          <div className="w-14 h-14 sm:w-16 sm:h-16 rounded-2xl bg-[#0F5132]/10 dark:bg-emerald-950/80 text-[#0F5132] dark:text-emerald-300 flex items-center justify-center font-bold text-2xl font-poppins border border-[#0F5132]/20 dark:border-emerald-800 shrink-0">
             {profile.businessLogo ? (
               <img src={profile.businessLogo} alt="Logo" className="w-full h-full object-cover rounded-2xl" />
             ) : (
-              <Store className="w-8 h-8" />
+              <Store className="w-7 h-7 sm:w-8 sm:h-8" />
             )}
           </div>
           <div className="space-y-1">
-            <h1 className="text-xl sm:text-2xl font-bold text-slate-900 dark:text-white font-display">
+            <h1 className="text-lg sm:text-2xl font-bold text-stone-900 dark:text-white font-poppins">
               {profile.businessName || 'Your Business Profile'}
             </h1>
-            <p className="text-xs text-slate-500 dark:text-slate-400">
+            <p className="text-xs text-stone-500 dark:text-emerald-300/70">
               Manage core enterprise identity, location, owner contacts, and official registration details.
             </p>
           </div>
@@ -129,17 +131,17 @@ export const BusinessProfileView: React.FC = () => {
         <button
           onClick={handleSubmit}
           disabled={saving}
-          className="inline-flex items-center gap-2 px-6 py-2.5 bg-emerald-600 hover:bg-emerald-700 text-white font-semibold text-xs rounded-xl shadow-md transition-all hover:scale-102 active:scale-98 disabled:opacity-50 shrink-0"
+          className="w-full sm:w-auto inline-flex items-center justify-center gap-2 px-6 py-3 bg-[#0F5132] hover:bg-[#0B3D26] text-white font-semibold text-xs rounded-xl shadow-md transition-all active:scale-98 disabled:opacity-50 shrink-0 font-poppins cursor-pointer"
         >
-          <Save className="w-4 h-4" />
+          <Save className="w-4 h-4 text-[#D4AF37]" />
           <span>{saving ? 'Saving...' : 'Save Profile Changes'}</span>
         </button>
       </div>
 
       {/* Notifications */}
       {successMsg && (
-        <div className="p-4 bg-emerald-50 dark:bg-emerald-950/50 border border-emerald-200 dark:border-emerald-800 rounded-2xl flex items-center gap-3 text-xs text-emerald-800 dark:text-emerald-300 font-medium">
-          <CheckCircle2 className="w-4 h-4 text-emerald-600 shrink-0" />
+        <div className="p-4 bg-[#0F5132]/10 dark:bg-emerald-950/50 border border-[#0F5132]/20 dark:border-emerald-800 rounded-2xl flex items-center gap-3 text-xs text-[#0F5132] dark:text-emerald-300 font-medium">
+          <CheckCircle2 className="w-4 h-4 text-[#0F5132] dark:text-[#34D399] shrink-0" />
           <span>{successMsg}</span>
         </div>
       )}
@@ -151,19 +153,19 @@ export const BusinessProfileView: React.FC = () => {
         </div>
       )}
 
-      <form onSubmit={handleSubmit} className="space-y-8">
+      <form onSubmit={handleSubmit} className="space-y-6 sm:space-y-8">
         {/* Section 1: Business Overview */}
-        <div className="bg-white dark:bg-slate-900 rounded-3xl p-6 sm:p-8 border border-slate-200 dark:border-slate-800 shadow-xs space-y-6">
-          <div className="flex items-center gap-3 pb-4 border-b border-slate-100 dark:border-slate-800">
-            <Building2 className="w-5 h-5 text-emerald-600 dark:text-emerald-400" />
-            <h2 className="text-base font-bold text-slate-900 dark:text-white font-display">
+        <div className="bg-white dark:bg-[#13251B] rounded-3xl p-5 sm:p-8 border border-[#0F5132]/15 dark:border-emerald-800/60 shadow-xs space-y-6">
+          <div className="flex items-center gap-3 pb-4 border-b border-stone-100 dark:border-emerald-900/40">
+            <Building2 className="w-5 h-5 text-[#0F5132] dark:text-emerald-400" />
+            <h2 className="text-sm sm:text-base font-bold text-stone-900 dark:text-white font-poppins">
               Enterprise Overview
             </h2>
           </div>
 
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-            <div className="space-y-2">
-              <label className="text-xs font-bold text-slate-700 dark:text-slate-300">
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4 sm:gap-6">
+            <div className="space-y-1.5">
+              <label className="text-xs font-bold text-stone-700 dark:text-emerald-200 font-poppins">
                 Business Name <span className="text-red-500">*</span>
               </label>
               <input
@@ -172,18 +174,18 @@ export const BusinessProfileView: React.FC = () => {
                 value={profile.businessName || ''}
                 onChange={(e) => setProfile({ ...profile, businessName: e.target.value })}
                 placeholder="e.g. Devi Handlooms & Terracotta"
-                className="w-full px-4 py-2.5 rounded-xl bg-slate-50 dark:bg-slate-800/60 border border-slate-200 dark:border-slate-700 text-xs text-slate-900 dark:text-white focus:ring-2 focus:ring-emerald-500 outline-none"
+                className={inputClass}
               />
             </div>
 
-            <div className="space-y-2">
-              <label className="text-xs font-bold text-slate-700 dark:text-slate-300">
+            <div className="space-y-1.5">
+              <label className="text-xs font-bold text-stone-700 dark:text-emerald-200 font-poppins">
                 Business Category
               </label>
               <select
                 value={profile.businessCategory || 'Handicrafts & Rural Craft'}
                 onChange={(e) => setProfile({ ...profile, businessCategory: e.target.value })}
-                className="w-full px-4 py-2.5 rounded-xl bg-slate-50 dark:bg-slate-800/60 border border-slate-200 dark:border-slate-700 text-xs text-slate-900 dark:text-white focus:ring-2 focus:ring-emerald-500 outline-none"
+                className={`${inputClass} cursor-pointer`}
               >
                 <option value="Handicrafts & Rural Craft">Handicrafts & Rural Craft</option>
                 <option value="Textiles, Weaving & Handlooms">Textiles, Weaving & Handlooms</option>
@@ -195,8 +197,8 @@ export const BusinessProfileView: React.FC = () => {
               </select>
             </div>
 
-            <div className="space-y-2 md:col-span-2">
-              <label className="text-xs font-bold text-slate-700 dark:text-slate-300">
+            <div className="space-y-1.5 md:col-span-2">
+              <label className="text-xs font-bold text-stone-700 dark:text-emerald-200 font-poppins">
                 Business Story & Description
               </label>
               <textarea
@@ -204,12 +206,12 @@ export const BusinessProfileView: React.FC = () => {
                 value={profile.businessDescription || ''}
                 onChange={(e) => setProfile({ ...profile, businessDescription: e.target.value })}
                 placeholder="Describe your heritage craft, specialty products, or artisan team background..."
-                className="w-full px-4 py-2.5 rounded-xl bg-slate-50 dark:bg-slate-800/60 border border-slate-200 dark:border-slate-700 text-xs text-slate-900 dark:text-white focus:ring-2 focus:ring-emerald-500 outline-none resize-none"
+                className={`${inputClass} resize-none`}
               />
             </div>
 
-            <div className="space-y-2">
-              <label className="text-xs font-bold text-slate-700 dark:text-slate-300">
+            <div className="space-y-1.5">
+              <label className="text-xs font-bold text-stone-700 dark:text-emerald-200 font-poppins">
                 Years in Business
               </label>
               <input
@@ -217,18 +219,18 @@ export const BusinessProfileView: React.FC = () => {
                 min="0"
                 value={profile.yearsInBusiness || 1}
                 onChange={(e) => setProfile({ ...profile, yearsInBusiness: Number(e.target.value) })}
-                className="w-full px-4 py-2.5 rounded-xl bg-slate-50 dark:bg-slate-800/60 border border-slate-200 dark:border-slate-700 text-xs text-slate-900 dark:text-white focus:ring-2 focus:ring-emerald-500 outline-none"
+                className={inputClass}
               />
             </div>
 
-            <div className="space-y-2">
-              <label className="text-xs font-bold text-slate-700 dark:text-slate-300">
+            <div className="space-y-1.5">
+              <label className="text-xs font-bold text-stone-700 dark:text-emerald-200 font-poppins">
                 Primary Operating Language
               </label>
               <select
                 value={profile.primaryLanguage || 'Hindi'}
                 onChange={(e) => setProfile({ ...profile, primaryLanguage: e.target.value })}
-                className="w-full px-4 py-2.5 rounded-xl bg-slate-50 dark:bg-slate-800/60 border border-slate-200 dark:border-slate-700 text-xs text-slate-900 dark:text-white focus:ring-2 focus:ring-emerald-500 outline-none"
+                className={`${inputClass} cursor-pointer`}
               >
                 <option value="Hindi">Hindi (हिंदी)</option>
                 <option value="English">English</option>
@@ -240,8 +242,8 @@ export const BusinessProfileView: React.FC = () => {
               </select>
             </div>
 
-            <div className="space-y-2 md:col-span-2">
-              <label className="text-xs font-bold text-slate-700 dark:text-slate-300">
+            <div className="space-y-1.5 md:col-span-2">
+              <label className="text-xs font-bold text-stone-700 dark:text-emerald-200 font-poppins">
                 Business Logo Image URL
               </label>
               <input
@@ -249,24 +251,24 @@ export const BusinessProfileView: React.FC = () => {
                 value={profile.businessLogo || ''}
                 onChange={(e) => setProfile({ ...profile, businessLogo: e.target.value })}
                 placeholder="https://images.unsplash.com/..."
-                className="w-full px-4 py-2.5 rounded-xl bg-slate-50 dark:bg-slate-800/60 border border-slate-200 dark:border-slate-700 text-xs text-slate-900 dark:text-white focus:ring-2 focus:ring-emerald-500 outline-none"
+                className={inputClass}
               />
             </div>
           </div>
         </div>
 
         {/* Section 2: Owner & Location Contacts */}
-        <div className="bg-white dark:bg-slate-900 rounded-3xl p-6 sm:p-8 border border-slate-200 dark:border-slate-800 shadow-xs space-y-6">
-          <div className="flex items-center gap-3 pb-4 border-b border-slate-100 dark:border-slate-800">
-            <User className="w-5 h-5 text-emerald-600 dark:text-emerald-400" />
-            <h2 className="text-base font-bold text-slate-900 dark:text-white font-display">
+        <div className="bg-white dark:bg-[#13251B] rounded-3xl p-5 sm:p-8 border border-[#0F5132]/15 dark:border-emerald-800/60 shadow-xs space-y-6">
+          <div className="flex items-center gap-3 pb-4 border-b border-stone-100 dark:border-emerald-900/40">
+            <User className="w-5 h-5 text-[#0F5132] dark:text-emerald-400" />
+            <h2 className="text-sm sm:text-base font-bold text-stone-900 dark:text-white font-poppins">
               Owner Details & Location
             </h2>
           </div>
 
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-            <div className="space-y-2">
-              <label className="text-xs font-bold text-slate-700 dark:text-slate-300">
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4 sm:gap-6">
+            <div className="space-y-1.5">
+              <label className="text-xs font-bold text-stone-700 dark:text-emerald-200 font-poppins">
                 Owner / Representative Name
               </label>
               <input
@@ -274,12 +276,12 @@ export const BusinessProfileView: React.FC = () => {
                 value={profile.ownerName || ''}
                 onChange={(e) => setProfile({ ...profile, ownerName: e.target.value })}
                 placeholder="e.g. Ramesh Kumar"
-                className="w-full px-4 py-2.5 rounded-xl bg-slate-50 dark:bg-slate-800/60 border border-slate-200 dark:border-slate-700 text-xs text-slate-900 dark:text-white focus:ring-2 focus:ring-emerald-500 outline-none"
+                className={inputClass}
               />
             </div>
 
-            <div className="space-y-2">
-              <label className="text-xs font-bold text-slate-700 dark:text-slate-300">
+            <div className="space-y-1.5">
+              <label className="text-xs font-bold text-stone-700 dark:text-emerald-200 font-poppins">
                 Phone Number
               </label>
               <input
@@ -287,12 +289,12 @@ export const BusinessProfileView: React.FC = () => {
                 value={profile.phoneNumber || ''}
                 onChange={(e) => setProfile({ ...profile, phoneNumber: e.target.value })}
                 placeholder="+91 98765 43210"
-                className="w-full px-4 py-2.5 rounded-xl bg-slate-50 dark:bg-slate-800/60 border border-slate-200 dark:border-slate-700 text-xs text-slate-900 dark:text-white focus:ring-2 focus:ring-emerald-500 outline-none"
+                className={inputClass}
               />
             </div>
 
-            <div className="space-y-2">
-              <label className="text-xs font-bold text-slate-700 dark:text-slate-300">
+            <div className="space-y-1.5">
+              <label className="text-xs font-bold text-stone-700 dark:text-emerald-200 font-poppins">
                 Official Email
               </label>
               <input
@@ -300,12 +302,12 @@ export const BusinessProfileView: React.FC = () => {
                 value={profile.email || ''}
                 onChange={(e) => setProfile({ ...profile, email: e.target.value })}
                 placeholder="business@krivio.ai"
-                className="w-full px-4 py-2.5 rounded-xl bg-slate-50 dark:bg-slate-800/60 border border-slate-200 dark:border-slate-700 text-xs text-slate-900 dark:text-white focus:ring-2 focus:ring-emerald-500 outline-none"
+                className={inputClass}
               />
             </div>
 
-            <div className="space-y-2">
-              <label className="text-xs font-bold text-slate-700 dark:text-slate-300">
+            <div className="space-y-1.5">
+              <label className="text-xs font-bold text-stone-700 dark:text-emerald-200 font-poppins">
                 State
               </label>
               <input
@@ -313,12 +315,12 @@ export const BusinessProfileView: React.FC = () => {
                 value={profile.state || ''}
                 onChange={(e) => setProfile({ ...profile, state: e.target.value })}
                 placeholder="e.g. Bihar"
-                className="w-full px-4 py-2.5 rounded-xl bg-slate-50 dark:bg-slate-800/60 border border-slate-200 dark:border-slate-700 text-xs text-slate-900 dark:text-white focus:ring-2 focus:ring-emerald-500 outline-none"
+                className={inputClass}
               />
             </div>
 
-            <div className="space-y-2">
-              <label className="text-xs font-bold text-slate-700 dark:text-slate-300">
+            <div className="space-y-1.5">
+              <label className="text-xs font-bold text-stone-700 dark:text-emerald-200 font-poppins">
                 District
               </label>
               <input
@@ -326,12 +328,12 @@ export const BusinessProfileView: React.FC = () => {
                 value={profile.district || ''}
                 onChange={(e) => setProfile({ ...profile, district: e.target.value })}
                 placeholder="e.g. Madhubani"
-                className="w-full px-4 py-2.5 rounded-xl bg-slate-50 dark:bg-slate-800/60 border border-slate-200 dark:border-slate-700 text-xs text-slate-900 dark:text-white focus:ring-2 focus:ring-emerald-500 outline-none"
+                className={inputClass}
               />
             </div>
 
-            <div className="space-y-2">
-              <label className="text-xs font-bold text-slate-700 dark:text-slate-300">
+            <div className="space-y-1.5">
+              <label className="text-xs font-bold text-stone-700 dark:text-emerald-200 font-poppins">
                 Village / City
               </label>
               <input
@@ -339,12 +341,12 @@ export const BusinessProfileView: React.FC = () => {
                 value={profile.villageCity || ''}
                 onChange={(e) => setProfile({ ...profile, villageCity: e.target.value })}
                 placeholder="e.g. Ranti Village"
-                className="w-full px-4 py-2.5 rounded-xl bg-slate-50 dark:bg-slate-800/60 border border-slate-200 dark:border-slate-700 text-xs text-slate-900 dark:text-white focus:ring-2 focus:ring-emerald-500 outline-none"
+                className={inputClass}
               />
             </div>
 
-            <div className="space-y-2">
-              <label className="text-xs font-bold text-slate-700 dark:text-slate-300">
+            <div className="space-y-1.5">
+              <label className="text-xs font-bold text-stone-700 dark:text-emerald-200 font-poppins">
                 PIN Code
               </label>
               <input
@@ -352,24 +354,24 @@ export const BusinessProfileView: React.FC = () => {
                 value={profile.pinCode || ''}
                 onChange={(e) => setProfile({ ...profile, pinCode: e.target.value })}
                 placeholder="847211"
-                className="w-full px-4 py-2.5 rounded-xl bg-slate-50 dark:bg-slate-800/60 border border-slate-200 dark:border-slate-700 text-xs text-slate-900 dark:text-white focus:ring-2 focus:ring-emerald-500 outline-none"
+                className={inputClass}
               />
             </div>
           </div>
         </div>
 
         {/* Section 3: Optional Business Registrations & Web */}
-        <div className="bg-white dark:bg-slate-900 rounded-3xl p-6 sm:p-8 border border-slate-200 dark:border-slate-800 shadow-xs space-y-6">
-          <div className="flex items-center gap-3 pb-4 border-b border-slate-100 dark:border-slate-800">
-            <FileText className="w-5 h-5 text-emerald-600 dark:text-emerald-400" />
-            <h2 className="text-base font-bold text-slate-900 dark:text-white font-display">
+        <div className="bg-white dark:bg-[#13251B] rounded-3xl p-5 sm:p-8 border border-[#0F5132]/15 dark:border-emerald-800/60 shadow-xs space-y-6">
+          <div className="flex items-center gap-3 pb-4 border-b border-stone-100 dark:border-emerald-900/40">
+            <FileText className="w-5 h-5 text-[#0F5132] dark:text-emerald-400" />
+            <h2 className="text-sm sm:text-base font-bold text-stone-900 dark:text-white font-poppins">
               Official Registrations & Web Links (Optional)
             </h2>
           </div>
 
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-            <div className="space-y-2">
-              <label className="text-xs font-bold text-slate-700 dark:text-slate-300">
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4 sm:gap-6">
+            <div className="space-y-1.5">
+              <label className="text-xs font-bold text-stone-700 dark:text-emerald-200 font-poppins">
                 GST Number (Optional)
               </label>
               <input
@@ -377,12 +379,12 @@ export const BusinessProfileView: React.FC = () => {
                 value={profile.gstNumber || ''}
                 onChange={(e) => setProfile({ ...profile, gstNumber: e.target.value })}
                 placeholder="e.g. 10AAAAA0000A1Z5"
-                className="w-full px-4 py-2.5 rounded-xl bg-slate-50 dark:bg-slate-800/60 border border-slate-200 dark:border-slate-700 text-xs text-slate-900 dark:text-white focus:ring-2 focus:ring-emerald-500 outline-none uppercase"
+                className={`${inputClass} uppercase`}
               />
             </div>
 
-            <div className="space-y-2">
-              <label className="text-xs font-bold text-slate-700 dark:text-slate-300">
+            <div className="space-y-1.5">
+              <label className="text-xs font-bold text-stone-700 dark:text-emerald-200 font-poppins">
                 Udyam / SHG Registration ID (Optional)
               </label>
               <input
@@ -390,12 +392,12 @@ export const BusinessProfileView: React.FC = () => {
                 value={profile.businessRegistration || ''}
                 onChange={(e) => setProfile({ ...profile, businessRegistration: e.target.value })}
                 placeholder="UDYAM-BR-00-1234567"
-                className="w-full px-4 py-2.5 rounded-xl bg-slate-50 dark:bg-slate-800/60 border border-slate-200 dark:border-slate-700 text-xs text-slate-900 dark:text-white focus:ring-2 focus:ring-emerald-500 outline-none uppercase"
+                className={`${inputClass} uppercase`}
               />
             </div>
 
-            <div className="space-y-2">
-              <label className="text-xs font-bold text-slate-700 dark:text-slate-300">
+            <div className="space-y-1.5">
+              <label className="text-xs font-bold text-stone-700 dark:text-emerald-200 font-poppins">
                 Website URL (Optional)
               </label>
               <input
@@ -403,12 +405,12 @@ export const BusinessProfileView: React.FC = () => {
                 value={profile.website || ''}
                 onChange={(e) => setProfile({ ...profile, website: e.target.value })}
                 placeholder="https://www.devihandlooms.in"
-                className="w-full px-4 py-2.5 rounded-xl bg-slate-50 dark:bg-slate-800/60 border border-slate-200 dark:border-slate-700 text-xs text-slate-900 dark:text-white focus:ring-2 focus:ring-emerald-500 outline-none"
+                className={inputClass}
               />
             </div>
 
-            <div className="space-y-2">
-              <label className="text-xs font-bold text-slate-700 dark:text-slate-300">
+            <div className="space-y-1.5">
+              <label className="text-xs font-bold text-stone-700 dark:text-emerald-200 font-poppins">
                 WhatsApp Business Number (Optional)
               </label>
               <input
@@ -421,20 +423,20 @@ export const BusinessProfileView: React.FC = () => {
                   })
                 }
                 placeholder="+91 98765 43210"
-                className="w-full px-4 py-2.5 rounded-xl bg-slate-50 dark:bg-slate-800/60 border border-slate-200 dark:border-slate-700 text-xs text-slate-900 dark:text-white focus:ring-2 focus:ring-emerald-500 outline-none"
+                className={inputClass}
               />
             </div>
           </div>
         </div>
 
         {/* Action Button */}
-        <div className="flex justify-end pt-4">
+        <div className="flex justify-end pt-2 sm:pt-4">
           <button
             type="submit"
             disabled={saving}
-            className="inline-flex items-center gap-2 px-8 py-3 bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-xs rounded-xl shadow-lg transition-all hover:scale-102 active:scale-98 disabled:opacity-50"
+            className="w-full sm:w-auto inline-flex items-center justify-center gap-2 px-8 py-3.5 bg-[#0F5132] hover:bg-[#0B3D26] text-white font-bold text-xs rounded-xl shadow-lg transition-all active:scale-98 disabled:opacity-50 font-poppins cursor-pointer"
           >
-            <Save className="w-4 h-4" />
+            <Save className="w-4 h-4 text-[#D4AF37]" />
             <span>{saving ? 'Saving Profile...' : 'Save Business Profile'}</span>
           </button>
         </div>
@@ -442,3 +444,4 @@ export const BusinessProfileView: React.FC = () => {
     </div>
   );
 };
+

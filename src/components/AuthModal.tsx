@@ -75,28 +75,28 @@ export const AuthModal: React.FC = () => {
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-emerald-950/60 backdrop-blur-xs animate-in fade-in duration-200">
-      <div className="bg-white dark:bg-[#112217] rounded-2xl max-w-md w-full p-6 shadow-2xl border border-emerald-900/10 dark:border-emerald-800/40 relative max-h-[90vh] overflow-y-auto">
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-4 bg-black/60 backdrop-blur-xs animate-in fade-in duration-200">
+      <div className="bg-white dark:bg-[#13251B] rounded-3xl max-w-md w-full p-5 sm:p-7 shadow-2xl border border-[#0F5132]/20 dark:border-emerald-800/60 relative max-h-[90vh] overflow-y-auto font-inter">
         {/* Close Button */}
         <button
           id="btn-close-auth-modal"
           onClick={closeAuthModal}
-          className="absolute top-4 right-4 p-1.5 rounded-lg text-emerald-600/60 hover:text-emerald-900 dark:text-emerald-400/60 dark:hover:text-emerald-100 hover:bg-emerald-50 dark:hover:bg-emerald-900/30 transition-colors"
+          className="absolute top-4 right-4 p-2 rounded-xl text-stone-400 hover:text-stone-700 dark:text-emerald-400/60 dark:hover:text-emerald-100 hover:bg-[#0F5132]/10 dark:hover:bg-emerald-900/30 transition-colors cursor-pointer"
         >
           <X className="w-5 h-5" />
         </button>
 
         {/* Brand Logo & Header */}
-        <div className="flex flex-col items-center text-center space-y-2 mb-6">
+        <div className="flex flex-col items-center text-center space-y-2 mb-5">
           <Logo variant="horizontal" size="md" showTagline={true} />
-          <h2 className="text-xl font-bold text-slate-900 dark:text-white font-poppins mt-2">
+          <h2 className="text-lg sm:text-xl font-bold text-stone-900 dark:text-white font-poppins mt-2">
             {mode === 'login'
               ? 'Sign In to KRIVIO AI'
               : mode === 'register'
               ? 'Create Entrepreneur Account'
               : 'Reset Your Password'}
           </h2>
-          <p className="text-xs text-slate-600 dark:text-emerald-200/70 font-inter">
+          <p className="text-xs text-stone-600 dark:text-emerald-200/70 font-inter max-w-xs">
             {mode === 'login'
               ? 'Access your Voice AI mentor & product studio'
               : mode === 'register'
@@ -106,15 +106,15 @@ export const AuthModal: React.FC = () => {
         </div>
 
         {/* Mode Selector Tabs */}
-        <div className="flex bg-emerald-50 dark:bg-[#0B1911] p-1 rounded-xl mb-5 border border-emerald-200/50 dark:border-emerald-900/40">
+        <div className="flex bg-[#F8F9F5] dark:bg-[#0E2016] p-1 rounded-2xl mb-5 border border-[#0F5132]/15 dark:border-emerald-900/40">
           <button
             type="button"
             id="tab-mode-login"
             onClick={() => { setMode('login'); setError(''); setSuccessMsg(''); }}
-            className={`flex-1 py-1.5 text-xs font-semibold rounded-lg transition-all font-poppins ${
+            className={`flex-1 py-2 text-xs font-semibold rounded-xl transition-all font-poppins cursor-pointer ${
               mode === 'login'
-                ? 'bg-[#123524] text-white shadow-xs'
-                : 'text-slate-600 dark:text-emerald-300 hover:text-slate-900 dark:hover:text-white'
+                ? 'bg-[#0F5132] text-white shadow-xs'
+                : 'text-stone-600 dark:text-emerald-300 hover:text-stone-900 dark:hover:text-white'
             }`}
           >
             Sign In
@@ -123,10 +123,10 @@ export const AuthModal: React.FC = () => {
             type="button"
             id="tab-mode-register"
             onClick={() => { setMode('register'); setError(''); setSuccessMsg(''); }}
-            className={`flex-1 py-1.5 text-xs font-semibold rounded-lg transition-all font-poppins ${
+            className={`flex-1 py-2 text-xs font-semibold rounded-xl transition-all font-poppins cursor-pointer ${
               mode === 'register'
-                ? 'bg-[#123524] text-white shadow-xs'
-                : 'text-slate-600 dark:text-emerald-300 hover:text-slate-900 dark:hover:text-white'
+                ? 'bg-[#0F5132] text-white shadow-xs'
+                : 'text-stone-600 dark:text-emerald-300 hover:text-stone-900 dark:hover:text-white'
             }`}
           >
             Register
@@ -135,10 +135,10 @@ export const AuthModal: React.FC = () => {
             type="button"
             id="tab-mode-forgot"
             onClick={() => { setMode('forgot'); setError(''); setSuccessMsg(''); }}
-            className={`flex-1 py-1.5 text-xs font-semibold rounded-lg transition-all font-poppins ${
+            className={`flex-1 py-2 text-xs font-semibold rounded-xl transition-all font-poppins cursor-pointer ${
               mode === 'forgot'
-                ? 'bg-[#123524] text-white shadow-xs'
-                : 'text-slate-600 dark:text-emerald-300 hover:text-slate-900 dark:hover:text-white'
+                ? 'bg-[#0F5132] text-white shadow-xs'
+                : 'text-stone-600 dark:text-emerald-300 hover:text-stone-900 dark:hover:text-white'
             }`}
           >
             Forgot
@@ -147,15 +147,15 @@ export const AuthModal: React.FC = () => {
 
         {/* Success Alert */}
         {successMsg && (
-          <div className="mb-4 p-3 bg-emerald-50 dark:bg-emerald-950/60 border border-emerald-200 dark:border-emerald-800 text-emerald-800 dark:text-emerald-200 rounded-xl text-xs font-inter flex items-center gap-2">
-            <CheckCircle2 className="w-4 h-4 text-emerald-600 dark:text-emerald-400 shrink-0" />
+          <div className="mb-4 p-3.5 bg-[#0F5132]/10 dark:bg-emerald-950/60 border border-[#0F5132]/20 dark:border-emerald-800 text-[#0F5132] dark:text-emerald-200 rounded-2xl text-xs font-inter flex items-center gap-2">
+            <CheckCircle2 className="w-4 h-4 text-[#0F5132] dark:text-[#34D399] shrink-0" />
             <span>{successMsg}</span>
           </div>
         )}
 
         {/* Error Alert */}
         {error && (
-          <div className="mb-4 p-3 bg-red-50 dark:bg-red-950/50 border border-red-200 dark:border-red-800 text-red-700 dark:text-red-300 rounded-xl text-xs font-inter flex items-center gap-2">
+          <div className="mb-4 p-3.5 bg-red-50 dark:bg-red-950/50 border border-red-200 dark:border-red-800 text-red-700 dark:text-red-300 rounded-2xl text-xs font-inter flex items-center gap-2">
             <AlertCircle className="w-4 h-4 shrink-0 text-red-500" />
             <span>{error}</span>
           </div>
@@ -166,27 +166,27 @@ export const AuthModal: React.FC = () => {
           {mode === 'register' && (
             <>
               <div>
-                <label className="block text-[11px] font-semibold text-slate-700 dark:text-emerald-200 mb-1 font-poppins">Full Name *</label>
+                <label className="block text-[11px] font-semibold text-stone-700 dark:text-emerald-200 mb-1 font-poppins">Full Name *</label>
                 <div className="relative">
-                  <UserIcon className="w-4 h-4 text-emerald-600/60 dark:text-emerald-400/60 absolute left-3 top-2.5" />
+                  <UserIcon className="w-4 h-4 text-stone-400 dark:text-emerald-500 absolute left-3 top-3" />
                   <input
                     type="text"
                     value={name}
                     onChange={(e) => setName(e.target.value)}
                     placeholder="e.g. Ramesh Kumar"
                     required
-                    className="w-full pl-9 pr-3 py-2 bg-emerald-50/50 dark:bg-[#0B1911] border border-emerald-200 dark:border-emerald-800/60 rounded-xl text-xs text-slate-900 dark:text-white focus:ring-2 focus:ring-[#2E7D32] outline-none font-inter"
+                    className="w-full pl-9 pr-3.5 py-2.5 bg-[#F8F9F5] dark:bg-[#0E2016] border border-[#0F5132]/20 dark:border-emerald-800/60 rounded-xl text-xs text-stone-900 dark:text-white focus:ring-2 focus:ring-[#0F5132] outline-none font-inter"
                   />
                 </div>
               </div>
 
-              <div className="grid grid-cols-2 gap-2.5">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
                 <div>
-                  <label className="block text-[11px] font-semibold text-slate-700 dark:text-emerald-200 mb-1 font-poppins">Role</label>
+                  <label className="block text-[11px] font-semibold text-stone-700 dark:text-emerald-200 mb-1 font-poppins">Role</label>
                   <select
                     value={role}
                     onChange={(e) => setRole(e.target.value as any)}
-                    className="w-full px-2.5 py-2 bg-emerald-50/50 dark:bg-[#0B1911] border border-emerald-200 dark:border-emerald-800/60 rounded-xl text-xs text-slate-900 dark:text-white focus:ring-2 focus:ring-[#2E7D32] outline-none font-inter"
+                    className="w-full px-3 py-2.5 bg-[#F8F9F5] dark:bg-[#0E2016] border border-[#0F5132]/20 dark:border-emerald-800/60 rounded-xl text-xs text-stone-900 dark:text-white focus:ring-2 focus:ring-[#0F5132] outline-none font-inter cursor-pointer"
                   >
                     <option value="artisan">Artisan / Weaver</option>
                     <option value="shg">Self-Help Group (SHG)</option>
@@ -195,30 +195,30 @@ export const AuthModal: React.FC = () => {
                   </select>
                 </div>
                 <div>
-                  <label className="block text-[11px] font-semibold text-slate-700 dark:text-emerald-200 mb-1 font-poppins">Location</label>
+                  <label className="block text-[11px] font-semibold text-stone-700 dark:text-emerald-200 mb-1 font-poppins">Location</label>
                   <div className="relative">
-                    <MapPin className="w-3.5 h-3.5 text-emerald-600/60 dark:text-emerald-400/60 absolute left-2.5 top-2.5" />
+                    <MapPin className="w-4 h-4 text-stone-400 dark:text-emerald-500 absolute left-3 top-3" />
                     <input
                       type="text"
                       value={location}
                       onChange={(e) => setLocation(e.target.value)}
                       placeholder="e.g. Varanasi, UP"
-                      className="w-full pl-8 pr-2.5 py-2 bg-emerald-50/50 dark:bg-[#0B1911] border border-emerald-200 dark:border-emerald-800/60 rounded-xl text-xs text-slate-900 dark:text-white focus:ring-2 focus:ring-[#2E7D32] outline-none font-inter"
+                      className="w-full pl-9 pr-3.5 py-2.5 bg-[#F8F9F5] dark:bg-[#0E2016] border border-[#0F5132]/20 dark:border-emerald-800/60 rounded-xl text-xs text-stone-900 dark:text-white focus:ring-2 focus:ring-[#0F5132] outline-none font-inter"
                     />
                   </div>
                 </div>
               </div>
 
               <div>
-                <label className="block text-[11px] font-semibold text-slate-700 dark:text-emerald-200 mb-1 font-poppins">Business / Brand Name</label>
+                <label className="block text-[11px] font-semibold text-stone-700 dark:text-emerald-200 mb-1 font-poppins">Business / Brand Name</label>
                 <div className="relative">
-                  <Building className="w-4 h-4 text-emerald-600/60 dark:text-emerald-400/60 absolute left-3 top-2.5" />
+                  <Building className="w-4 h-4 text-stone-400 dark:text-emerald-500 absolute left-3 top-3" />
                   <input
                     type="text"
                     value={businessName}
                     onChange={(e) => setBusinessName(e.target.value)}
                     placeholder="e.g. Ganga Silk Handlooms"
-                    className="w-full pl-9 pr-3 py-2 bg-emerald-50/50 dark:bg-[#0B1911] border border-emerald-200 dark:border-emerald-800/60 rounded-xl text-xs text-slate-900 dark:text-white focus:ring-2 focus:ring-[#2E7D32] outline-none font-inter"
+                    className="w-full pl-9 pr-3.5 py-2.5 bg-[#F8F9F5] dark:bg-[#0E2016] border border-[#0F5132]/20 dark:border-emerald-800/60 rounded-xl text-xs text-stone-900 dark:text-white focus:ring-2 focus:ring-[#0F5132] outline-none font-inter"
                   />
                 </div>
               </div>
@@ -226,16 +226,16 @@ export const AuthModal: React.FC = () => {
           )}
 
           <div>
-            <label className="block text-[11px] font-semibold text-slate-700 dark:text-emerald-200 mb-1 font-poppins">Email Address *</label>
+            <label className="block text-[11px] font-semibold text-stone-700 dark:text-emerald-200 mb-1 font-poppins">Email Address *</label>
             <div className="relative">
-              <Mail className="w-4 h-4 text-emerald-600/60 dark:text-emerald-400/60 absolute left-3 top-2.5" />
+              <Mail className="w-4 h-4 text-stone-400 dark:text-emerald-500 absolute left-3 top-3" />
               <input
                 type="email"
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
                 placeholder="e.g. ramesh@example.com"
                 required
-                className="w-full pl-9 pr-3 py-2 bg-emerald-50/50 dark:bg-[#0B1911] border border-emerald-200 dark:border-emerald-800/60 rounded-xl text-xs text-slate-900 dark:text-white focus:ring-2 focus:ring-[#2E7D32] outline-none font-inter"
+                className="w-full pl-9 pr-3.5 py-2.5 bg-[#F8F9F5] dark:bg-[#0E2016] border border-[#0F5132]/20 dark:border-emerald-800/60 rounded-xl text-xs text-stone-900 dark:text-white focus:ring-2 focus:ring-[#0F5132] outline-none font-inter"
               />
             </div>
           </div>
@@ -243,26 +243,26 @@ export const AuthModal: React.FC = () => {
           {mode !== 'forgot' && (
             <div>
               <div className="flex justify-between items-center mb-1">
-                <label className="block text-[11px] font-semibold text-slate-700 dark:text-emerald-200 font-poppins">Password *</label>
+                <label className="block text-[11px] font-semibold text-stone-700 dark:text-emerald-200 font-poppins">Password *</label>
                 {mode === 'login' && (
                   <button
                     type="button"
                     onClick={() => { setMode('forgot'); setError(''); }}
-                    className="text-[10px] text-emerald-700 dark:text-emerald-400 hover:underline font-inter"
+                    className="text-[10px] text-[#0F5132] dark:text-[#34D399] hover:underline font-inter cursor-pointer"
                   >
                     Forgot password?
                   </button>
                 )}
               </div>
               <div className="relative">
-                <Lock className="w-4 h-4 text-emerald-600/60 dark:text-emerald-400/60 absolute left-3 top-2.5" />
+                <Lock className="w-4 h-4 text-stone-400 dark:text-emerald-500 absolute left-3 top-3" />
                 <input
                   type="password"
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}
                   placeholder="••••••••"
                   required
-                  className="w-full pl-9 pr-3 py-2 bg-emerald-50/50 dark:bg-[#0B1911] border border-emerald-200 dark:border-emerald-800/60 rounded-xl text-xs text-slate-900 dark:text-white focus:ring-2 focus:ring-[#2E7D32] outline-none font-inter"
+                  className="w-full pl-9 pr-3.5 py-2.5 bg-[#F8F9F5] dark:bg-[#0E2016] border border-[#0F5132]/20 dark:border-emerald-800/60 rounded-xl text-xs text-stone-900 dark:text-white focus:ring-2 focus:ring-[#0F5132] outline-none font-inter"
                 />
               </div>
             </div>
@@ -271,11 +271,11 @@ export const AuthModal: React.FC = () => {
           <button
             type="submit"
             disabled={submitting}
-            className="w-full py-2.5 bg-[#123524] hover:bg-[#1A4330] text-white font-semibold text-xs rounded-xl shadow-md transition-all mt-2 font-poppins flex items-center justify-center gap-2"
+            className="w-full py-3 bg-[#0F5132] hover:bg-[#0B3D26] text-white font-semibold text-xs rounded-xl shadow-md transition-all mt-2 font-poppins flex items-center justify-center gap-2 cursor-pointer active:scale-98"
           >
             {submitting ? (
               <>
-                <Loader2 className="w-4 h-4 animate-spin text-emerald-300" />
+                <Loader2 className="w-4 h-4 animate-spin text-[#D4AF37]" />
                 <span>{mode === 'login' ? 'Signing In...' : mode === 'register' ? 'Creating Account...' : 'Sending Link...'}</span>
               </>
             ) : mode === 'login' ? (
@@ -293,10 +293,10 @@ export const AuthModal: React.FC = () => {
             {/* Divider */}
             <div className="relative my-4">
               <div className="absolute inset-0 flex items-center">
-                <div className="w-full border-t border-emerald-200/60 dark:border-emerald-800/40" />
+                <div className="w-full border-t border-stone-200 dark:border-emerald-900/40" />
               </div>
               <div className="relative flex justify-center text-[10px] uppercase">
-                <span className="bg-white dark:bg-[#112217] px-2 text-slate-400 dark:text-emerald-400/60 font-semibold font-poppins">Or continue with</span>
+                <span className="bg-white dark:bg-[#13251B] px-2 text-stone-400 dark:text-emerald-400/60 font-semibold font-poppins">Or continue with</span>
               </div>
             </div>
 
@@ -305,7 +305,7 @@ export const AuthModal: React.FC = () => {
               type="button"
               onClick={handleGoogleSignIn}
               disabled={submitting}
-              className="w-full py-2.5 bg-white dark:bg-[#0B1911] hover:bg-emerald-50/60 dark:hover:bg-emerald-900/30 text-slate-700 dark:text-emerald-100 border border-emerald-200 dark:border-emerald-800/60 font-medium text-xs rounded-xl flex items-center justify-center gap-2 transition-colors font-inter"
+              className="w-full py-2.5 bg-[#F8F9F5] dark:bg-[#0E2016] hover:bg-stone-100 dark:hover:bg-emerald-900/30 text-stone-700 dark:text-emerald-100 border border-[#0F5132]/20 dark:border-emerald-800/60 font-medium text-xs rounded-xl flex items-center justify-center gap-2 transition-colors font-inter cursor-pointer"
             >
               <svg className="w-4 h-4" viewBox="0 0 24 24">
                 <path
@@ -333,3 +333,4 @@ export const AuthModal: React.FC = () => {
     </div>
   );
 };
+

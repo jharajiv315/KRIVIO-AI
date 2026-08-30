@@ -58,7 +58,7 @@ export const PricingModal: React.FC<PricingModalProps> = ({ isOpen, onClose }) =
             email: user?.email || '',
           },
           theme: {
-            color: '#123524',
+            color: '#0F5132',
           },
         };
 
@@ -88,46 +88,46 @@ export const PricingModal: React.FC<PricingModalProps> = ({ isOpen, onClose }) =
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-emerald-950/60 backdrop-blur-xs animate-in fade-in duration-200">
-      <div className="bg-white dark:bg-[#112217] rounded-3xl max-w-lg w-full p-6 sm:p-8 shadow-2xl border border-emerald-900/10 dark:border-emerald-800/40 relative space-y-6">
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-4 bg-black/60 backdrop-blur-xs animate-in fade-in duration-200">
+      <div className="bg-white dark:bg-[#13251B] rounded-3xl max-w-lg w-full p-5 sm:p-8 shadow-2xl border border-[#0F5132]/20 dark:border-emerald-800/60 relative space-y-6 max-h-[90vh] overflow-y-auto font-inter">
         <button
           onClick={onClose}
-          className="absolute top-6 right-6 p-1.5 text-emerald-600/60 dark:text-emerald-400/60 hover:text-emerald-900 dark:hover:text-emerald-100 hover:bg-emerald-50 dark:hover:bg-emerald-900/30 rounded-lg transition-colors"
+          className="absolute top-4 sm:top-6 right-4 sm:right-6 p-2 text-stone-400 dark:text-emerald-400/60 hover:text-stone-700 dark:hover:text-emerald-100 hover:bg-[#0F5132]/10 dark:hover:bg-emerald-900/30 rounded-xl transition-colors cursor-pointer"
         >
           <X className="w-5 h-5" />
         </button>
 
         <div className="flex flex-col items-center text-center space-y-2">
           <Logo variant="horizontal" size="md" showTagline={true} />
-          <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-emerald-100 dark:bg-emerald-950/80 text-[#123524] dark:text-emerald-300 text-xs font-bold mt-2 font-poppins">
+          <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-[#0F5132]/10 dark:bg-emerald-950/80 text-[#0F5132] dark:text-emerald-300 text-xs font-bold mt-2 font-poppins">
             <Crown className="w-3.5 h-3.5 text-[#D4AF37]" />
             <span>KRIVIO AI Pro Subscription</span>
           </div>
-          <h2 className="text-xl sm:text-2xl font-bold text-slate-900 dark:text-white font-poppins">
+          <h2 className="text-lg sm:text-2xl font-bold text-stone-900 dark:text-white font-poppins">
             Upgrade Your Business Mentor
           </h2>
-          <p className="text-xs text-slate-600 dark:text-emerald-200/70 font-inter">
+          <p className="text-xs text-stone-600 dark:text-emerald-200/70 font-inter max-w-sm">
             Unlimited voice queries in regional languages, automated craft stories, and catalog export.
           </p>
         </div>
 
         {/* Pricing Card Highlight */}
-        <div className="bg-[#0B1911] text-white p-6 rounded-2xl border border-emerald-800/80 shadow-md space-y-4">
+        <div className="bg-[#0E2016] text-white p-5 sm:p-6 rounded-2xl border border-[#D4AF37]/50 shadow-md space-y-4">
           <div className="flex items-center justify-between">
             <div>
               <span className="text-xs font-bold text-[#D4AF37] uppercase tracking-wider font-poppins">
                 Pro Mentor Plan
               </span>
-              <div className="text-3xl font-black font-poppins mt-1">
+              <div className="text-2xl sm:text-3xl font-black font-poppins mt-1 text-[#D4AF37]">
                 ₹299 <span className="text-xs font-normal text-emerald-200/70 font-inter">/ month</span>
               </div>
             </div>
-            <div className="w-10 h-10 rounded-xl bg-[#123524] border border-[#D4AF37]/50 text-white font-bold flex items-center justify-center">
+            <div className="w-10 h-10 rounded-xl bg-[#0F5132] border border-[#D4AF37]/50 text-white font-bold flex items-center justify-center shrink-0">
               <Sparkles className="w-5 h-5 text-[#D4AF37]" />
             </div>
           </div>
 
-          <ul className="space-y-2 text-xs text-emerald-100/90 font-inter">
+          <ul className="space-y-2.5 text-xs text-emerald-100/90 font-inter">
             <li className="flex items-center gap-2">
               <CheckCircle2 className="w-4 h-4 text-[#D4AF37] shrink-0" />
               <span>Unlimited Voice Mentor Queries in 7 Regional Voices</span>
@@ -149,8 +149,8 @@ export const PricingModal: React.FC<PricingModalProps> = ({ isOpen, onClose }) =
 
         {/* Success Alert */}
         {successMessage && (
-          <div className="p-3 bg-emerald-50 dark:bg-emerald-950/80 text-emerald-900 dark:text-emerald-200 border border-emerald-300 dark:border-emerald-700 rounded-xl text-xs font-bold flex items-center gap-2 font-inter">
-            <ShieldCheck className="w-5 h-5 text-[#2E7D32] shrink-0" />
+          <div className="p-3.5 bg-[#0F5132]/10 dark:bg-emerald-950/80 text-[#0F5132] dark:text-emerald-200 border border-[#0F5132]/30 dark:border-emerald-700 rounded-2xl text-xs font-bold flex items-center gap-2 font-inter">
+            <ShieldCheck className="w-5 h-5 text-[#0F5132] dark:text-[#34D399] shrink-0" />
             <span>{successMessage}</span>
           </div>
         )}
@@ -161,7 +161,7 @@ export const PricingModal: React.FC<PricingModalProps> = ({ isOpen, onClose }) =
             id="btn-razorpay-pay-now"
             onClick={handleRazorpayCheckout}
             disabled={submitting || user?.subscriptionPlan === 'pro'}
-            className="w-full py-3.5 bg-[#123524] hover:bg-[#1A4330] text-white font-bold text-xs rounded-xl shadow-lg transition-all flex items-center justify-center gap-2 disabled:opacity-60 font-poppins"
+            className="w-full py-3.5 bg-[#0F5132] hover:bg-[#0B3D26] text-white font-bold text-xs rounded-xl shadow-lg transition-all flex items-center justify-center gap-2 disabled:opacity-60 font-poppins cursor-pointer active:scale-98"
           >
             <CreditCard className="w-4 h-4 text-[#D4AF37]" />
             <span>
@@ -173,7 +173,7 @@ export const PricingModal: React.FC<PricingModalProps> = ({ isOpen, onClose }) =
             </span>
           </button>
 
-          <p className="text-[10px] text-center text-slate-500 dark:text-emerald-300/60 flex items-center justify-center gap-1 font-inter">
+          <p className="text-[10px] text-center text-stone-500 dark:text-emerald-300/60 flex items-center justify-center gap-1 font-inter">
             <Lock className="w-3 h-3 text-[#D4AF37]" />
             <span>Secured with 256-bit Bank-Grade SSL Encryption</span>
           </p>
@@ -182,4 +182,5 @@ export const PricingModal: React.FC<PricingModalProps> = ({ isOpen, onClose }) =
     </div>
   );
 };
+
 

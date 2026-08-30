@@ -243,19 +243,19 @@ export const MarketplaceReadiness: React.FC = () => {
   ];
 
   return (
-    <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 space-y-8 font-inter">
+    <div className="max-w-7xl mx-auto px-2 sm:px-6 lg:px-8 py-4 sm:py-8 space-y-6 sm:space-y-8 font-inter">
       {/* Top Banner */}
-      <div className="bg-white dark:bg-slate-900 p-6 sm:p-8 rounded-3xl border border-slate-200 dark:border-slate-800 shadow-xs flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+      <div className="bg-white dark:bg-[#13251B] p-5 sm:p-8 rounded-3xl border border-[#0F5132]/15 dark:border-emerald-800/60 shadow-xs flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div className="space-y-1">
-          <div className="flex items-center gap-2">
-            <h1 className="text-xl sm:text-2xl font-bold text-slate-900 dark:text-white font-display">
+          <div className="flex flex-wrap items-center gap-2">
+            <h1 className="text-lg sm:text-2xl font-bold text-stone-900 dark:text-white font-poppins">
               Marketplace Readiness & Multi-Platform Syndication
             </h1>
-            <span className="px-2.5 py-0.5 text-[10px] font-bold bg-purple-100 dark:bg-purple-950 text-purple-800 dark:text-purple-300 rounded-full">
+            <span className="px-2.5 py-0.5 text-[10px] font-bold bg-[#0F5132]/10 text-[#0F5132] dark:bg-emerald-950 dark:text-emerald-300 rounded-full border border-[#0F5132]/20 dark:border-emerald-800 font-poppins">
               ONDC & E-Commerce
             </span>
           </div>
-          <p className="text-xs text-slate-500 dark:text-slate-400 max-w-2xl">
+          <p className="text-xs text-stone-500 dark:text-emerald-300/70 max-w-2xl font-inter">
             Evaluate your product catalog compliance across ONDC, Amazon Karigar, Flipkart Samarth, Meesho, and Etsy. Validate barcodes/SKUs, dimensions, and download export-ready data.
           </p>
         </div>
@@ -263,31 +263,31 @@ export const MarketplaceReadiness: React.FC = () => {
         <button
           onClick={handleExportCatalog}
           disabled={products.length === 0}
-          className="inline-flex items-center gap-2 px-5 py-2.5 bg-emerald-600 hover:bg-emerald-700 text-white font-semibold text-xs rounded-xl shadow-md transition-all shrink-0 disabled:opacity-50"
+          className="inline-flex items-center justify-center gap-2 px-5 py-2.5 bg-[#0F5132] hover:bg-[#0B3D26] text-white font-semibold text-xs rounded-xl shadow-md transition-all shrink-0 disabled:opacity-50 font-poppins cursor-pointer active:scale-98"
         >
-          <Download className="w-4 h-4" />
+          <Download className="w-4 h-4 text-[#D4AF37]" />
           <span>Export Catalog (JSON)</span>
         </button>
       </div>
 
       {exportSuccess && (
-        <div className="p-4 bg-emerald-50 dark:bg-emerald-950/60 border border-emerald-200 dark:border-emerald-800 rounded-2xl flex items-center gap-3 text-xs text-emerald-800 dark:text-emerald-300 font-medium">
-          <CheckCircle2 className="w-4 h-4 text-emerald-600 shrink-0" />
+        <div className="p-4 bg-[#0F5132]/10 dark:bg-emerald-950/60 border border-[#0F5132]/20 dark:border-emerald-800 rounded-2xl flex items-center gap-3 text-xs text-[#0F5132] dark:text-emerald-300 font-medium font-inter">
+          <CheckCircle2 className="w-4 h-4 text-[#0F5132] dark:text-[#34D399] shrink-0" />
           <span>Catalog data exported successfully for {currentPlatform.name}! Ready for bulk upload.</span>
         </div>
       )}
 
       {/* Multi-Platform Scorecard Tab Selector */}
-      <div className="bg-white dark:bg-slate-900 rounded-3xl p-6 border border-slate-200 dark:border-slate-800 shadow-xs space-y-6">
-        <div className="flex items-center justify-between border-b border-slate-100 dark:border-slate-800 pb-4">
+      <div className="bg-white dark:bg-[#13251B] rounded-3xl p-5 sm:p-6 border border-[#0F5132]/15 dark:border-emerald-800/60 shadow-xs space-y-6">
+        <div className="flex items-center justify-between border-b border-stone-100 dark:border-emerald-900/40 pb-4">
           <div className="flex items-center gap-2">
-            <Layers className="w-5 h-5 text-emerald-600" />
-            <h2 className="text-sm font-bold uppercase tracking-wider text-slate-900 dark:text-white font-poppins">
+            <Layers className="w-5 h-5 text-[#0F5132] dark:text-emerald-400" />
+            <h2 className="text-xs sm:text-sm font-bold uppercase tracking-wider text-stone-900 dark:text-white font-poppins">
               Multi-Platform Compliance Scorecard
             </h2>
           </div>
-          <span className="text-xs text-slate-500 font-mono">
-            {products.length} Products in Catalog
+          <span className="text-xs text-stone-500 dark:text-emerald-400/80 font-mono">
+            {products.length} Products
           </span>
         </div>
 
@@ -303,10 +303,10 @@ export const MarketplaceReadiness: React.FC = () => {
             <button
               key={tab.id}
               onClick={() => setActivePlatformTab(tab.id)}
-              className={`px-4 py-2.5 rounded-2xl text-xs font-bold transition-all flex items-center gap-2 shrink-0 ${
+              className={`px-4 py-2.5 rounded-2xl text-xs font-bold transition-all flex items-center gap-2 shrink-0 font-poppins cursor-pointer ${
                 activePlatformTab === tab.id
-                  ? 'bg-emerald-600 text-white shadow-md'
-                  : 'bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300 hover:bg-slate-200 dark:hover:bg-slate-700'
+                  ? 'bg-[#0F5132] text-white shadow-xs'
+                  : 'bg-stone-100 dark:bg-[#0E2016] text-stone-600 dark:text-emerald-300/80 hover:bg-stone-200 dark:hover:bg-[#183023]'
               }`}
             >
               <span>{tab.logo}</span>
@@ -316,68 +316,68 @@ export const MarketplaceReadiness: React.FC = () => {
         </div>
 
         {/* Selected Platform Scorecard Details */}
-        <div className="bg-slate-50 dark:bg-slate-800/50 p-6 rounded-2xl border border-slate-200/80 dark:border-slate-700/80 space-y-6">
+        <div className="bg-[#F8F9F5] dark:bg-[#183023]/60 p-4 sm:p-6 rounded-2xl border border-[#0F5132]/15 dark:border-emerald-800/60 space-y-6 font-inter">
           <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
             <div>
-              <div className="flex items-center gap-2">
-                <h3 className="text-base font-bold text-slate-900 dark:text-white font-display">
+              <div className="flex flex-wrap items-center gap-2">
+                <h3 className="text-base font-bold text-stone-900 dark:text-white font-poppins">
                   {currentPlatform.name}
                 </h3>
-                <span className="px-2.5 py-0.5 text-[10px] font-bold bg-emerald-100 text-emerald-800 dark:bg-emerald-950 dark:text-emerald-300 rounded-md">
+                <span className="px-2.5 py-0.5 text-[10px] font-bold bg-[#0F5132]/10 text-[#0F5132] dark:bg-emerald-950 dark:text-emerald-300 rounded-md border border-[#0F5132]/20 font-poppins">
                   {currentPlatform.tag}
                 </span>
               </div>
-              <p className="text-xs text-slate-500 mt-1">
+              <p className="text-xs text-stone-500 dark:text-emerald-300/70 mt-1">
                 Evaluation based on your active products, barcode/SKUs, dimensions, and business registration.
               </p>
             </div>
 
             <div className="flex items-center gap-3">
               <div className="text-right">
-                <span className="text-[10px] uppercase font-bold text-slate-400 block">Readiness Score</span>
-                <span className="text-2xl font-black text-emerald-600 dark:text-emerald-400 font-display">
+                <span className="text-[10px] uppercase font-bold text-stone-400 dark:text-emerald-400/60 block font-poppins">Readiness Score</span>
+                <span className="text-2xl font-black text-[#0F5132] dark:text-[#34D399] font-poppins">
                   {platformScore}%
                 </span>
               </div>
-              <div className="w-12 h-12 rounded-full border-4 border-emerald-500/20 border-t-emerald-500 flex items-center justify-center font-bold text-xs text-emerald-600 dark:text-emerald-400">
+              <div className="w-12 h-12 rounded-full border-4 border-[#0F5132]/20 border-t-[#0F5132] dark:border-emerald-500/20 dark:border-t-emerald-400 flex items-center justify-center font-bold text-xs text-[#0F5132] dark:text-emerald-300 font-poppins">
                 {completedRulesCount}/{currentPlatform.rules.length}
               </div>
             </div>
           </div>
 
           {/* Rules Checklist */}
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-3.5 sm:gap-4">
             {currentPlatform.rules.map((rule) => (
               <div
                 key={rule.id}
                 className={`p-4 rounded-xl border space-y-1.5 transition-all ${
                   rule.check
-                    ? 'bg-emerald-50/70 dark:bg-emerald-950/40 border-emerald-200 dark:border-emerald-800/80'
-                    : 'bg-white dark:bg-slate-900 border-slate-200 dark:border-slate-700'
+                    ? 'bg-[#0F5132]/5 dark:bg-[#13251B]/80 border-[#0F5132]/20 dark:border-emerald-800/80'
+                    : 'bg-white dark:bg-[#13251B] border-stone-200 dark:border-emerald-900/40'
                 }`}
               >
                 <div className="flex items-start justify-between gap-2">
                   <div className="flex items-center gap-2">
                     {rule.check ? (
-                      <CheckCircle2 className="w-4 h-4 text-emerald-600 dark:text-emerald-400 shrink-0" />
+                      <CheckCircle2 className="w-4 h-4 text-[#0F5132] dark:text-[#34D399] shrink-0" />
                     ) : (
-                      <AlertCircle className="w-4 h-4 text-amber-500 shrink-0" />
+                      <AlertCircle className="w-4 h-4 text-[#D4AF37] shrink-0" />
                     )}
-                    <h4 className="text-xs font-bold text-slate-900 dark:text-white">
+                    <h4 className="text-xs font-bold text-stone-900 dark:text-white font-poppins">
                       {rule.label}
                     </h4>
                   </div>
                   <span
-                    className={`px-2 py-0.5 rounded text-[10px] font-bold uppercase ${
+                    className={`px-2 py-0.5 rounded text-[10px] font-bold uppercase font-poppins ${
                       rule.check
-                        ? 'bg-emerald-100 text-emerald-800 dark:bg-emerald-950 dark:text-emerald-300'
-                        : 'bg-amber-100 text-amber-800 dark:bg-amber-950 dark:text-amber-300'
+                        ? 'bg-[#0F5132]/10 text-[#0F5132] dark:bg-emerald-950 dark:text-emerald-300'
+                        : 'bg-[#D4AF37]/15 text-[#8B6E10] dark:bg-amber-950 dark:text-amber-300'
                     }`}
                   >
                     {rule.check ? 'Compliant' : 'Action Needed'}
                   </span>
                 </div>
-                <p className="text-[11px] text-slate-500 dark:text-slate-400 leading-relaxed pl-6">
+                <p className="text-[11px] text-stone-600 dark:text-emerald-200/80 leading-relaxed pl-6 font-inter">
                   {rule.hint}
                 </p>
               </div>
@@ -387,50 +387,50 @@ export const MarketplaceReadiness: React.FC = () => {
       </div>
 
       {/* ONDC Fast-Track Milestone Checklist */}
-      <div className="bg-gradient-to-r from-emerald-950 via-teal-900 to-slate-900 text-white p-6 sm:p-8 rounded-3xl border border-emerald-800 shadow-lg space-y-5">
+      <div className="bg-[#0F5132] text-white p-5 sm:p-8 rounded-3xl border border-[#2E7D32]/50 shadow-lg space-y-5 font-inter">
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-3">
-            <div className="w-10 h-10 rounded-xl bg-emerald-500 text-slate-950 font-bold flex items-center justify-center text-lg">
+            <div className="w-10 h-10 rounded-xl bg-[#2E7D32] text-white font-bold flex items-center justify-center text-lg">
               🌐
             </div>
             <div>
-              <h3 className="text-base font-bold font-display">
+              <h3 className="text-base font-bold font-poppins">
                 ONDC (Open Network for Digital Commerce) Fast-Track
               </h3>
-              <p className="text-xs text-emerald-300">
+              <p className="text-xs text-emerald-200/90 font-inter">
                 Government-backed network connecting rural craftspeople directly to national buyers
               </p>
             </div>
           </div>
-          <span className="px-3 py-1 bg-emerald-800/80 text-emerald-200 rounded-full text-xs font-semibold hidden sm:inline">
+          <span className="px-3 py-1 bg-[#2E7D32]/60 text-white rounded-full text-xs font-semibold hidden sm:inline font-poppins">
             75% Complete
           </span>
         </div>
 
-        <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+        <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-3.5 sm:gap-4">
           {ondOnboardingSteps.map((step, idx) => (
             <div
               key={idx}
               className={`p-4 rounded-2xl border space-y-2 ${
                 step.status === 'done'
-                  ? 'bg-emerald-950/60 border-emerald-700/80 text-emerald-100'
+                  ? 'bg-[#0B3D26]/80 border-emerald-400/40 text-emerald-100'
                   : step.status === 'next'
-                  ? 'bg-amber-950/60 border-amber-500 text-amber-100 ring-2 ring-amber-400/50'
-                  : 'bg-slate-800/60 border-slate-700 text-slate-300'
+                  ? 'bg-[#183023] border-[#D4AF37] text-white ring-2 ring-[#D4AF37]/50'
+                  : 'bg-[#0B3D26]/40 border-emerald-800/40 text-emerald-200/70'
               }`}
             >
               <div className="flex items-center justify-between">
-                <span className="text-[10px] font-bold uppercase tracking-wider text-slate-400">
+                <span className="text-[10px] font-bold uppercase tracking-wider text-emerald-300/80 font-poppins">
                   Step 0{idx + 1}
                 </span>
                 {step.status === 'done' ? (
-                  <CheckCircle2 className="w-4 h-4 text-emerald-400" />
+                  <CheckCircle2 className="w-4 h-4 text-[#34D399]" />
                 ) : (
-                  <span className="w-2.5 h-2.5 rounded-full bg-amber-400 animate-ping" />
+                  <span className="w-2.5 h-2.5 rounded-full bg-[#D4AF37] animate-ping" />
                 )}
               </div>
-              <h4 className="text-xs font-bold">{step.title}</h4>
-              <p className="text-[11px] opacity-80 leading-relaxed">{step.desc}</p>
+              <h4 className="text-xs font-bold font-poppins">{step.title}</h4>
+              <p className="text-[11px] opacity-80 leading-relaxed font-inter">{step.desc}</p>
             </div>
           ))}
         </div>
@@ -438,18 +438,18 @@ export const MarketplaceReadiness: React.FC = () => {
 
       {/* Selling Channels Grid */}
       <div className="space-y-4">
-        <h2 className="text-sm font-bold text-slate-900 dark:text-white uppercase tracking-wider">
+        <h2 className="text-xs sm:text-sm font-bold text-stone-900 dark:text-white uppercase tracking-wider font-poppins">
           Recommended Selling Channels & Gateways
         </h2>
 
         {loading ? (
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-6 animate-pulse">
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4 sm:gap-6 animate-pulse">
             {[...Array(2)].map((_, i) => (
-              <div key={i} className="h-64 bg-slate-200 dark:bg-slate-800 rounded-2xl" />
+              <div key={i} className="h-64 bg-stone-200 dark:bg-[#183023] rounded-2xl" />
             ))}
           </div>
         ) : (
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 sm:gap-6">
             {channels.map((ch, idx) => {
               const cName = ch.channelName || (ch as any).name || 'Sales Channel';
               const cLogo = ch.logo || '🏪';
@@ -461,25 +461,25 @@ export const MarketplaceReadiness: React.FC = () => {
               return (
                 <div
                   key={ch.channelId || `ch_${idx}`}
-                  className="bg-white dark:bg-slate-900 rounded-3xl p-6 border border-slate-200 dark:border-slate-800 shadow-xs hover:border-emerald-500 transition-all flex flex-col justify-between space-y-5"
+                  className="bg-white dark:bg-[#13251B] rounded-3xl p-5 sm:p-6 border border-[#0F5132]/15 dark:border-emerald-800/60 shadow-xs hover:border-[#0F5132] transition-all flex flex-col justify-between space-y-5 font-inter"
                 >
                   <div className="space-y-4">
-                    <div className="flex items-start justify-between">
+                    <div className="flex items-start justify-between gap-2">
                       <div className="flex items-center gap-3">
-                        <div className="w-12 h-12 rounded-2xl bg-slate-100 dark:bg-slate-800 text-2xl flex items-center justify-center shrink-0">
+                        <div className="w-12 h-12 rounded-2xl bg-stone-100 dark:bg-[#0E2016] text-2xl flex items-center justify-center shrink-0 border border-[#0F5132]/10 dark:border-emerald-900/40">
                           {cLogo}
                         </div>
                         <div>
-                          <h3 className="text-sm font-bold text-slate-900 dark:text-white line-clamp-1">
+                          <h3 className="text-sm font-bold text-stone-900 dark:text-white line-clamp-1 font-poppins">
                             {cName}
                           </h3>
-                          <p className="text-xs text-slate-500 line-clamp-2 mt-0.5">{cDesc}</p>
+                          <p className="text-xs text-stone-500 dark:text-emerald-300/70 line-clamp-2 mt-0.5">{cDesc}</p>
                         </div>
                       </div>
 
                       <div className="text-right shrink-0">
-                        <span className="text-[10px] font-bold uppercase text-slate-400 block">Fit Score</span>
-                        <span className="text-base font-black text-emerald-600 dark:text-emerald-400 font-display">
+                        <span className="text-[10px] font-bold uppercase text-stone-400 dark:text-emerald-400/60 block font-poppins">Fit Score</span>
+                        <span className="text-base font-black text-[#0F5132] dark:text-[#34D399] font-poppins">
                           {cScore}%
                         </span>
                       </div>
@@ -487,13 +487,13 @@ export const MarketplaceReadiness: React.FC = () => {
 
                     {/* Benefits List */}
                     <div className="space-y-1.5 pt-1">
-                      <h4 className="text-[10px] font-bold uppercase text-slate-400 tracking-wider">
+                      <h4 className="text-[10px] font-bold uppercase text-stone-400 dark:text-emerald-400/60 tracking-wider font-poppins">
                         Key Channel Benefits
                       </h4>
                       <div className="space-y-1 text-xs">
                         {cBenefits.slice(0, 2).map((b, i) => (
-                          <div key={i} className="flex items-center gap-1.5 text-slate-700 dark:text-slate-300 text-[11px]">
-                            <CheckCircle2 className="w-3.5 h-3.5 text-emerald-500 shrink-0" />
+                          <div key={i} className="flex items-center gap-1.5 text-stone-700 dark:text-emerald-200 text-[11px]">
+                            <CheckCircle2 className="w-3.5 h-3.5 text-[#0F5132] dark:text-[#34D399] shrink-0" />
                             <span className="line-clamp-1">{b}</span>
                           </div>
                         ))}
@@ -501,25 +501,25 @@ export const MarketplaceReadiness: React.FC = () => {
                     </div>
 
                     {/* Requirements */}
-                    <div className="p-2.5 bg-slate-50 dark:bg-slate-800/60 rounded-xl border border-slate-200/60 dark:border-slate-700/60 text-[11px] space-y-1">
-                      <span className="font-bold text-slate-700 dark:text-slate-200 block text-[10px]">
+                    <div className="p-2.5 bg-[#F8F9F5] dark:bg-[#183023]/60 rounded-xl border border-[#0F5132]/15 dark:border-emerald-800/60 text-[11px] space-y-1">
+                      <span className="font-bold text-stone-800 dark:text-emerald-100 block text-[10px] font-poppins">
                         Requirements:
                       </span>
-                      <p className="text-slate-500 dark:text-slate-400 line-clamp-2">
+                      <p className="text-stone-600 dark:text-emerald-200/80 line-clamp-2 font-inter">
                         {cReqs.join(' • ')}
                       </p>
                     </div>
                   </div>
 
                   {/* Eligibility & CTA */}
-                  <div className="pt-3 flex items-center justify-between border-t border-slate-100 dark:border-slate-800">
+                  <div className="pt-3 flex items-center justify-between border-t border-stone-100 dark:border-emerald-900/40">
                     <div className="flex items-center gap-1.5 text-xs font-semibold">
                       {ch.isEligible ?? true ? (
-                        <span className="text-emerald-600 dark:text-emerald-400 flex items-center gap-1 text-[11px]">
+                        <span className="text-[#0F5132] dark:text-[#34D399] flex items-center gap-1 text-[11px] font-poppins">
                           <ShieldCheck className="w-4 h-4" /> Eligible
                         </span>
                       ) : (
-                        <span className="text-amber-600 dark:text-amber-400 flex items-center gap-1 text-[11px]">
+                        <span className="text-[#D4AF37] flex items-center gap-1 text-[11px] font-poppins">
                           <AlertCircle className="w-4 h-4" /> Needs Listing
                         </span>
                       )}
@@ -527,7 +527,7 @@ export const MarketplaceReadiness: React.FC = () => {
 
                     <button
                       onClick={() => alert(`Starting application process for ${cName}. Link generated in your notifications.`)}
-                      className="py-1.5 px-3.5 bg-emerald-600 hover:bg-emerald-700 text-white font-semibold text-xs rounded-xl shadow-xs transition-colors inline-flex items-center gap-1.5"
+                      className="py-2 px-4 bg-[#0F5132] hover:bg-[#0B3D26] text-white font-semibold text-xs rounded-xl shadow-xs transition-colors inline-flex items-center gap-1.5 font-poppins cursor-pointer active:scale-98"
                     >
                       <span>Onboard</span>
                       <ArrowRight className="w-3.5 h-3.5" />

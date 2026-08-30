@@ -6,18 +6,45 @@
   --font-inter: 'Inter', sans-serif;
 
   --color-forest: #0F5132;
+  --color-forest-hover: #0B3D26;
   --color-leaf: #2E7D32;
+  --color-leaf-hover: #256629;
   --color-sage: #66BB6A;
   --color-gold: #D4AF37;
   --color-gold-hover: #C29F2B;
+  --color-gold-text: #8B6E10;
   --color-brand-dark: #1A1A1A;
   --color-brand-bg-light: #F8F9F5;
   --color-brand-bg-dark: #0B1911;
+  --color-card-dark: #13251B;
+  --color-card-elevated-dark: #183023;
+  --color-border-dark: rgba(52, 211, 153, 0.2);
 }
 
 :root {
   font-family: 'Inter', sans-serif;
   color-scheme: light dark;
+  --bg-page: #F8F9F5;
+  --bg-card: #FFFFFF;
+  --bg-card-elevated: #F1F3ED;
+  --bg-input: #F8F9F5;
+  --border-card: rgba(15, 81, 50, 0.12);
+  --border-card-hover: rgba(15, 81, 50, 0.28);
+  --text-main: #1A1A1A;
+  --text-sub: #4A5568;
+  --text-muted: #718096;
+}
+
+.dark {
+  --bg-page: #0B1911;
+  --bg-card: #13251B;
+  --bg-card-elevated: #183023;
+  --bg-input: #0E2016;
+  --border-card: rgba(52, 211, 153, 0.18);
+  --border-card-hover: rgba(52, 211, 153, 0.38);
+  --text-main: #E2F1E7;
+  --text-sub: #A3C9B5;
+  --text-muted: #719E86;
 }
 
 h1, h2, h3, h4, .font-heading, .font-poppins {
@@ -28,6 +55,8 @@ body {
   font-family: 'Inter', sans-serif;
   background-color: #F8F9F5;
   color: #1A1A1A;
+  overflow-x: hidden;
+  -webkit-tap-highlight-color: transparent;
 }
 
 .dark body {
@@ -35,10 +64,67 @@ body {
   color: #E2F1E7;
 }
 
+/* Reusable semantic utility classes */
+.krivio-card {
+  background-color: #FFFFFF;
+  border: 1px solid rgba(15, 81, 50, 0.12);
+  color: #1A1A1A;
+}
+
+.dark .krivio-card {
+  background-color: #13251B;
+  border-color: rgba(52, 211, 153, 0.18);
+  color: #E2F1E7;
+}
+
+.krivio-card-elevated {
+  background-color: #F1F3ED;
+  border: 1px solid rgba(15, 81, 50, 0.1);
+  color: #1A1A1A;
+}
+
+.dark .krivio-card-elevated {
+  background-color: #183023;
+  border-color: rgba(52, 211, 153, 0.22);
+  color: #E2F1E7;
+}
+
+.krivio-input {
+  background-color: #F8F9F5;
+  border: 1px solid rgba(15, 81, 50, 0.18);
+  color: #1A1A1A;
+}
+
+.dark .krivio-input {
+  background-color: #0E2016;
+  border-color: rgba(52, 211, 153, 0.25);
+  color: #E2F1E7;
+}
+
+.krivio-input:focus {
+  outline: none;
+  border-color: #0F5132;
+  box-shadow: 0 0 0 2px rgba(15, 81, 50, 0.2);
+}
+
+.dark .krivio-input:focus {
+  border-color: #34D399;
+  box-shadow: 0 0 0 2px rgba(52, 211, 153, 0.25);
+}
+
+/* Hide scrollbar for clean horizontal swipe on mobile */
+.no-scrollbar::-webkit-scrollbar {
+  display: none;
+}
+.no-scrollbar {
+  -ms-overflow-style: none;
+  scrollbar-width: none;
+}
+
 /* Scrollbar customization matching brand */
 ::-webkit-scrollbar {
-  width: 8px;
-  height: 8px;
+  width: 6px;
+  height: 6px;
 }
 
 ::-webkit-scrollbar-track {
@@ -46,14 +132,23 @@ body {
 }
 
 ::-webkit-scrollbar-thumb {
-  background: #2E7D3233;
+  background: rgba(46, 125, 50, 0.25);
   border-radius: 9999px;
 }
 
 .dark ::-webkit-scrollbar-thumb {
-  background: #66BB6A33;
+  background: rgba(102, 187, 106, 0.25);
 }
 
 ::-webkit-scrollbar-thumb:hover {
-  background: #0F513288;
+  background: rgba(15, 81, 50, 0.6);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *, ::before, ::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
 }
