@@ -48,9 +48,7 @@ export const ProductStudio: React.FC = () => {
   const [dimensions, setDimensions] = useState('10x10x10 cm');
   const [status, setStatus] = useState<'draft' | 'published' | 'archived'>('published');
   const [keywords, setKeywords] = useState<string[]>([]);
-  const [imageUrls, setImageUrls] = useState<string[]>([
-    'https://images.unsplash.com/photo-1579783900882-c0d3dad7b119?w=600&auto=format&fit=crop',
-  ]);
+  const [imageUrls, setImageUrls] = useState<string[]>([]);
   const [newImageUrl, setNewImageUrl] = useState('');
 
   const [generatingAI, setGeneratingAI] = useState(false);
@@ -68,7 +66,7 @@ export const ProductStudio: React.FC = () => {
         status: statusFilter,
         sort: sortOption,
       });
-      setProducts(data.products);
+      setProducts(data.products || []);
     } catch (err) {
       console.error('Failed to fetch products', err);
     } finally {
@@ -107,7 +105,7 @@ export const ProductStudio: React.FC = () => {
     setTitle(p.title);
     setRawCraftInput(p.title);
     setCraftType(p.category);
-    setDescription(p.description);
+    setDescription(p.description || '');
     setPrice(p.price);
     setStock(p.stock);
     setSku(p.sku || `SKU-${p.id.slice(-5)}`);
@@ -115,7 +113,7 @@ export const ProductStudio: React.FC = () => {
     setDimensions(p.dimensions || '10x10x10 cm');
     setStatus(p.status || 'published');
     setKeywords(p.keywords || []);
-    setImageUrls(p.imageUrls.length > 0 ? p.imageUrls : ['https://images.unsplash.com/photo-1579783900882-c0d3dad7b119?w=600&auto=format&fit=crop']);
+    setImageUrls(Array.isArray(p.imageUrls) ? p.imageUrls : []);
     setNewImageUrl('');
     setFormError('');
     setWarningMsg('');
@@ -178,10 +176,6 @@ export const ProductStudio: React.FC = () => {
   };
 
   const handleRemoveImage = (index: number) => {
-    if (imageUrls.length <= 1) {
-      setFormError('Product must have at least one image.');
-      return;
-    }
     setImageUrls(imageUrls.filter((_, i) => i !== index));
     setFormError('');
   };
@@ -410,12 +404,19 @@ export const ProductStudio: React.FC = () => {
               className="bg-white dark:bg-[#13251B] rounded-2xl border border-[#0F5132]/15 dark:border-emerald-800/60 overflow-hidden shadow-xs hover:border-[#0F5132] dark:hover:border-emerald-400 transition-all flex flex-col group"
             >
               {/* Image Thumbnail */}
-              <div className="relative h-48 bg-stone-100 dark:bg-[#0E2016] overflow-hidden">
-                <img
-                  src={p.imageUrls[0] || 'https://images.unsplash.com/photo-1579783900882-c0d3dad7b119?w=600&auto=format&fit=crop'}
-                  alt={p.title}
-                  className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
-                />
+              <div className="relative h-48 bg-[#F8F9F5] dark:bg-[#0E2016] overflow-hidden flex items-center justify-center">
+                {p.imageUrls && p.imageUrls.length > 0 && p.imageUrls[0] ? (
+                  <img
+                    src={p.imageUrls[0]}
+                    alt={p.title}
+                    className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
+                  />
+                ) : (
+                  <div className="flex flex-col items-center justify-center text-stone-400 dark:text-emerald-400/50 space-y-1.5 p-4 text-center">
+                    <Package className="w-10 h-10 stroke-1" />
+                    <span className="text-[11px] font-medium font-inter">No Photo Uploaded</span>
+                  </div>
+                )}
                 <div className="absolute top-3 left-3 bg-white/90 dark:bg-[#13251B]/90 backdrop-blur-xs px-2.5 py-1 rounded-full text-[10px] font-bold text-stone-800 dark:text-emerald-200 border border-[#0F5132]/15 dark:border-emerald-900/40 font-poppins">
                   {p.category}
                 </div>

@@ -307,16 +307,19 @@ export const PublicStorefront: React.FC<PublicStorefrontProps> = ({
                 className="group bg-white rounded-3xl border border-[#0F5132]/15 shadow-xs hover:shadow-xl hover:border-[#0F5132]/40 transition-all duration-300 flex flex-col overflow-hidden cursor-pointer"
               >
                 {/* Product Image */}
-                <div className="relative aspect-4/3 overflow-hidden bg-stone-100">
-                  <img
-                    src={
-                      prod.imageUrls && prod.imageUrls[0]
-                        ? prod.imageUrls[0]
-                        : 'https://images.unsplash.com/photo-1578749556568-bc2c40e68b61?auto=format&fit=crop&q=80&w=800'
-                    }
-                    alt={prod.title}
-                    className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500"
-                  />
+                <div className="relative aspect-4/3 overflow-hidden bg-[#F8F9F5] flex items-center justify-center">
+                  {prod.imageUrls && prod.imageUrls.length > 0 && prod.imageUrls[0] ? (
+                    <img
+                      src={prod.imageUrls[0]}
+                      alt={prod.title}
+                      className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500"
+                    />
+                  ) : (
+                    <div className="flex flex-col items-center justify-center text-stone-400 space-y-1 p-4">
+                      <Package className="w-10 h-10 stroke-1" />
+                      <span className="text-[10px] font-medium font-inter">No Photo</span>
+                    </div>
+                  )}
                   <span className="absolute top-3 left-3 px-2.5 py-0.5 rounded-full text-[10px] font-bold bg-white/90 backdrop-blur-xs text-[#0F5132] border border-[#0F5132]/20 font-poppins">
                     {prod.category}
                   </span>
@@ -452,16 +455,19 @@ export const PublicStorefront: React.FC<PublicStorefrontProps> = ({
               </button>
             </div>
 
-            <div className="aspect-video w-full rounded-2xl overflow-hidden bg-stone-100">
-              <img
-                src={
-                  selectedProductPreview.imageUrls && selectedProductPreview.imageUrls[0]
-                    ? selectedProductPreview.imageUrls[0]
-                    : 'https://images.unsplash.com/photo-1578749556568-bc2c40e68b61?auto=format&fit=crop&q=80&w=800'
-                }
-                alt={selectedProductPreview.title}
-                className="w-full h-full object-cover"
-              />
+            <div className="aspect-video w-full rounded-2xl overflow-hidden bg-[#F8F9F5] flex items-center justify-center">
+              {selectedProductPreview.imageUrls && selectedProductPreview.imageUrls.length > 0 && selectedProductPreview.imageUrls[0] ? (
+                <img
+                  src={selectedProductPreview.imageUrls[0]}
+                  alt={selectedProductPreview.title}
+                  className="w-full h-full object-cover"
+                />
+              ) : (
+                <div className="flex flex-col items-center justify-center text-stone-400 space-y-2 p-8">
+                  <Package className="w-12 h-12 stroke-1" />
+                  <span className="text-xs font-medium font-inter">No Photo Uploaded</span>
+                </div>
+              )}
             </div>
 
             <div className="space-y-3 font-inter text-xs sm:text-sm text-stone-700">
