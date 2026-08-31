@@ -293,8 +293,8 @@ export const Dashboard: React.FC<DashboardProps> = ({ currentTab, setCurrentTab,
                 </button>
 
                 <a
-                  href={`https://wa.me/?text=${encodeURIComponent(
-                    `Namaste! Please explore our authentic handcrafted catalog from ${user.businessName || 'our enterprise'} on KRIVIO AI: ${window.location.origin}/?store=${user.id}`
+                  href={`https://api.whatsapp.com/send?text=${encodeURIComponent(
+                    `Namaste! Please explore our authentic handcrafted catalog from *${user.businessName || 'our enterprise'}* (${user.location || 'India'}) on KRIVIO AI: ${window.location.origin}/?store=${user.id}\n\nDirect from rural artisan with zero middlemen.`
                   )}`}
                   target="_blank"
                   rel="noopener noreferrer"

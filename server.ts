@@ -1377,6 +1377,31 @@ app.get('/api/storefront/:userId', async (req: Request, res: Response) => {
   }
 });
 
+app.post('/api/storefront/inquiry', async (req: Request, res: Response) => {
+  try {
+    const { userId, productTitle, quantity = 1, totalAmount = 0, city = '', pincode = '', buyerName = 'Buyer', inquiryType = 'Direct Order' } = req.body;
+
+    if (userId) {
+      const locStr = city ? ` for delivery to ${city}${pincode ? ` (${pincode})` : ''}` : '';
+      await queryPg(
+        `INSERT INTO activities (id, user_id, title, description, event_type, created_at)
+         VALUES ($1, $2, $3, $4, $5, NOW())`,
+        [
+          `act_${Date.now()}`,
+          userId,
+          `WhatsApp ${inquiryType}: ${productTitle || 'Artisan Craft'}`,
+          `${buyerName} inquired: Qty ${quantity} (₹${totalAmount})${locStr}.`,
+          'whatsapp_inquiry'
+        ]
+      ).catch(() => {});
+    }
+
+    res.json({ success: true, message: 'Inquiry tracked successfully' });
+  } catch (err) {
+    res.status(500).json({ error: 'Failed to track inquiry' });
+  }
+});
+
 // --- SUBSCRIPTIONS & PAYMENTS ---
 
 app.get('/api/subscriptions', authenticateToken, async (req: AuthenticatedRequest, res: Response) => {

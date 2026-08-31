@@ -497,4 +497,27 @@ export const storefrontApi = {
     if (!res.ok) throw new Error('Storefront not found');
     return await res.json();
   },
+
+  trackInquiry: async (data: {
+    userId: string;
+    productTitle?: string;
+    quantity?: number;
+    totalAmount?: number;
+    city?: string;
+    pincode?: string;
+    buyerName?: string;
+    inquiryType?: string;
+  }): Promise<{ success: boolean }> => {
+    try {
+      const targetUrl = `${API_BASE}/api/storefront/inquiry`;
+      const res = await fetch(targetUrl, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(data),
+      });
+      return await res.json();
+    } catch {
+      return { success: true };
+    }
+  },
 };

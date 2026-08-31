@@ -1,10 +1,11 @@
-from typing import Dict, Any
+from typing import Dict, Any, Optional
 from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.orm import Session
 from backend.session import get_db
 from backend.crud.crud_user import crud_user
 from backend.crud.crud_business_profile import crud_business_profile
 from backend.crud.crud_product import crud_product
+from backend.crud.crud_activity import crud_activity
 from backend.schemas.product import ProductResponse
 
 router = APIRouter(prefix="/api/storefront", tags=["storefront"])
@@ -46,3 +47,30 @@ def get_public_storefront(user_id: str, db: Session = Depends(get_db)):
         "products": product_resps,
         "totalProducts": len(product_resps)
     }
+
+@router.post("/inquiry", response_model=Dict[str, Any])
+def track_storefront_inquiry(payload: Dict[str, Any], db: Session = Depends(get_db)):
+    """
+    Logs a real buyer WhatsApp inquiry for the artisan's business dashboard activity feed.
+    """
+    user_id = payload.get("userId")
+    product_title = payload.get("productTitle", "Handmade Craft")
+    quantity = payload.get("quantity", 1)
+    total_amount = payload.get("totalAmount", 0)
+    city = payload.get("city", "")
+    pincode = payload.get("pincode", "")
+
+    if user_id:
+        loc_str = f" for delivery to {city}" if city else ""
+        if pincode:
+            loc_str += f" ({pincode})"
+        
+        crud_activity.log_activity(
+            db,
+            user_id=user_id,
+            title=f"WhatsApp Inquiry for {product_title}",
+            description=f"Buyer initiated order inquiry: Qty {quantity} (₹{total_amount}){loc_str}.",
+            event_type="whatsapp_inquiry"
+        )
+
+    return {"success": True, "message": "Inquiry recorded."}

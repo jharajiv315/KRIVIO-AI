@@ -21,6 +21,11 @@ import {
   Layers,
   ChevronRight,
   Info,
+  X,
+  Send,
+  Truck,
+  ShoppingBag,
+  HelpCircle,
 } from 'lucide-react';
 
 interface PublicStorefrontProps {
@@ -41,6 +46,17 @@ export const PublicStorefront: React.FC<PublicStorefrontProps> = ({
   const [copiedLink, setCopiedLink] = useState<boolean>(false);
   const [copiedProduct, setCopiedProduct] = useState<string | null>(null);
   const [selectedProductPreview, setSelectedProductPreview] = useState<Product | null>(null);
+
+  // Real WhatsApp Inquiry & Order State
+  const [inquiryModalOpen, setInquiryModalOpen] = useState<boolean>(false);
+  const [inquiryProduct, setInquiryProduct] = useState<Product | null>(null);
+  const [inquiryType, setInquiryType] = useState<'order' | 'custom' | 'bulk' | 'question'>('order');
+  const [orderQuantity, setOrderQuantity] = useState<number>(1);
+  const [buyerName, setBuyerName] = useState<string>('');
+  const [deliveryCity, setDeliveryCity] = useState<string>('');
+  const [deliveryPincode, setDeliveryPincode] = useState<string>('');
+  const [customNote, setCustomNote] = useState<string>('');
+  const [inquiryCopied, setInquiryCopied] = useState<boolean>(false);
 
   useEffect(() => {
     const fetchStore = async () => {
@@ -76,15 +92,119 @@ export const PublicStorefront: React.FC<PublicStorefrontProps> = ({
     return matchesSearch && matchesCategory;
   });
 
-  const getWhatsAppLink = (product?: Product) => {
-    const cleanPhone = (artisan?.phone || '').replace(/[^0-9]/g, '');
-    let text = '';
-    if (product) {
-      text = `Namaste ${artisan?.name || 'Artisan'}! I am interested in purchasing "${product.title}" (Price: ₹${product.price}) from your KRIVIO AI digital showcase. Could you please share availability and delivery details?`;
-    } else {
-      text = `Namaste ${artisan?.name || 'Artisan'}! I found your digital craft showcase on KRIVIO AI and would like to inquire about your handmade products.`;
+  const formatWhatsAppNumber = (rawPhone?: string) => {
+    if (!rawPhone) return '';
+    let digits = rawPhone.replace(/[^0-9]/g, '');
+    if (digits.length === 10) return '91' + digits;
+    if (digits.length === 11 && digits.startsWith('0')) return '91' + digits.slice(1);
+    return digits;
+  };
+
+  const openInquiryModal = (product?: Product, type: 'order' | 'custom' | 'bulk' | 'question' = 'order') => {
+    setInquiryProduct(product || null);
+    setInquiryType(type);
+    setOrderQuantity(1);
+    setInquiryCopied(false);
+    setInquiryModalOpen(true);
+  };
+
+  const generateWhatsAppMessage = () => {
+    const artisanName = artisan?.name || 'Artisan';
+    const bizName = artisan?.businessName || 'Artisan Enterprise';
+    const storeUrl = window.location.href;
+
+    if (inquiryProduct) {
+      const unitPrice = inquiryProduct.price || 0;
+      const total = unitPrice * orderQuantity;
+      const typeTitle =
+        inquiryType === 'custom'
+          ? '🎨 CUSTOM CRAFT REQUEST'
+          : inquiryType === 'bulk'
+          ? '📦 BULK / WHOLESALE INQUIRY'
+          : inquiryType === 'question'
+          ? '💬 PRODUCT INQUIRY'
+          : '🛍️ DIRECT PURCHASE ORDER';
+
+      const lines = [
+        `*${typeTitle}*`,
+        `*To:* ${bizName} (${artisanName})`,
+        `━━━━━━━━━━━━━━━━━━━━`,
+        `*Item:* ${inquiryProduct.title}`,
+        `*Category:* ${inquiryProduct.category}`,
+        inquiryProduct.sku ? `*SKU:* ${inquiryProduct.sku}` : null,
+        `*Quantity:* ${orderQuantity} unit${orderQuantity > 1 ? 's' : ''}`,
+        `*Price:* ₹${unitPrice.toLocaleString('en-IN')} / unit`,
+        `*Estimated Total:* ₹${total.toLocaleString('en-IN')}`,
+        deliveryCity || deliveryPincode
+          ? `*Delivery To:* ${deliveryCity}${deliveryPincode ? ` (PIN: ${deliveryPincode})` : ''}`
+          : null,
+        buyerName ? `*Buyer Name:* ${buyerName}` : null,
+        customNote ? `*Special Request:* ${customNote}` : null,
+        `━━━━━━━━━━━━━━━━━━━━`,
+        `*Store Link:* ${storeUrl}`,
+        `_Inquiry sent via KRIVIO AI Rural Marketplace_`,
+        ``,
+        `Namaste ${artisanName}! I would like to confirm availability and dispatch options for this order.`
+      ];
+
+      return lines.filter(Boolean).join('\n');
     }
-    return `https://wa.me/${cleanPhone}?text=${encodeURIComponent(text)}`;
+
+    const lines = [
+      `*GENERAL INQUIRY FOR ${bizName.toUpperCase()}*`,
+      `*Artisan:* ${artisanName}`,
+      `*Location:* ${artisan?.location || 'India'}`,
+      `━━━━━━━━━━━━━━━━━━━━`,
+      buyerName ? `*Buyer Name:* ${buyerName}` : null,
+      customNote
+        ? `*Message:* ${customNote}`
+        : `Namaste ${artisanName}! I found your digital craft showcase on KRIVIO AI and would like to inquire about your handmade craft catalog and custom orders.`,
+      `━━━━━━━━━━━━━━━━━━━━`,
+      `*Artisan Showcase:* ${storeUrl}`,
+      `_Inquiry sent via KRIVIO AI Rural Marketplace_`
+    ];
+
+    return lines.filter(Boolean).join('\n');
+  };
+
+  const handleSendWhatsApp = () => {
+    const msg = generateWhatsAppMessage();
+    const phone = formatWhatsAppNumber(artisan?.phone);
+
+    // Track inquiry in real database activity log
+    if (artisan?.id) {
+      storefrontApi.trackInquiry({
+        userId: artisan.id,
+        productTitle: inquiryProduct?.title || 'General Showcase',
+        quantity: orderQuantity,
+        totalAmount: (inquiryProduct?.price || 0) * orderQuantity,
+        city: deliveryCity,
+        pincode: deliveryPincode,
+        buyerName: buyerName || 'Direct Buyer',
+        inquiryType:
+          inquiryType === 'custom'
+            ? 'Custom Request'
+            : inquiryType === 'bulk'
+            ? 'Bulk Inquiry'
+            : inquiryType === 'question'
+            ? 'Question'
+            : 'Direct Order'
+      });
+    }
+
+    const waUrl = phone
+      ? `https://wa.me/${phone}?text=${encodeURIComponent(msg)}`
+      : `https://wa.me/?text=${encodeURIComponent(msg)}`;
+
+    window.open(waUrl, '_blank');
+    setInquiryModalOpen(false);
+  };
+
+  const handleCopyInquiryText = () => {
+    const msg = generateWhatsAppMessage();
+    navigator.clipboard.writeText(msg);
+    setInquiryCopied(true);
+    setTimeout(() => setInquiryCopied(false), 2500);
   };
 
   const handleShareStore = () => {
@@ -93,7 +213,7 @@ export const PublicStorefront: React.FC<PublicStorefrontProps> = ({
       navigator
         .share({
           title: `${artisan?.businessName || 'Artisan Store'} - KRIVIO AI`,
-          text: `Check out handmade crafts by ${artisan?.name} on KRIVIO AI!`,
+          text: `Check out authentic handmade crafts by ${artisan?.name} on KRIVIO AI!`,
           url,
         })
         .catch(() => copyToClipboard(url));
@@ -126,26 +246,23 @@ export const PublicStorefront: React.FC<PublicStorefrontProps> = ({
   }
 
   return (
-    <div className="min-h-screen bg-[#F8F9F5] text-[#1A1A1A] font-inter selection:bg-[#0F5132] selection:text-white">
+    <div className="min-h-screen bg-[#F8F9F5] text-[#1A1A1A] font-inter selection:bg-[#0F5132] selection:text-white pb-24">
       {/* Top Universal Navbar */}
-      <header className="sticky top-0 z-40 bg-[#F8F9F5]/95 backdrop-blur-md border-b border-[#0F5132]/10 px-4 sm:px-8 py-3">
-        <div className="max-w-7xl mx-auto flex items-center justify-between">
-          <div className="flex items-center gap-3">
-            <button
-              onClick={onNavigateHome}
-              className="flex items-center gap-2 hover:opacity-90 transition-opacity cursor-pointer"
-            >
-              <Logo variant="horizontal" size="xs" showTagline={false} />
-            </button>
-            <span className="hidden sm:inline-block px-2 py-0.5 rounded-full text-[10px] font-bold bg-[#0F5132]/10 text-[#0F5132] font-poppins">
-              Gramin Showcase
-            </span>
+      <header className="sticky top-0 z-40 bg-white/90 backdrop-blur-md border-b border-[#0F5132]/10 shadow-2xs">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-16 flex items-center justify-between">
+          <div className="flex items-center gap-3 cursor-pointer" onClick={onNavigateHome}>
+            <Logo size="sm" />
+            <div className="hidden sm:block">
+              <span className="text-[10px] font-bold uppercase tracking-wider text-[#0F5132] bg-[#0F5132]/10 px-2 py-0.5 rounded-full font-poppins">
+                Artisan Showcase
+              </span>
+            </div>
           </div>
 
-          <div className="flex items-center gap-2.5">
+          <div className="flex items-center gap-3">
             <button
               onClick={handleShareStore}
-              className="inline-flex items-center gap-1.5 px-3.5 py-2 bg-white hover:bg-stone-50 border border-[#0F5132]/20 text-[#0F5132] rounded-xl text-xs font-semibold shadow-xs transition-all cursor-pointer font-poppins active:scale-95"
+              className="inline-flex items-center gap-1.5 px-3.5 py-2 text-xs font-bold text-stone-700 bg-stone-100 hover:bg-stone-200 rounded-xl transition-all font-poppins cursor-pointer"
             >
               {copiedLink ? <Check className="w-3.5 h-3.5 text-[#0F5132]" /> : <Share2 className="w-3.5 h-3.5" />}
               <span>{copiedLink ? 'Link Copied!' : 'Share Store'}</span>
@@ -154,148 +271,133 @@ export const PublicStorefront: React.FC<PublicStorefrontProps> = ({
             {onOpenAuth && (
               <button
                 onClick={onOpenAuth}
-                className="hidden md:inline-flex items-center gap-1.5 px-4 py-2 bg-[#0F5132] hover:bg-[#0B3D26] text-white rounded-xl text-xs font-semibold shadow-xs transition-all cursor-pointer font-poppins"
+                className="inline-flex items-center gap-1 px-4 py-2 text-xs font-bold text-white bg-[#0F5132] hover:bg-[#0B3D26] rounded-xl shadow-xs transition-all font-poppins cursor-pointer"
               >
                 <span>Artisan Login</span>
-                <ArrowRight className="w-3.5 h-3.5" />
+                <ChevronRight className="w-3.5 h-3.5" />
               </button>
             )}
           </div>
         </div>
       </header>
 
-      {/* Hero Banner with Artisan Enterprise Profile */}
-      <section className="relative overflow-hidden bg-gradient-to-b from-[#0F5132]/10 via-[#F8F9F5] to-[#F8F9F5] border-b border-[#0F5132]/10 pt-8 pb-12">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="bg-white rounded-3xl p-6 sm:p-8 lg:p-10 border border-[#0F5132]/15 shadow-xl relative overflow-hidden">
-            {/* Top Accent Strip */}
-            <div className="absolute top-0 left-0 right-0 h-2 bg-gradient-to-r from-[#0F5132] via-[#2E7D32] to-[#D4AF37]" />
-
-            <div className="flex flex-col lg:flex-row items-start lg:items-center justify-between gap-6">
-              {/* Left Details */}
-              <div className="flex flex-col sm:flex-row items-start sm:items-center gap-5">
-                <div className="w-20 h-20 sm:w-24 sm:h-24 rounded-2xl bg-gradient-to-br from-[#0F5132] to-[#2E7D32] text-white font-extrabold text-2xl sm:text-3xl flex items-center justify-center shadow-lg border-2 border-[#D4AF37] shrink-0 font-poppins">
-                  {artisan?.name ? artisan.name.charAt(0).toUpperCase() : 'A'}
+      {/* Hero Artisan Banner */}
+      <section className="bg-gradient-to-b from-[#0F5132] via-[#123524] to-[#0B1911] text-white py-12 sm:py-16 relative overflow-hidden">
+        <div className="absolute inset-0 opacity-10 bg-[radial-gradient(#D4AF37_1px,transparent_1px)] [background-size:16px_16px] pointer-events-none" />
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 relative z-10">
+          <div className="flex flex-col md:flex-row items-center md:items-start gap-6 sm:gap-8 text-center md:text-left">
+            {/* Avatar Badge */}
+            <div className="relative w-24 h-24 sm:w-28 sm:h-28 rounded-3xl bg-gradient-to-tr from-[#D4AF37] to-[#F3E5AB] p-1 shadow-2xl shrink-0">
+              <div className="w-full h-full rounded-[22px] bg-[#0F5132] flex items-center justify-center text-white text-3xl font-black font-poppins">
+                {artisan?.name ? artisan.name.charAt(0).toUpperCase() : 'A'}
+              </div>
+              {artisan?.isVerified && (
+                <div
+                  title="Verified Rural Artisan"
+                  className="absolute -bottom-2 -right-2 bg-[#D4AF37] text-stone-950 p-1.5 rounded-full shadow-md"
+                >
+                  <CheckCircle2 className="w-4 h-4" />
                 </div>
+              )}
+            </div>
 
-                <div className="space-y-1.5">
-                  <div className="flex flex-wrap items-center gap-2">
-                    <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[10px] font-bold bg-[#D4AF37] text-[#1A1A1A] font-poppins">
-                      <Award className="w-3 h-3" />
-                      Verified Rural Artisan
-                    </span>
-                    <span className="text-xs text-stone-500 font-medium flex items-center gap-1">
-                      <MapPin className="w-3.5 h-3.5 text-[#0F5132]" />
-                      {artisan?.location || 'Madhubani, Bihar'}
-                    </span>
-                  </div>
-
-                  <h1 className="text-2xl sm:text-3xl lg:text-4xl font-extrabold text-[#0F5132] font-poppins leading-tight">
-                    {artisan?.businessName || 'Artisan Craft Enterprise'}
-                  </h1>
-
-                  <p className="text-xs sm:text-sm font-semibold text-stone-600 font-inter">
-                    Lead Artisan: <span className="text-[#0F5132] font-bold">{artisan?.name}</span> •{' '}
-                    <span className="text-[#8B6E10] font-medium">{artisan?.craftType}</span>
-                  </p>
-                </div>
+            {/* Artisan Details */}
+            <div className="space-y-3 flex-1">
+              <div className="flex flex-wrap items-center justify-center md:justify-start gap-2">
+                <span className="px-3 py-0.5 rounded-full text-[11px] font-bold bg-[#D4AF37] text-stone-950 font-poppins uppercase tracking-wider">
+                  {artisan?.craftType || 'Handicrafts & Art'}
+                </span>
+                <span className="px-3 py-0.5 rounded-full text-[11px] font-bold bg-white/10 text-emerald-200 backdrop-blur-xs flex items-center gap-1 font-poppins">
+                  <MapPin className="w-3 h-3 text-[#D4AF37]" />
+                  {artisan?.location || 'India'}
+                </span>
               </div>
 
-              {/* Direct Communication Buttons */}
-              <div className="w-full lg:w-auto flex flex-col sm:flex-row items-stretch sm:items-center gap-3">
-                <a
-                  href={getWhatsAppLink()}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="inline-flex items-center justify-center gap-2 px-6 py-3.5 bg-[#25D366] hover:bg-[#1EBE5D] text-white font-bold text-xs sm:text-sm rounded-xl shadow-md shadow-[#25D366]/20 transition-all font-poppins active:scale-98"
+              <h1 className="text-2xl sm:text-4xl font-extrabold font-poppins tracking-tight">
+                {artisan?.businessName || `${artisan?.name}'s Digital Showcase`}
+              </h1>
+
+              <p className="text-xs sm:text-sm text-emerald-100/90 max-w-2xl font-inter leading-relaxed">
+                {artisan?.story}
+              </p>
+
+              {/* Direct WhatsApp & Contact CTA */}
+              <div className="pt-2 flex flex-wrap items-center justify-center md:justify-start gap-3">
+                <button
+                  onClick={() => openInquiryModal(undefined, 'question')}
+                  className="inline-flex items-center gap-2 px-5 py-2.5 bg-[#25D366] hover:bg-[#1EBE5D] text-white font-extrabold text-xs rounded-xl shadow-lg transition-all font-poppins active:scale-98 cursor-pointer"
                 >
                   <MessageCircle className="w-4 h-4 fill-white" />
-                  <span>Inquire on WhatsApp</span>
-                </a>
+                  <span>Chat on WhatsApp</span>
+                </button>
 
                 {artisan?.phone && (
                   <a
                     href={`tel:${artisan.phone}`}
-                    className="inline-flex items-center justify-center gap-2 px-5 py-3.5 bg-white hover:bg-stone-50 border border-[#0F5132]/25 text-[#0F5132] font-bold text-xs sm:text-sm rounded-xl shadow-xs transition-all font-poppins active:scale-98"
+                    className="inline-flex items-center gap-2 px-4 py-2.5 bg-white/10 hover:bg-white/20 text-white font-semibold text-xs rounded-xl backdrop-blur-xs transition-all font-poppins"
                   >
-                    <Phone className="w-4 h-4" />
+                    <Phone className="w-3.5 h-3.5 text-[#D4AF37]" />
                     <span>Call Artisan</span>
                   </a>
                 )}
               </div>
             </div>
-
-            {/* Artisan Craft Story */}
-            {artisan?.story && (
-              <div className="mt-6 pt-6 border-t border-stone-100 flex items-start gap-3 bg-[#F8F9F5] p-4 sm:p-5 rounded-2xl">
-                <Sparkles className="w-5 h-5 text-[#D4AF37] shrink-0 mt-0.5" />
-                <div className="space-y-1">
-                  <h2 className="text-xs font-bold uppercase tracking-wider text-[#0F5132] font-poppins">
-                    Craft Tradition & Story
-                  </h2>
-                  <p className="text-xs sm:text-sm text-stone-700 leading-relaxed font-inter">{artisan.story}</p>
-                </div>
-              </div>
-            )}
           </div>
         </div>
       </section>
 
       {/* Catalog Search & Category Filter */}
-      <section className="py-8 max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-        <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-8">
-          <div>
-            <h2 className="text-xl sm:text-2xl font-extrabold text-[#0F5132] font-poppins flex items-center gap-2">
-              <Package className="w-6 h-6 text-[#0F5132]" />
-              <span>Handcrafted Catalog</span>
-              <span className="text-xs font-bold text-stone-500 bg-stone-200/70 px-2.5 py-0.5 rounded-full">
-                {filteredProducts.length} items
-              </span>
-            </h2>
-            <p className="text-xs text-stone-500 font-inter mt-0.5">
-              Direct from the artisan with zero middleman commissions.
-            </p>
-          </div>
-
+      <section className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 -mt-6 relative z-20">
+        <div className="bg-white rounded-2xl p-3 sm:p-4 shadow-xl border border-[#0F5132]/10 flex flex-col md:flex-row gap-3 items-center justify-between">
           {/* Search Box */}
-          <div className="relative w-full md:w-80">
+          <div className="relative w-full md:w-96">
             <Search className="w-4 h-4 text-stone-400 absolute left-3.5 top-3" />
             <input
               type="text"
-              placeholder="Search crafts, pottery, paintings..."
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
-              className="w-full pl-10 pr-4 py-2.5 bg-white border border-[#0F5132]/20 rounded-xl text-xs text-stone-900 focus:ring-2 focus:ring-[#0F5132] outline-none shadow-xs font-inter"
+              placeholder="Search handcrafted products..."
+              className="w-full pl-10 pr-4 py-2 bg-[#F8F9F5] border border-stone-200 rounded-xl text-xs text-stone-900 outline-none focus:ring-2 focus:ring-[#0F5132] font-inter"
             />
           </div>
-        </div>
 
-        {/* Category Pills */}
-        {categories.length > 2 && (
-          <div className="flex items-center gap-2 overflow-x-auto no-scrollbar pb-3 mb-6">
+          {/* Category Chips */}
+          <div className="flex items-center gap-2 overflow-x-auto w-full md:w-auto pb-1 md:pb-0 scrollbar-none">
             {categories.map((cat) => (
               <button
                 key={cat}
                 onClick={() => setSelectedCategory(cat)}
-                className={`px-4 py-2 rounded-xl text-xs font-semibold capitalize whitespace-nowrap transition-all font-poppins cursor-pointer ${
+                className={`px-3.5 py-1.5 rounded-xl text-xs font-bold whitespace-nowrap transition-all font-poppins cursor-pointer ${
                   selectedCategory === cat
                     ? 'bg-[#0F5132] text-white shadow-xs'
-                    : 'bg-white text-stone-600 border border-stone-200 hover:bg-stone-50'
+                    : 'bg-[#F8F9F5] text-stone-600 hover:bg-stone-200'
                 }`}
               >
-                {cat === 'all' ? 'All Products' : cat}
+                {cat === 'all' ? 'All Creations' : cat}
               </button>
             ))}
           </div>
-        )}
+        </div>
+      </section>
 
-        {/* Products Grid */}
+      {/* Product Catalog Grid */}
+      <section className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 pt-10">
+        <div className="flex items-center justify-between mb-6">
+          <div>
+            <h2 className="text-lg font-bold text-stone-900 font-poppins">Handcrafted Creations</h2>
+            <p className="text-xs text-stone-500 font-inter">Direct from creator • Fair Price Guaranteed</p>
+          </div>
+          <span className="text-xs font-bold text-[#0F5132] font-poppins bg-[#0F5132]/10 px-3 py-1 rounded-full">
+            {filteredProducts.length} Items Listed
+          </span>
+        </div>
+
         {filteredProducts.length === 0 ? (
-          <div className="text-center py-16 bg-white rounded-3xl border border-dashed border-[#0F5132]/20 p-8">
-            <Package className="w-12 h-12 text-stone-300 mx-auto mb-3" />
-            <h3 className="text-base font-bold text-stone-700 font-poppins">No Products Found</h3>
-            <p className="text-xs text-stone-500 mt-1 max-w-sm mx-auto font-inter">
-              No handcrafted items matched your current search. Try changing keywords or category filters.
+          <div className="text-center py-16 bg-white rounded-3xl border border-[#0F5132]/10 space-y-4">
+            <Package className="w-12 h-12 text-stone-300 mx-auto stroke-1" />
+            <h3 className="text-sm font-bold text-stone-900 font-poppins">No matching crafts found</h3>
+            <p className="text-xs text-stone-500 font-inter max-w-sm mx-auto">
+              Try searching with another keyword or explore the categories above.
             </p>
           </div>
         ) : (
@@ -366,21 +468,22 @@ export const PublicStorefront: React.FC<PublicStorefrontProps> = ({
 
                     {/* WhatsApp Action Button */}
                     <div className="flex items-center gap-2 pt-1">
-                      <a
-                        href={getWhatsAppLink(prod)}
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        onClick={(e) => e.stopPropagation()}
-                        className="flex-1 inline-flex items-center justify-center gap-2 py-2.5 px-3 bg-[#25D366] hover:bg-[#1EBE5D] text-white font-bold text-xs rounded-xl shadow-xs transition-all font-poppins active:scale-98"
+                      <button
+                        type="button"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          openInquiryModal(prod, 'order');
+                        }}
+                        className="flex-1 inline-flex items-center justify-center gap-2 py-2.5 px-3 bg-[#25D366] hover:bg-[#1EBE5D] text-white font-bold text-xs rounded-xl shadow-xs transition-all font-poppins active:scale-98 cursor-pointer"
                       >
                         <MessageCircle className="w-3.5 h-3.5 fill-white" />
                         <span>Order on WhatsApp</span>
-                      </a>
+                      </button>
 
                       <button
                         onClick={(e) => handleShareProduct(prod, e)}
                         title="Copy direct product link"
-                        className="p-2.5 bg-stone-100 hover:bg-stone-200 text-stone-700 rounded-xl transition-colors shrink-0"
+                        className="p-2.5 bg-stone-100 hover:bg-stone-200 text-stone-700 rounded-xl transition-colors shrink-0 cursor-pointer"
                       >
                         {copiedProduct === prod.id ? (
                           <Check className="w-4 h-4 text-[#0F5132]" />
@@ -428,6 +531,21 @@ export const PublicStorefront: React.FC<PublicStorefrontProps> = ({
         </div>
       </section>
 
+      {/* Floating Instant WhatsApp Button */}
+      <div className="fixed bottom-6 right-6 z-40">
+        <button
+          onClick={() => openInquiryModal(undefined, 'question')}
+          className="px-5 py-3.5 bg-[#25D366] hover:bg-[#1EBE5D] text-white font-extrabold text-xs sm:text-sm rounded-full shadow-2xl flex items-center gap-2.5 transition-all hover:scale-105 active:scale-95 font-poppins cursor-pointer group"
+        >
+          <span className="relative flex h-3 w-3">
+            <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-white opacity-75"></span>
+            <span className="relative inline-flex rounded-full h-3 w-3 bg-white"></span>
+          </span>
+          <MessageCircle className="w-5 h-5 fill-white" />
+          <span>Chat with Artisan</span>
+        </button>
+      </div>
+
       {/* Product Detail Modal */}
       {selectedProductPreview && (
         <div
@@ -449,7 +567,8 @@ export const PublicStorefront: React.FC<PublicStorefrontProps> = ({
               </div>
               <button
                 onClick={() => setSelectedProductPreview(null)}
-                className="p-1.5 rounded-xl text-stone-400 hover:text-stone-700 hover:bg-stone-100"
+                aria-label="Close dialog"
+                className="p-1.5 rounded-xl text-stone-400 hover:text-stone-700 hover:bg-stone-100 cursor-pointer"
               >
                 ✕
               </button>
@@ -494,48 +613,221 @@ export const PublicStorefront: React.FC<PublicStorefrontProps> = ({
 
             <div className="pt-4 border-t border-stone-100 flex flex-col sm:flex-row items-center justify-between gap-4">
               <div>
-                <div className="text-2xl font-extrabold text-[#0F5132] font-poppins">
+                <span className="text-xs text-stone-400 font-medium block font-poppins">Direct Artisan Price</span>
+                <span className="text-2xl font-black text-[#0F5132] font-poppins">
                   ₹{selectedProductPreview.price.toLocaleString('en-IN')}
-                </div>
-                <div className="text-[11px] text-stone-500">Zero Middleman Markup</div>
+                </span>
               </div>
 
-              <a
-                href={getWhatsAppLink(selectedProductPreview)}
-                target="_blank"
-                rel="noopener noreferrer"
-                className="w-full sm:w-auto inline-flex items-center justify-center gap-2 px-8 py-3.5 bg-[#25D366] hover:bg-[#1EBE5D] text-white font-bold text-sm rounded-xl shadow-md transition-all font-poppins"
-              >
-                <MessageCircle className="w-4 h-4 fill-white" />
-                <span>Order via WhatsApp</span>
-              </a>
+              <div className="flex items-center gap-2 w-full sm:w-auto">
+                <button
+                  onClick={() => {
+                    const prod = selectedProductPreview;
+                    setSelectedProductPreview(null);
+                    openInquiryModal(prod, 'order');
+                  }}
+                  className="flex-1 sm:flex-initial inline-flex items-center justify-center gap-2 px-6 py-3 bg-[#25D366] hover:bg-[#1EBE5D] text-white font-extrabold text-xs rounded-xl shadow-md transition-all font-poppins cursor-pointer"
+                >
+                  <MessageCircle className="w-4 h-4 fill-white" />
+                  <span>Order on WhatsApp</span>
+                </button>
+              </div>
             </div>
           </div>
         </div>
       )}
 
-      {/* Footer */}
-      <footer className="bg-[#0B1911] text-white py-12 px-4 sm:px-8 border-t border-[#0F5132]/30 text-center font-inter">
-        <div className="max-w-7xl mx-auto space-y-6">
-          <div className="flex items-center justify-center">
-            <Logo variant="horizontal" size="sm" showTagline={true} />
-          </div>
+      {/* Real WhatsApp Order & Inquiry Slip Modal */}
+      {inquiryModalOpen && (
+        <div
+          onClick={() => setInquiryModalOpen(false)}
+          className="fixed inset-0 bg-black/65 backdrop-blur-xs z-50 flex items-center justify-center p-3 sm:p-4 animate-in fade-in duration-200"
+        >
+          <div
+            onClick={(e) => e.stopPropagation()}
+            className="bg-white rounded-3xl max-w-xl w-full max-h-[92vh] overflow-y-auto p-5 sm:p-7 shadow-2xl border border-[#0F5132]/20 space-y-5"
+          >
+            <div className="flex items-center justify-between pb-3 border-b border-stone-100">
+              <div className="flex items-center gap-2.5">
+                <div className="w-9 h-9 rounded-xl bg-[#25D366] text-white flex items-center justify-center shadow-xs">
+                  <MessageCircle className="w-5 h-5 fill-white" />
+                </div>
+                <div>
+                  <h3 className="text-sm sm:text-base font-bold text-stone-900 font-poppins">
+                    {inquiryProduct ? `Order: ${inquiryProduct.title}` : `Inquiry for ${artisan?.name || 'Artisan'}`}
+                  </h3>
+                  <p className="text-[11px] text-stone-500 font-inter">
+                    Direct WhatsApp order slip with zero commission
+                  </p>
+                </div>
+              </div>
+              <button
+                onClick={() => setInquiryModalOpen(false)}
+                aria-label="Close dialog"
+                className="p-1.5 text-stone-400 hover:text-stone-700 hover:bg-stone-100 rounded-lg cursor-pointer"
+              >
+                <X className="w-4 h-4" />
+              </button>
+            </div>
 
-          <p className="text-xs text-emerald-200/80 max-w-md mx-auto leading-relaxed">
-            Empowering rural artisans, Self-Help Groups, and traditional craftspeople across India with Vernacular Voice AI.
-          </p>
+            {/* Inquiry Type Selector */}
+            <div className="space-y-1.5">
+              <label className="block text-xs font-semibold text-stone-700 font-poppins">
+                Select Request Type
+              </label>
+              <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
+                {[
+                  { id: 'order', label: '🛍️ Buy Item' },
+                  { id: 'custom', label: '🎨 Custom Color/Size' },
+                  { id: 'bulk', label: '📦 Bulk / Wholesale' },
+                  { id: 'question', label: '💬 Ask Question' },
+                ].map((t) => (
+                  <button
+                    key={t.id}
+                    type="button"
+                    onClick={() => setInquiryType(t.id as any)}
+                    className={`py-2 px-2 rounded-xl text-[11px] font-bold font-poppins transition-all border cursor-pointer ${
+                      inquiryType === t.id
+                        ? 'bg-[#0F5132] text-white border-[#0F5132] shadow-xs'
+                        : 'bg-[#F8F9F5] text-stone-700 border-stone-200 hover:bg-stone-100'
+                    }`}
+                  >
+                    {t.label}
+                  </button>
+                ))}
+              </div>
+            </div>
 
-          <div className="pt-6 border-t border-emerald-950/80 text-[11px] text-emerald-400/60 flex flex-col sm:flex-row items-center justify-between gap-3">
-            <span>© {new Date().getFullYear()} KRIVIO AI. From Local Hands to Global Markets.</span>
-            <button
-              onClick={onNavigateHome}
-              className="text-[#D4AF37] hover:underline font-semibold font-poppins cursor-pointer"
-            >
-              Are you an artisan? Build your free digital storefront →
-            </button>
+            {/* Product Summary if product selected */}
+            {inquiryProduct && (
+              <div className="p-3.5 bg-[#F8F9F5] rounded-2xl border border-stone-200/80 flex items-center justify-between gap-3">
+                <div className="flex items-center gap-3">
+                  {inquiryProduct.imageUrls && inquiryProduct.imageUrls[0] ? (
+                    <img
+                      src={inquiryProduct.imageUrls[0]}
+                      alt={inquiryProduct.title}
+                      className="w-12 h-12 rounded-xl object-cover"
+                    />
+                  ) : (
+                    <div className="w-12 h-12 rounded-xl bg-stone-200 flex items-center justify-center text-stone-400">
+                      <Package className="w-6 h-6 stroke-1" />
+                    </div>
+                  )}
+                  <div>
+                    <h4 className="text-xs font-bold text-stone-900 font-poppins line-clamp-1">
+                      {inquiryProduct.title}
+                    </h4>
+                    <p className="text-[11px] text-[#0F5132] font-semibold font-poppins">
+                      ₹{inquiryProduct.price.toLocaleString('en-IN')} each
+                    </p>
+                  </div>
+                </div>
+
+                {/* Quantity Controls */}
+                <div className="flex items-center gap-2 bg-white px-2 py-1 rounded-xl border border-stone-200">
+                  <button
+                    type="button"
+                    onClick={() => setOrderQuantity(Math.max(1, orderQuantity - 1))}
+                    className="w-6 h-6 rounded-lg bg-stone-100 text-stone-700 font-bold hover:bg-stone-200 flex items-center justify-center cursor-pointer"
+                  >
+                    -
+                  </button>
+                  <span className="text-xs font-bold font-poppins px-1.5">{orderQuantity}</span>
+                  <button
+                    type="button"
+                    onClick={() => setOrderQuantity(orderQuantity + 1)}
+                    className="w-6 h-6 rounded-lg bg-stone-100 text-stone-700 font-bold hover:bg-stone-200 flex items-center justify-center cursor-pointer"
+                  >
+                    +
+                  </button>
+                </div>
+              </div>
+            )}
+
+            {/* Buyer Details Form */}
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+              <div>
+                <label className="block text-xs font-semibold text-stone-700 font-poppins mb-1">
+                  Your Name (Optional)
+                </label>
+                <input
+                  type="text"
+                  value={buyerName}
+                  onChange={(e) => setBuyerName(e.target.value)}
+                  placeholder="e.g. Ramesh Sharma"
+                  className="w-full px-3.5 py-2 bg-[#F8F9F5] border border-stone-200 rounded-xl text-xs text-stone-900 outline-none focus:ring-2 focus:ring-[#0F5132]"
+                />
+              </div>
+
+              <div>
+                <label className="block text-xs font-semibold text-stone-700 font-poppins mb-1">
+                  Delivery Destination / Pincode
+                </label>
+                <div className="flex gap-2">
+                  <input
+                    type="text"
+                    value={deliveryCity}
+                    onChange={(e) => setDeliveryCity(e.target.value)}
+                    placeholder="City / State"
+                    className="w-1/2 px-3 py-2 bg-[#F8F9F5] border border-stone-200 rounded-xl text-xs text-stone-900 outline-none"
+                  />
+                  <input
+                    type="text"
+                    value={deliveryPincode}
+                    onChange={(e) => setDeliveryPincode(e.target.value)}
+                    placeholder="PIN Code"
+                    className="w-1/2 px-3 py-2 bg-[#F8F9F5] border border-stone-200 rounded-xl text-xs text-stone-900 outline-none"
+                  />
+                </div>
+              </div>
+
+              <div className="sm:col-span-2">
+                <label className="block text-xs font-semibold text-stone-700 font-poppins mb-1">
+                  Special Notes / Custom Requirements
+                </label>
+                <textarea
+                  value={customNote}
+                  onChange={(e) => setCustomNote(e.target.value)}
+                  rows={2}
+                  placeholder="e.g. Please share packaging photos before dispatch / Need blue shade..."
+                  className="w-full px-3.5 py-2 bg-[#F8F9F5] border border-stone-200 rounded-xl text-xs text-stone-900 outline-none focus:ring-2 focus:ring-[#0F5132]"
+                />
+              </div>
+            </div>
+
+            {/* Live Message Slip Preview */}
+            <div className="space-y-1.5">
+              <span className="block text-[11px] font-bold text-stone-500 uppercase tracking-wider font-poppins">
+                Live WhatsApp Message Preview
+              </span>
+              <div className="p-3 bg-[#E7FFDB] border border-[#25D366]/30 rounded-2xl text-[11px] text-stone-800 font-mono whitespace-pre-wrap leading-relaxed max-h-36 overflow-y-auto">
+                {generateWhatsAppMessage()}
+              </div>
+            </div>
+
+            {/* Action Buttons */}
+            <div className="pt-2 flex flex-col sm:flex-row gap-2.5">
+              <button
+                type="button"
+                onClick={handleCopyInquiryText}
+                className="flex-1 py-3 px-4 bg-stone-100 hover:bg-stone-200 text-stone-800 font-bold text-xs rounded-xl flex items-center justify-center gap-2 font-poppins transition-colors cursor-pointer"
+              >
+                {inquiryCopied ? <Check className="w-4 h-4 text-[#0F5132]" /> : <Copy className="w-4 h-4" />}
+                <span>{inquiryCopied ? 'Slip Copied to Clipboard!' : 'Copy Order Slip'}</span>
+              </button>
+
+              <button
+                type="button"
+                onClick={handleSendWhatsApp}
+                className="flex-1 py-3 px-4 bg-[#25D366] hover:bg-[#1EBE5D] text-white font-extrabold text-xs rounded-xl flex items-center justify-center gap-2 font-poppins shadow-md transition-all active:scale-98 cursor-pointer"
+              >
+                <MessageCircle className="w-4 h-4 fill-white" />
+                <span>Open in WhatsApp</span>
+              </button>
+            </div>
           </div>
         </div>
-      </footer>
+      )}
     </div>
   );
 };
