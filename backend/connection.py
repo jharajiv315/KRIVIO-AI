@@ -9,6 +9,8 @@ from backend.models.product import Product
 from backend.models.conversation import Conversation
 from backend.models.subscription import Subscription
 from backend.models.government_scheme import GovernmentScheme
+from backend.models.activity import Activity
+from backend.models.image import ProductImage
 
 logger = logging.getLogger(__name__)
 
@@ -29,14 +31,9 @@ def verify_db_connection() -> bool:
 def init_db():
     """
     Creates all tables in PostgreSQL if they do not exist.
-    Ensures User, BusinessProfile, Product, Conversation, Subscription, and GovernmentScheme models
-    are registered to Base.metadata prior to calling Base.metadata.create_all(bind=engine).
     """
     try:
         Base.metadata.create_all(bind=engine)
-        logger.info(
-            "Database tables initialized successfully in PostgreSQL for models: "
-            "User, BusinessProfile, Product, Conversation, Subscription, GovernmentScheme."
-        )
+        logger.info("Database tables initialized successfully in PostgreSQL.")
     except Exception as e:
         logger.error(f"Error initializing database tables: {e}")

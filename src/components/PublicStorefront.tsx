@@ -30,7 +30,7 @@ interface PublicStorefrontProps {
 }
 
 export const PublicStorefront: React.FC<PublicStorefrontProps> = ({
-  userId = 'usr_demo_1',
+  userId = '',
   onNavigateHome,
   onOpenAuth,
 }) => {
@@ -44,6 +44,10 @@ export const PublicStorefront: React.FC<PublicStorefrontProps> = ({
 
   useEffect(() => {
     const fetchStore = async () => {
+      if (!userId) {
+        setLoading(false);
+        return;
+      }
       setLoading(true);
       try {
         const data = await storefrontApi.get(userId);
@@ -73,7 +77,7 @@ export const PublicStorefront: React.FC<PublicStorefrontProps> = ({
   });
 
   const getWhatsAppLink = (product?: Product) => {
-    const cleanPhone = (artisan?.phone || '+919876543210').replace(/[^0-9]/g, '');
+    const cleanPhone = (artisan?.phone || '').replace(/[^0-9]/g, '');
     let text = '';
     if (product) {
       text = `Namaste ${artisan?.name || 'Artisan'}! I am interested in purchasing "${product.title}" (Price: ₹${product.price}) from your KRIVIO AI digital showcase. Could you please share availability and delivery details?`;

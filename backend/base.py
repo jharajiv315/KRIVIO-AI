@@ -8,6 +8,8 @@ from backend.models.product import Product
 from backend.models.conversation import Conversation
 from backend.models.government_scheme import GovernmentScheme
 from backend.models.subscription import Subscription
+from backend.models.activity import Activity
+from backend.models.image import ProductImage
 
 __all__ = [
     "Base",
@@ -16,5 +18,7 @@ __all__ = [
     "Product",
     "Conversation",
     "GovernmentScheme",
-    "Subscription"
+    "Subscription",
+    "Activity",
+    "ProductImage"
 ]

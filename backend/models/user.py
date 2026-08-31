@@ -7,9 +7,10 @@ class User(Base):
     __tablename__ = "users"
 
     id = Column(String, primary_key=True, index=True)
+    supabase_user_id = Column(String, unique=True, index=True, nullable=True)
     full_name = Column(String, nullable=False)
     email = Column(String, unique=True, index=True, nullable=False)
-    password_hash = Column(String, nullable=False)
+    password_hash = Column(String, nullable=True)
     google_id = Column(String, nullable=True, index=True)
     phone_number = Column(String, nullable=True)
     profile_image = Column(String, nullable=True)
@@ -41,4 +42,5 @@ class User(Base):
     products = relationship("Product", back_populates="user", cascade="all, delete-orphan")
     conversations = relationship("Conversation", back_populates="user", cascade="all, delete-orphan")
     subscription = relationship("Subscription", back_populates="user", uselist=False, cascade="all, delete-orphan")
-
+    activities = relationship("Activity", back_populates="user", cascade="all, delete-orphan")
+    images = relationship("ProductImage", back_populates="user", cascade="all, delete-orphan")

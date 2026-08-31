@@ -9,8 +9,11 @@ class CRUDUser:
     def get_by_id(self, db: Session, user_id: str) -> Optional[User]:
         return db.query(User).filter(User.id == user_id).first()
 
+    def get_by_supabase_id(self, db: Session, supabase_user_id: str) -> Optional[User]:
+        return db.query(User).filter(User.supabase_user_id == supabase_user_id).first()
+
     def get_by_email(self, db: Session, email: str) -> Optional[User]:
-        return db.query(User).filter(User.email.lower() == email.lower()).first()
+        return db.query(User).filter(User.email.ilike(email.strip())).first()
 
     def get_multi(self, db: Session, skip: int = 0, limit: int = 100) -> List[User]:
         return db.query(User).offset(skip).limit(limit).all()
@@ -20,13 +23,13 @@ class CRUDUser:
         full_name = obj_in.full_name or obj_in.name or "Krivio Artisan"
         phone_number = obj_in.phone_number or getattr(obj_in, "phone", None)
         
-        # Hash password using bcrypt if provided
-        hashed_pw = hash_password(obj_in.password) if obj_in.password else hash_password("default123")
+        hashed_pw = hash_password(obj_in.password) if obj_in.password else None
 
         db_obj = User(
             id=user_id,
+            supabase_user_id=obj_in.supabase_user_id,
             full_name=full_name,
-            email=obj_in.email.lower(),
+            email=obj_in.email.strip().lower(),
             password_hash=hashed_pw,
             phone_number=phone_number,
             profile_image=obj_in.profile_image,

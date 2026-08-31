@@ -1,4 +1,4 @@
-import { GoogleGenAI, Type } from '@google/genai';
+import { GoogleGenAI } from '@google/genai';
 import {
   AuthResponse,
   User,
@@ -13,10 +13,7 @@ import {
   PublicStorefrontData,
 } from '../types';
 
-
 const TOKEN_KEY = 'krivio_auth_token';
-const PRODUCTS_STORAGE_KEY = 'krivio_products_cache';
-const PROFILE_STORAGE_KEY = 'krivio_business_profile';
 
 export const getStoredToken = (): string | null => {
   return localStorage.getItem(TOKEN_KEY);
@@ -31,7 +28,7 @@ export const removeStoredToken = (): void => {
 };
 
 const API_BASE = (import.meta.env.VITE_API_URL || '').replace(/\/$/, '');
-const GEMINI_KEY = import.meta.env.VITE_GEMINI_API_KEY || 'AQ.Ab8RN6K-bYWZIkr902v06PZAjO2OP_JP7XGkYd7MRTxP2MQJPw';
+const GEMINI_KEY = import.meta.env.VITE_GEMINI_API_KEY || '';
 
 let clientAI: GoogleGenAI | null = null;
 const getClientAI = () => {
@@ -53,65 +50,30 @@ const fetchWithAuth = async (url: string, options: RequestInit = {}) => {
   const response = await fetch(targetUrl, { ...options, headers });
   if (!response.ok) {
     const errorData = await response.json().catch(() => ({}));
-    throw new Error(errorData.error || `HTTP error ${response.status}`);
+    throw new Error(errorData.error || errorData.detail || `HTTP error ${response.status}`);
   }
   return response.json();
 };
 
-const getStoredProducts = (): Product[] => {
-  try {
-    const data = localStorage.getItem(PRODUCTS_STORAGE_KEY);
-    if (data) return JSON.parse(data);
-  } catch {}
-  return [
-    {
-      id: 'prod_1',
-      userId: 'usr_demo_1',
-      title: 'Handmade Terracotta Water Pitcher (Matka)',
-      description: 'Authentic clay pitcher naturally cooling drinking water, crafted with riverbank clay and traditional low-fire kilns.',
-      category: 'Pottery & Home Decor',
-      price: 450,
-      currency: 'INR',
-      keywords: ['terracotta', 'eco friendly', 'clay pot', 'handcrafted', 'cooling matka'],
-      imageUrls: ['https://images.unsplash.com/photo-1578749556568-bc2c40e68b61?auto=format&fit=crop&q=80&w=800'],
-      isMarketplaceReady: true,
-      readinessScore: 92,
-      marketplaces: ['ONDC', 'Amazon Karigar', 'Meesho'],
-      dimensions: '25cm x 18cm',
-      weight: '1.2 kg',
-      stock: 24,
-      createdAt: new Date().toISOString(),
-      updatedAt: new Date().toISOString(),
-    },
-    {
-      id: 'prod_2',
-      userId: 'usr_demo_1',
-      title: 'Mithila / Madhubani Peacock Wall Art Canvas',
-      description: 'Natural pigment painting on handmade canvas depicting the sacred peacock motif of Bihar heritage.',
-      category: 'Handicrafts & Art',
-      price: 1850,
-      currency: 'INR',
-      keywords: ['madhubani', 'folk painting', 'mithila art', 'natural colors', 'wall decor'],
-      imageUrls: ['https://images.unsplash.com/photo-1582562124811-c09040d0a901?auto=format&fit=crop&q=80&w=800'],
-      isMarketplaceReady: true,
-      readinessScore: 95,
-      marketplaces: ['ONDC', 'Amazon Karigar', 'Etsy'],
-      dimensions: '40cm x 30cm',
-      weight: '400g',
-      stock: 15,
-      createdAt: new Date().toISOString(),
-      updatedAt: new Date().toISOString(),
-    }
-  ];
-};
-
-const saveStoredProducts = (products: Product[]) => {
-  try {
-    localStorage.setItem(PRODUCTS_STORAGE_KEY, JSON.stringify(products));
-  } catch {}
-};
-
 export const authApi = {
+  syncSupabaseUser: async (params: {
+    supabase_user_id?: string;
+    email?: string;
+    full_name?: string;
+    name?: string;
+    profile_image?: string;
+    avatar_url?: string;
+    phone_number?: string;
+    role?: string;
+  }): Promise<AuthResponse> => {
+    const res = await fetchWithAuth('/api/auth/supabase-sync', {
+      method: 'POST',
+      body: JSON.stringify(params),
+    });
+    if (res.token) setStoredToken(res.token);
+    return res;
+  },
+
   register: async (data: {
     name: string;
     email: string;
@@ -120,108 +82,41 @@ export const authApi = {
     businessName?: string;
     location?: string;
   }): Promise<AuthResponse> => {
-    try {
-      const res = await fetchWithAuth('/api/auth/register', {
-        method: 'POST',
-        body: JSON.stringify(data),
-      });
-      if (res.token) setStoredToken(res.token);
-      return res;
-    } catch {
-      const token = 'tok_' + Date.now();
-      setStoredToken(token);
-      const user: User = {
-        id: 'usr_' + Date.now(),
-        name: data.name,
-        email: data.email,
-        role: (data.role as any) || 'artisan',
-        businessName: data.businessName || `${data.name}'s Enterprise`,
-        location: data.location || 'India',
-        subscriptionPlan: 'free',
-        createdAt: new Date().toISOString(),
-      };
-      return { token, user };
-    }
+    const res = await fetchWithAuth('/api/auth/register', {
+      method: 'POST',
+      body: JSON.stringify(data),
+    });
+    if (res.token) setStoredToken(res.token);
+    return res;
   },
 
   login: async (email: string, password: string): Promise<AuthResponse> => {
-    try {
-      const res = await fetchWithAuth('/api/auth/login', {
-        method: 'POST',
-        body: JSON.stringify({ email, password }),
-      });
-      if (res.token) setStoredToken(res.token);
-      return res;
-    } catch {
-      const token = 'tok_' + Date.now();
-      setStoredToken(token);
-      const user: User = {
-        id: 'usr_' + Date.now(),
-        name: email.split('@')[0],
-        email: email,
-        role: 'artisan',
-        businessName: `${email.split('@')[0]}'s Business`,
-        location: 'India',
-        subscriptionPlan: 'free',
-        createdAt: new Date().toISOString(),
-      };
-      return { token, user };
-    }
+    const res = await fetchWithAuth('/api/auth/login', {
+      method: 'POST',
+      body: JSON.stringify({ email, password }),
+    });
+    if (res.token) setStoredToken(res.token);
+    return res;
   },
 
-  googleSignIn: async (name: string = 'Google User', email: string = 'user@gmail.com'): Promise<AuthResponse> => {
-    try {
-      const res = await fetchWithAuth('/api/auth/google', {
-        method: 'POST',
-        body: JSON.stringify({ name, email }),
-      });
-      if (res.token) setStoredToken(res.token);
-      return res;
-    } catch {
-      const token = 'tok_g_' + Date.now();
-      setStoredToken(token);
-      const user: User = {
-        id: 'usr_g_' + Date.now(),
-        name,
-        email,
-        role: 'artisan',
-        businessName: `${name}'s Craft Studio`,
-        location: 'India',
-        subscriptionPlan: 'free',
-        createdAt: new Date().toISOString(),
-      };
-      return { token, user };
-    }
+  googleSignIn: async (name: string, email: string, supabaseUserId?: string, avatarUrl?: string): Promise<AuthResponse> => {
+    return authApi.syncSupabaseUser({
+      supabase_user_id: supabaseUserId,
+      email,
+      full_name: name,
+      profile_image: avatarUrl,
+    });
   },
 
   getMe: async (): Promise<{ user: User }> => {
-    try {
-      return await fetchWithAuth('/api/auth/me');
-    } catch {
-      return {
-        user: {
-          id: 'usr_demo_1',
-          name: 'Sunita Devi',
-          email: 'sunita@graminart.in',
-          role: 'artisan',
-          businessName: 'Sunita Hastkala SHG',
-          location: 'Madhubani, Bihar',
-          subscriptionPlan: 'pro',
-          createdAt: new Date().toISOString(),
-        }
-      };
-    }
+    return await fetchWithAuth('/api/auth/me');
   },
 
   changePassword: async (currentPassword: string, newPassword: string): Promise<{ status: string; message: string }> => {
-    try {
-      return await fetchWithAuth('/api/auth/change-password', {
-        method: 'POST',
-        body: JSON.stringify({ currentPassword, newPassword }),
-      });
-    } catch {
-      return { status: 'success', message: 'Password updated successfully.' };
-    }
+    return await fetchWithAuth('/api/auth/change-password', {
+      method: 'POST',
+      body: JSON.stringify({ currentPassword, newPassword }),
+    });
   },
 };
 
@@ -230,64 +125,17 @@ export const dashboardApi = {
     user: Partial<User>;
     stats: BusinessHealthStats;
     tasks: TaskItem[];
+    recentProducts?: Product[];
+    recentActivity?: any[];
   }> => {
-    try {
-      return await fetchWithAuth('/api/dashboard');
-    } catch {
-      return {
-        user: {
-          name: 'Sunita Devi',
-          businessName: 'Sunita Hastkala SHG',
-          role: 'artisan',
-          subscriptionPlan: 'pro',
-        },
-        stats: {
-          totalProducts: 2,
-          marketplaceReadyCount: 2,
-          monthlyViews: 1420,
-          inquiriesReceived: 38,
-          healthScore: 88,
-          activeOrders: 5,
-        },
-        tasks: [
-          {
-            id: 'tsk_1',
-            title: 'Upload bright daylight photos for Terracotta Matka',
-            description: 'Good lighting increases marketplace conversion by 30%.',
-            category: 'image',
-            completed: false,
-            dueDate: 'Today',
-          },
-          {
-            id: 'tsk_2',
-            title: 'Connect catalog to ONDC (Open Network for Digital Commerce)',
-            description: 'Your Madhubani Canvas is 95% ready for ONDC.',
-            category: 'marketplace',
-            completed: false,
-            dueDate: 'Today',
-          },
-          {
-            id: 'tsk_3',
-            title: 'Ask KRIVIO Voice Mentor about NABARD craft grant',
-            description: 'Get step-by-step guidance on government subsidies for artisans.',
-            category: 'mentor',
-            completed: true,
-            dueDate: 'Yesterday',
-          }
-        ],
-      };
-    }
+    return await fetchWithAuth('/api/dashboard');
   },
 
-  toggleTask: async (taskId: string): Promise<{ success: boolean; tasks: TaskItem[] }> => {
-    try {
-      return await fetchWithAuth('/api/tasks/toggle', {
-        method: 'POST',
-        body: JSON.stringify({ taskId }),
-      });
-    } catch {
-      return { success: true, tasks: [] };
-    }
+  toggleTask: async (taskId: string): Promise<{ success: boolean; tasks?: TaskItem[] }> => {
+    return await fetchWithAuth('/api/tasks/toggle', {
+      method: 'POST',
+      body: JSON.stringify({ taskId }),
+    });
   },
 };
 
@@ -297,248 +145,120 @@ export const aiMentorApi = {
     language: string = 'English',
     conversationHistory: MentorMessage[] = []
   ): Promise<{ reply: string; language: string; timestamp: string }> => {
-    // 1. Try backend endpoint first
     try {
       return await fetchWithAuth('/api/ai/mentor', {
         method: 'POST',
         body: JSON.stringify({ message, language, conversationHistory }),
       });
     } catch (backendErr) {
-      console.warn('Backend API unavailable, using direct Gemini AI engine:', backendErr);
+      console.warn('Backend mentor API unavailable, falling back to direct browser Gemini engine:', backendErr);
     }
 
-    // 2. Direct Gemini AI Fallback in browser
-    try {
-      const ai = getClientAI();
-      if (!ai) throw new Error('Gemini AI client not initialized');
-
-      const systemPrompt = `You are KRIVIO AI, a friendly, practical voice-first AI business mentor for rural entrepreneurs in India (artisans, Self-Help Groups - SHGs, small farmers, potters, weavers, and craftspeople).
-Topics: pricing craft products, selling on ONDC/Amazon Karigar/Meesho/Etsy, government schemes (PM Vishwakarma, MUDRA, NABARD), taking smartphone photos.
+    const ai = getClientAI();
+    if (ai) {
+      try {
+        const systemPrompt = `You are KRIVIO AI, a friendly, practical voice-first AI business mentor for rural entrepreneurs in India (artisans, SHGs, farmers, potters, weavers).
+Topics: pricing craft products, selling on ONDC/Amazon Karigar/Meesho/Etsy, government schemes (PM Vishwakarma, MUDRA, NABARD), taking photos.
 Language: ${language}. Keep response clear, encouraging, warm, and concise (under 180 words) for voice output.`;
 
-      const formattedHistory = conversationHistory.slice(-6).map((msg) => ({
-        role: msg.sender === 'user' ? 'user' : 'model',
-        parts: [{ text: msg.text }],
-      }));
+        const formattedHistory = conversationHistory.slice(-6).map((msg) => ({
+          role: msg.sender === 'user' ? 'user' : 'model',
+          parts: [{ text: msg.text }],
+        }));
 
-      const response = await ai.models.generateContent({
-        model: 'gemini-3.6-flash',
-        contents: [
-          ...formattedHistory,
-          { role: 'user', parts: [{ text: message }] }
-        ],
-        config: {
-          systemInstruction: systemPrompt,
-          temperature: 0.7,
-        },
-      });
+        const response = await ai.models.generateContent({
+          model: 'gemini-2.5-flash',
+          contents: [
+            ...formattedHistory,
+            { role: 'user', parts: [{ text: message }] }
+          ],
+          config: {
+            systemInstruction: systemPrompt,
+            temperature: 0.7,
+          },
+        });
 
-      const replyText = response.text || 'Namaste! I am here to help your rural business grow. What would you like to plan today?';
-
-      return {
-        reply: replyText,
-        language,
-        timestamp: new Date().toISOString(),
-      };
-    } catch (aiErr: any) {
-      console.warn('Gemini direct AI notice:', aiErr);
-      const lower = message.toLowerCase();
-      let reply = 'Namaste! I am KRIVIO AI. To calculate fair pricing: (Raw Material Cost) + (Labor Hours × Fair Wage) + 20% Margin. You can also list products on ONDC via Mystore or Plotch!';
-      if (lower.includes('ondc') || lower.includes('market') || lower.includes('sell')) {
-        reply = 'To list on ONDC: 1. Keep your Udyam/GST registration ready, 2. Add bank account for payouts, 3. Upload clear product photos with descriptions in our Product Studio!';
-      } else if (lower.includes('price') || lower.includes('cost')) {
-        reply = 'Formula for craft pricing: Add (Raw Material Cost) + (Labor Hours × Daily Wage) + 20% Profit. For example, ₹400 materials + ₹800 labor = ₹1,450 to ₹1,800 retail price.';
-      } else if (lower.includes('loan') || lower.includes('scheme') || lower.includes('grant')) {
-        reply = 'Top schemes for artisans: 1. PM Vishwakarma (toolkit support ₹15,000 + 5% loan up to ₹3 Lakh), 2. MUDRA loan (up to ₹5 Lakh), and 3. NABARD SHG grants.';
+        return {
+          reply: response.text || 'Namaste! I am here to help your rural business grow. What would you like to plan today?',
+          language,
+          timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
+        };
+      } catch (aiErr) {
+        console.warn('Direct AI error:', aiErr);
       }
-      return {
-        reply,
-        language,
-        timestamp: new Date().toISOString(),
-      };
     }
+
+    return {
+      reply: 'Namaste! I am KRIVIO AI. To calculate fair pricing: (Raw Material Cost) + (Labor Hours × Fair Wage) + 20% Margin. You can also list products on ONDC via Mystore or Plotch!',
+      language,
+      timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
+    };
   },
 };
 
 export const businessProfileApi = {
   get: async (): Promise<{ businessProfile: BusinessProfile }> => {
-    try {
-      return await fetchWithAuth('/api/business-profile');
-    } catch {
-      const saved = localStorage.getItem(PROFILE_STORAGE_KEY);
-      if (saved) return { businessProfile: JSON.parse(saved) };
-      return {
-        businessProfile: {
-          id: 'bp_1',
-          userId: 'usr_demo_1',
-          businessName: 'Sunita Hastkala SHG',
-          craftType: 'Handmade Terracotta & Madhubani Art',
-          story: 'Generational rural craftsperson creating sustainable, eco-friendly terracotta cookware and folk paintings.',
-          state: 'Bihar',
-          district: 'Madhubani',
-          village: 'Ranti',
-          phone: '+91 98765 43210',
-          annualRevenue: '₹2,40,000',
-          growthRate: 18,
-          primaryChannels: ['Local Haat', 'ONDC', 'Exhibitions'],
-          createdAt: new Date().toISOString(),
-          updatedAt: new Date().toISOString(),
-        }
-      };
-    }
+    return await fetchWithAuth('/api/business-profile');
   },
 
   create: async (data: Partial<BusinessProfile>): Promise<{ businessProfile: BusinessProfile; message?: string }> => {
-    try {
-      return await fetchWithAuth('/api/business-profile', {
-        method: 'POST',
-        body: JSON.stringify(data),
-      });
-    } catch {
-      const profile = { ...data, id: 'bp_' + Date.now(), updatedAt: new Date().toISOString() } as BusinessProfile;
-      localStorage.setItem(PROFILE_STORAGE_KEY, JSON.stringify(profile));
-      return { businessProfile: profile, message: 'Profile saved locally.' };
-    }
+    return await fetchWithAuth('/api/business-profile', {
+      method: 'POST',
+      body: JSON.stringify(data),
+    });
   },
 
   update: async (data: Partial<BusinessProfile>): Promise<{ businessProfile: BusinessProfile; message?: string }> => {
-    try {
-      return await fetchWithAuth('/api/business-profile', {
-        method: 'PUT',
-        body: JSON.stringify(data),
-      });
-    } catch {
-      const profile = { ...data, updatedAt: new Date().toISOString() } as BusinessProfile;
-      localStorage.setItem(PROFILE_STORAGE_KEY, JSON.stringify(profile));
-      return { businessProfile: profile, message: 'Profile updated locally.' };
-    }
+    return await fetchWithAuth('/api/business-profile', {
+      method: 'PUT',
+      body: JSON.stringify(data),
+    });
   },
 
   delete: async (): Promise<{ success: boolean }> => {
-    try {
-      return await fetchWithAuth('/api/business-profile', { method: 'DELETE' });
-    } catch {
-      localStorage.removeItem(PROFILE_STORAGE_KEY);
-      return { success: true };
-    }
+    return await fetchWithAuth('/api/business-profile', { method: 'DELETE' });
   },
 };
 
 export const productsApi = {
   getAll: async (params?: { search?: string; category?: string; status?: string; sort?: string }): Promise<{ products: Product[] }> => {
-    try {
-      const query = new URLSearchParams();
-      if (params?.search) query.append('search', params.search);
-      if (params?.category) query.append('category', params.category);
-      if (params?.status) query.append('status', params.status);
-      if (params?.sort) query.append('sort', params.sort);
-      const queryString = query.toString() ? `?${query.toString()}` : '';
-      return await fetchWithAuth(`/api/products${queryString}`);
-    } catch {
-      let products = getStoredProducts();
-      if (params?.search) {
-        const q = params.search.toLowerCase();
-        products = products.filter(p => p.title.toLowerCase().includes(q) || p.description.toLowerCase().includes(q));
-      }
-      if (params?.category && params.category !== 'all') {
-        products = products.filter(p => p.category === params.category);
-      }
-      return { products };
-    }
+    const query = new URLSearchParams();
+    if (params?.search) query.append('search', params.search);
+    if (params?.category) query.append('category', params.category);
+    if (params?.status) query.append('status', params.status);
+    if (params?.sort) query.append('sort', params.sort);
+    const queryString = query.toString() ? `?${query.toString()}` : '';
+    return await fetchWithAuth(`/api/products${queryString}`);
   },
 
   getById: async (id: string): Promise<{ product: Product }> => {
-    try {
-      return await fetchWithAuth(`/api/products/${id}`);
-    } catch {
-      const products = getStoredProducts();
-      const product = products.find(p => p.id === id) || products[0];
-      return { product };
-    }
+    return await fetchWithAuth(`/api/products/${id}`);
   },
 
   create: async (data: Partial<Product>): Promise<{ product: Product; warning?: string }> => {
-    try {
-      return await fetchWithAuth('/api/products', {
-        method: 'POST',
-        body: JSON.stringify(data),
-      });
-    } catch {
-      const newProduct: Product = {
-        id: 'prod_' + Date.now(),
-        userId: 'usr_demo_1',
-        title: data.title || 'New Artisan Product',
-        description: data.description || '',
-        category: data.category || 'Handicrafts & Art',
-        price: data.price || 500,
-        currency: 'INR',
-        keywords: data.keywords || ['handmade', 'rural craft'],
-        imageUrls: data.imageUrls || [],
-        isMarketplaceReady: data.isMarketplaceReady ?? true,
-        readinessScore: data.readinessScore || 85,
-        marketplaces: data.marketplaces || ['ONDC', 'Amazon Karigar'],
-        stock: data.stock || 10,
-        createdAt: new Date().toISOString(),
-        updatedAt: new Date().toISOString(),
-      };
-      const products = [newProduct, ...getStoredProducts()];
-      saveStoredProducts(products);
-      return { product: newProduct };
-    }
+    return await fetchWithAuth('/api/products', {
+      method: 'POST',
+      body: JSON.stringify(data),
+    });
   },
 
   update: async (id: string, data: Partial<Product>): Promise<{ product: Product }> => {
-    try {
-      return await fetchWithAuth(`/api/products/${id}`, {
-        method: 'PUT',
-        body: JSON.stringify(data),
-      });
-    } catch {
-      const products = getStoredProducts();
-      const idx = products.findIndex(p => p.id === id);
-      if (idx !== -1) {
-        products[idx] = { ...products[idx], ...data, updatedAt: new Date().toISOString() };
-        saveStoredProducts(products);
-        return { product: products[idx] };
-      }
-      return { product: { id, ...data } as Product };
-    }
+    return await fetchWithAuth(`/api/products/${id}`, {
+      method: 'PUT',
+      body: JSON.stringify(data),
+    });
   },
 
   delete: async (id: string): Promise<{ success: boolean }> => {
-    try {
-      return await fetchWithAuth(`/api/products/${id}`, { method: 'DELETE' });
-    } catch {
-      const products = getStoredProducts().filter(p => p.id !== id);
-      saveStoredProducts(products);
-      return { success: true };
-    }
+    return await fetchWithAuth(`/api/products/${id}`, { method: 'DELETE' });
   },
 
   duplicate: async (id: string): Promise<{ product: Product; message: string }> => {
-    try {
-      return await fetchWithAuth(`/api/products/${id}/duplicate`, { method: 'POST' });
-    } catch {
-      const products = getStoredProducts();
-      const orig = products.find(p => p.id === id) || products[0];
-      const dup: Product = {
-        ...orig,
-        id: 'prod_' + Date.now(),
-        title: `${orig.title} (Copy)`,
-        createdAt: new Date().toISOString(),
-        updatedAt: new Date().toISOString(),
-      };
-      saveStoredProducts([dup, ...products]);
-      return { product: dup, message: 'Product duplicated successfully.' };
-    }
+    return await fetchWithAuth(`/api/products/${id}/duplicate`, { method: 'POST' });
   },
 
   archive: async (id: string): Promise<{ success: boolean; message: string }> => {
-    try {
-      return await fetchWithAuth(`/api/products/${id}/archive`, { method: 'POST' });
-    } catch {
-      return { success: true, message: 'Product archived.' };
-    }
+    return await fetchWithAuth(`/api/products/${id}/archive`, { method: 'POST' });
   },
 
   generateDetails: async (params: {
@@ -553,14 +273,13 @@ export const productsApi = {
         body: JSON.stringify(params),
       });
     } catch (backendErr) {
-      console.warn('Backend API unavailable, using direct Gemini AI generator:', backendErr);
+      console.warn('Backend generation API note:', backendErr);
     }
 
-    try {
-      const ai = getClientAI();
-      if (!ai) throw new Error('AI client not initialized');
-
-      const prompt = `Act as an e-commerce marketing specialist for rural artisans and SHGs.
+    const ai = getClientAI();
+    if (ai) {
+      try {
+        const prompt = `Act as an e-commerce marketing specialist for rural artisans and SHGs.
 Input Product details:
 - Name/Concept: ${params.rawName || 'Handcrafted item'}
 - Craft Type: ${params.craftType || 'Artisan Craft'}
@@ -575,28 +294,27 @@ Generate JSON with:
 5. "keywords": Array of 5-8 search tags
 6. "readinessScore": Integer 80-98`;
 
-      const response = await ai.models.generateContent({
-        model: 'gemini-3.6-flash',
-        contents: prompt,
-        config: {
-          responseMimeType: 'application/json',
-        },
-      });
-
-      const parsedData = JSON.parse(response.text || '{}');
-      return { data: parsedData };
-    } catch {
-      return {
-        data: {
-          title: `Authentic Handcrafted ${params.rawName || 'Heritage Art Piece'}`,
-          description: `Lovingly handcrafted by skilled rural artisans using authentic traditional techniques and sustainably sourced ${params.materials || 'natural materials'}. Each piece reflects generations of cultural heritage, offering timeless aesthetic charm for modern homes.`,
-          category: params.craftType || 'Handicrafts & Art',
-          suggestedPrice: Number(params.targetPrice) || 850,
-          keywords: ['handmade', 'rural craft', 'artisan made', 'eco friendly', 'traditional'],
-          readinessScore: 92,
-        }
-      };
+        const response = await ai.models.generateContent({
+          model: 'gemini-2.5-flash',
+          contents: prompt,
+          config: {
+            responseMimeType: 'application/json',
+          },
+        });
+        return { data: JSON.parse(response.text || '{}') };
+      } catch {}
     }
+
+    return {
+      data: {
+        title: `Authentic Handcrafted ${params.rawName || 'Heritage Art Piece'}`,
+        description: `Lovingly handcrafted by skilled rural artisans using authentic traditional techniques and sustainably sourced ${params.materials || 'natural materials'}. Each piece reflects generations of cultural heritage.`,
+        category: params.craftType || 'Handicrafts & Art',
+        suggestedPrice: Number(params.targetPrice) || 850,
+        keywords: ['handmade', 'rural craft', 'artisan made', 'eco friendly', 'traditional'],
+        readinessScore: 92,
+      },
+    };
   },
 
   suggestBrand: async (params: {
@@ -617,7 +335,7 @@ Generate JSON with:
           { name: 'HastKraft', meaning: 'Handmade Craft', whyItFits: 'Simple, memorable, and highlights handmade origin', personality: 'Traditional & Handmade', tagline: 'Made with hands, made with heart' },
           { name: 'MittiMool', meaning: 'Earth Root', whyItFits: 'Reflects natural materials and rural heritage', personality: 'Natural & Earthy', tagline: 'Rooted in tradition' },
           { name: 'BharatHast', meaning: "India's Hands", whyItFits: 'Artisan focused identity', personality: 'Authentic & Artisan', tagline: 'Crafted for India, loved by the world' },
-        ]
+        ],
       };
     }
   },
@@ -662,7 +380,7 @@ Generate JSON with:
           suggestedKeywords: ['handmade', 'rural artisan', 'authentic craft', 'traditional'],
           suggestedPrice: 850,
           category: 'Handicrafts & Art',
-        }
+        },
       };
     }
   },
@@ -670,23 +388,20 @@ Generate JSON with:
 
 export const imagesApi = {
   analyze: async (imageBase64: string): Promise<{ analysis: ImageAnalysis }> => {
-    // 1. Try backend endpoint first
     try {
       return await fetchWithAuth('/api/images/analyze', {
         method: 'POST',
         body: JSON.stringify({ imageBase64 }),
       });
     } catch (backendErr) {
-      console.warn('Backend API unavailable, analyzing directly via Gemini Vision:', backendErr);
+      console.warn('Backend image API note:', backendErr);
     }
 
-    // 2. Direct Gemini Vision AI Fallback in browser
-    try {
-      const ai = getClientAI();
-      if (!ai) throw new Error('AI client not initialized');
-
-      const cleanBase64 = imageBase64.replace(/^data:image\/\w+;base64,/, '');
-      const prompt = `Act as an e-commerce product photography advisor for rural artisans. Analyze this product photo for selling online on Amazon, ONDC, Meesho, and Etsy.
+    const ai = getClientAI();
+    if (ai) {
+      try {
+        const cleanBase64 = imageBase64.replace(/^data:image\/\w+;base64,/, '');
+        const prompt = `Act as an e-commerce product photography advisor for rural artisans. Analyze this product photo for selling online on Amazon, ONDC, Meesho, and Etsy.
 Evaluate:
 1. Lighting quality (0-100)
 2. Background clarity (0-100)
@@ -702,176 +417,84 @@ Return JSON with:
 "suggestions": string array with 3 tips,
 "detectedSubject": string`;
 
-      const response = await ai.models.generateContent({
-        model: 'gemini-3.6-flash',
-        contents: {
-          parts: [
-            { inlineData: { mimeType: 'image/jpeg', data: cleanBase64 } },
-            { text: prompt },
-          ],
-        },
-        config: {
-          responseMimeType: 'application/json',
-        },
-      });
+        const response = await ai.models.generateContent({
+          model: 'gemini-2.5-flash',
+          contents: {
+            parts: [
+              { inlineData: { mimeType: 'image/jpeg', data: cleanBase64 } },
+              { text: prompt },
+            ],
+          },
+          config: {
+            responseMimeType: 'application/json',
+          },
+        });
 
-      const analysis = JSON.parse(response.text || '{}');
-      return { analysis };
-    } catch (aiErr) {
-      console.warn('Gemini vision direct notice:', aiErr);
-      return {
-        analysis: {
-          id: `img_${Date.now()}`,
-          imageUrl: imageBase64,
-          lightingScore: 85,
-          backgroundScore: 88,
-          overallScore: 86,
-          lightingFeedback: 'Good natural lighting detected. Clear definition of the handcrafted product contours.',
-          backgroundFeedback: 'Clean and non-distracting background suitable for online marketplace listings.',
-          suggestions: [
-            'Shoot in morning natural daylight near a window for optimal warmth.',
-            'Place a plain white paper or cloth underneath for clean contrast.',
-            'Include one close-up shot showing fine texture and craftsmanship.',
-          ],
-          detectedSubject: 'Handcrafted Artisan Product',
-          createdAt: new Date().toISOString(),
-        }
-      };
+        const parsed = JSON.parse(response.text || '{}');
+        return {
+          analysis: {
+            id: `img_${Date.now()}`,
+            imageUrl: imageBase64,
+            ...parsed,
+            createdAt: new Date().toISOString(),
+          },
+        };
+      } catch (aiErr) {
+        console.warn('Direct vision AI note:', aiErr);
+      }
     }
+
+    return {
+      analysis: {
+        id: `img_${Date.now()}`,
+        imageUrl: imageBase64,
+        lightingScore: 82,
+        backgroundScore: 85,
+        overallScore: 84,
+        lightingFeedback: 'Good natural lighting detected. Clear visibility of contours.',
+        backgroundFeedback: 'Clean neutral backdrop suitable for online marketplace listings.',
+        suggestions: [
+          'Shoot in morning natural daylight near a window for optimal warmth.',
+          'Place a plain white paper or cloth underneath for clean contrast.',
+          'Include one close-up shot showing fine texture and craftsmanship.',
+        ],
+        detectedSubject: 'Handcrafted Artisan Product',
+        createdAt: new Date().toISOString(),
+      },
+    };
   },
 };
 
 export const marketplaceApi = {
   getRecommendations: async (): Promise<{ channels: ChannelRecommendation[] }> => {
-    try {
-      return await fetchWithAuth('/api/marketplace/recommendations');
-    } catch {
-      return {
-        channels: [
-          {
-            channelId: 'ondc',
-            channelName: 'ONDC (Open Network for Digital Commerce)',
-            logo: '🌐',
-            fitScore: 96,
-            description: 'Government-backed open commerce network connecting rural artisans directly to buyers nationwide.',
-            benefits: ['0% platform lock-in fees', 'Direct daily bank payouts', 'National discovery via Paytm & Mystore'],
-            requirements: ['Udyam / GST registration', 'Bank account details', 'At least 1 listed product with SKU'],
-            isEligible: true,
-          },
-          {
-            channelId: 'amazon_karigar',
-            channelName: 'Amazon Karigar',
-            logo: '📦',
-            fitScore: 92,
-            description: 'Dedicated storefront highlighting authentic handmade Indian crafts with subsidized fees.',
-            benefits: ['Karigar verified badge', 'Free onboarding assistance', 'Pan-India Prime delivery'],
-            requirements: ['Artisan ID / Craft Certificate', 'GST details', '3 product listings with photos'],
-            isEligible: true,
-          },
-          {
-            channelId: 'flipkart_samarth',
-            channelName: 'Flipkart Samarth',
-            logo: '🛍️',
-            fitScore: 89,
-            description: 'Program empowering weavers and rural SHGs with 0% commission waivers for 6 months.',
-            benefits: ['0% commission for 6 months', 'Dedicated onboarding manager', 'Fulfillment support'],
-            requirements: ['SHG certificate / Udyam ID', 'Clean white-background photos', 'Stock count > 0'],
-            isEligible: true,
-          },
-          {
-            channelId: 'meesho',
-            channelName: 'Meesho Micro-Seller',
-            logo: '🏷️',
-            fitScore: 94,
-            description: 'High-volume zero-commission platform ideal for mass-selling rural crafts across Tier-2/3 cities.',
-            benefits: ['0% commission fee', 'Zero penalty on cancellations', 'Massive regional buyer reach'],
-            requirements: ['GSTIN or Enrolment ID', 'Active bank account', 'Basic product dimensions'],
-            isEligible: true,
-          },
-          {
-            channelId: 'etsy_india',
-            channelName: 'Etsy Global & India',
-            logo: '🎨',
-            fitScore: 87,
-            description: 'Premier global marketplace for authentic handmade art commanding premium export prices.',
-            benefits: ['International buyers in USD/EUR', 'Higher profit margins', 'Artisan story-first storefront'],
-            requirements: ['PayPal / Razorpay for payouts', 'English craft story', 'Safe international packaging'],
-            isEligible: true,
-          },
-          {
-            channelId: 'gem',
-            channelName: 'Government e-Marketplace (GeM)',
-            logo: '🏛️',
-            fitScore: 80,
-            description: 'Official procurement portal for supplying handmade goods directly to government departments.',
-            benefits: ['Direct bulk government orders', 'Guaranteed milestone payments', 'MSME reservations'],
-            requirements: ['Udyam Certificate', 'GST registration', 'Artisan Guild ID'],
-            isEligible: false,
-          }
-        ]
-      };
-    }
+    return await fetchWithAuth('/api/marketplace/recommendations');
   },
 };
 
 export const paymentsApi = {
   createOrder: async (plan: string = 'pro', amount: number = 299): Promise<PaymentOrder> => {
-    try {
-      return await fetchWithAuth('/api/payments/create-order', {
-        method: 'POST',
-        body: JSON.stringify({ plan, amount }),
-      });
-    } catch {
-      return {
-        id: 'order_' + Date.now(),
-        amount: amount * 100,
-        currency: 'INR',
-        keyId: 'rzp_test_krivio123',
-        plan,
-      };
-    }
+    return await fetchWithAuth('/api/payments/create-order', {
+      method: 'POST',
+      body: JSON.stringify({ plan, amount }),
+    });
   },
 
   verifyPayment: async (data: {
     razorpayPaymentId: string;
-    razorpayOrderId: string;
+    razorpayOrderId?: string;
   }): Promise<{ success: boolean; subscriptionPlan: string; message: string }> => {
-    try {
-      return await fetchWithAuth('/api/payments/verify', {
-        method: 'POST',
-        body: JSON.stringify(data),
-      });
-    } catch {
-      return { success: true, subscriptionPlan: 'pro', message: 'Subscription activated successfully!' };
-    }
+    return await fetchWithAuth('/api/payments/verify', {
+      method: 'POST',
+      body: JSON.stringify(data),
+    });
   },
 };
 
 export const storefrontApi = {
-  get: async (userId: string = 'usr_demo_1'): Promise<PublicStorefrontData> => {
-    try {
-      const res = await fetch(`${API_BASE}/api/storefront/${userId}`);
-      if (!res.ok) throw new Error('Storefront fetch error');
-      return await res.json();
-    } catch {
-      const products = getStoredProducts();
-      return {
-        artisan: {
-          id: userId || 'usr_demo_1',
-          name: 'Sunita Devi',
-          businessName: 'Sunita Hastkala SHG',
-          location: 'Madhubani, Bihar',
-          craftType: 'Handmade Terracotta & Madhubani Art',
-          story: 'Generational rural craftsperson creating sustainable, eco-friendly terracotta cookware and sacred Mithila folk paintings with natural botanical dyes.',
-          phone: '+91 98765 43210',
-          isVerified: true,
-          joinedDate: '2025-06-15',
-        },
-        products,
-        totalProducts: products.length,
-      };
-    }
+  get: async (userId: string): Promise<PublicStorefrontData> => {
+    const targetUrl = `${API_BASE}/api/storefront/${userId}`;
+    const res = await fetch(targetUrl);
+    if (!res.ok) throw new Error('Storefront not found');
+    return await res.json();
   },
 };
-
-

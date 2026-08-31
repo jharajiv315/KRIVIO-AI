@@ -94,9 +94,7 @@ export const ProductStudio: React.FC = () => {
     setDimensions('10x10x10 cm');
     setStatus('published');
     setKeywords(['handmade', 'artisan']);
-    setImageUrls([
-      'https://images.unsplash.com/photo-1579783900882-c0d3dad7b119?w=600&auto=format&fit=crop',
-    ]);
+    setImageUrls([]);
     setNewImageUrl('');
     setFormError('');
     setWarningMsg('');
@@ -384,14 +382,25 @@ export const ProductStudio: React.FC = () => {
           ))}
         </div>
       ) : products.length === 0 ? (
-        <div className="text-center py-16 bg-white dark:bg-[#13251B] rounded-3xl border border-[#0F5132]/15 dark:border-emerald-800/60 space-y-4">
-          <div className="w-12 h-12 rounded-full bg-stone-100 dark:bg-[#183023] text-stone-400 dark:text-emerald-400/60 mx-auto flex items-center justify-center">
-            <Package className="w-6 h-6" />
+        <div className="text-center py-16 bg-white dark:bg-[#13251B] rounded-3xl border border-[#0F5132]/15 dark:border-emerald-800/60 space-y-5">
+          <div className="w-14 h-14 rounded-full bg-[#0F5132]/10 dark:bg-emerald-950 text-[#0F5132] dark:text-[#34D399] mx-auto flex items-center justify-center">
+            <Package className="w-7 h-7" />
           </div>
-          <h3 className="text-sm font-bold text-stone-900 dark:text-white font-poppins">No products found</h3>
-          <p className="text-xs text-stone-500 dark:text-emerald-300/70 max-w-sm mx-auto">
-            Click "Add New Product" above to create your first item or auto-generate details with AI.
-          </p>
+          <div className="space-y-1">
+            <h3 className="text-base font-bold text-stone-900 dark:text-white font-poppins">
+              You haven't added any products yet.
+            </h3>
+            <p className="text-xs text-stone-500 dark:text-emerald-300/70 max-w-sm mx-auto font-inter">
+              Start building your rural business catalog. Add your handcrafted creations or let AI draft your titles and stories.
+            </p>
+          </div>
+          <button
+            onClick={openNewProductModal}
+            className="px-6 py-2.5 bg-[#0F5132] hover:bg-[#0B3D26] text-white font-bold text-xs rounded-xl shadow-md transition-all inline-flex items-center gap-2 font-poppins cursor-pointer active:scale-98"
+          >
+            <Plus className="w-4 h-4" />
+            <span>Create Your First Product</span>
+          </button>
         </div>
       ) : (
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5 sm:gap-6">

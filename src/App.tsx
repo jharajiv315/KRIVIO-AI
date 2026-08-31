@@ -39,7 +39,7 @@ const MainContent: React.FC = () => {
   if (currentTab === 'public-store') {
     return (
       <PublicStorefront
-        userId={publicStoreId || 'usr_demo_1'}
+        userId={publicStoreId || ''}
         onNavigateHome={() => {
           // Clear search params cleanly
           window.history.pushState({}, '', window.location.pathname);

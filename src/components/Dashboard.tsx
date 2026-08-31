@@ -67,6 +67,7 @@ export const Dashboard: React.FC<DashboardProps> = ({ currentTab, setCurrentTab,
   const [stats, setStats] = useState<BusinessHealthStats | null>(null);
   const [tasks, setTasks] = useState<TaskItem[]>([]);
   const [recentProducts, setRecentProducts] = useState<Product[]>([]);
+  const [recentActivity, setRecentActivity] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [isSidebarCollapsed, setIsSidebarCollapsed] = useState(false);
   const [mobileDrawerOpen, setMobileDrawerOpen] = useState(false);
@@ -78,12 +79,13 @@ export const Dashboard: React.FC<DashboardProps> = ({ currentTab, setCurrentTab,
     try {
       setLoading(true);
       const [data, prodRes] = await Promise.all([
-        dashboardApi.getStats(),
+        dashboardApi.getStats().catch(() => ({ stats: null, tasks: [], recentActivity: [] })),
         productsApi.getAll().catch(() => ({ products: [] })),
       ]);
-      setStats(data.stats);
-      setTasks(data.tasks);
-      setRecentProducts(prodRes.products || []);
+      if (data?.stats) setStats(data.stats);
+      if (data?.tasks) setTasks(data.tasks);
+      setRecentProducts(prodRes?.products || (data as any)?.recentProducts || []);
+      setRecentActivity((data as any)?.recentActivity || []);
     } catch (err) {
       console.error('Failed to load workspace data', err);
     } finally {
@@ -178,7 +180,7 @@ export const Dashboard: React.FC<DashboardProps> = ({ currentTab, setCurrentTab,
   const renderActiveView = () => {
     switch (currentTab) {
       case 'storefront':
-        return <PublicStorefront userId={user?.id || 'usr_demo_1'} onNavigateHome={() => setCurrentTab('dashboard')} />;
+        return <PublicStorefront userId={user?.id || ''} onNavigateHome={() => setCurrentTab('dashboard')} />;
       case 'business-profile':
         return <BusinessProfileView />;
       case 'products':
@@ -279,7 +281,7 @@ export const Dashboard: React.FC<DashboardProps> = ({ currentTab, setCurrentTab,
 
                 <button
                   onClick={() => {
-                    const storeUrl = `${window.location.origin}/?store=${user.id || 'usr_demo_1'}`;
+                    const storeUrl = `${window.location.origin}/?store=${user.id}`;
                     navigator.clipboard.writeText(storeUrl);
                     setStoreLinkCopied(true);
                     setTimeout(() => setStoreLinkCopied(false), 2500);
@@ -292,7 +294,7 @@ export const Dashboard: React.FC<DashboardProps> = ({ currentTab, setCurrentTab,
 
                 <a
                   href={`https://wa.me/?text=${encodeURIComponent(
-                    `Namaste! Please explore our authentic handcrafted catalog from ${user.businessName || 'our enterprise'} on KRIVIO AI: ${window.location.origin}/?store=${user.id || 'usr_demo_1'}`
+                    `Namaste! Please explore our authentic handcrafted catalog from ${user.businessName || 'our enterprise'} on KRIVIO AI: ${window.location.origin}/?store=${user.id}`
                   )}`}
                   target="_blank"
                   rel="noopener noreferrer"
@@ -423,12 +425,12 @@ export const Dashboard: React.FC<DashboardProps> = ({ currentTab, setCurrentTab,
                     </div>
                   </div>
                   <div className="text-2xl font-extrabold text-stone-900 dark:text-white font-poppins">
-                    {stats?.healthScore || 80}%
+                    {stats?.healthScore ?? 0}%
                   </div>
                   <div className="w-full bg-stone-100 dark:bg-emerald-950 rounded-full h-1.5 overflow-hidden">
                     <div
                       className="bg-[#0F5132] dark:bg-emerald-400 h-1.5 rounded-full transition-all"
-                      style={{ width: `${stats?.healthScore || 80}%` }}
+                      style={{ width: `${stats?.healthScore ?? 0}%` }}
                     />
                   </div>
                 </div>
@@ -442,7 +444,7 @@ export const Dashboard: React.FC<DashboardProps> = ({ currentTab, setCurrentTab,
                     </div>
                   </div>
                   <div className="text-2xl font-extrabold text-stone-900 dark:text-white font-poppins">
-                    ₹{(stats?.estimatedMonthlyRevenue || 14800).toLocaleString('en-IN')}
+                    ₹{(stats?.estimatedMonthlyRevenue ?? 0).toLocaleString('en-IN')}
                   </div>
                   <p className="text-[11px] text-stone-500 dark:text-emerald-300/70">Based on catalog inventory</p>
                 </div>
@@ -589,35 +591,30 @@ export const Dashboard: React.FC<DashboardProps> = ({ currentTab, setCurrentTab,
                   </h3>
 
                   <div className="space-y-3 text-xs">
-                    <div className="flex items-start gap-3 text-stone-600 dark:text-emerald-200/80">
-                      <div className="w-2 h-2 rounded-full bg-[#0F5132] dark:bg-emerald-400 mt-1.5 shrink-0" />
-                      <div>
-                        <p className="font-semibold text-stone-800 dark:text-emerald-100">
-                          Secure Session Active
-                        </p>
-                        <p className="text-[10px] text-stone-400 dark:text-emerald-400/60">Today, 09:10 AM</p>
+                    {recentActivity.length === 0 ? (
+                      <div className="py-6 text-center text-stone-400 dark:text-emerald-400/60 text-xs font-inter">
+                        No recent activity yet. As you add products, complete your profile, or consult your AI mentor, your business actions will appear here.
                       </div>
-                    </div>
-
-                    <div className="flex items-start gap-3 text-stone-600 dark:text-emerald-200/80">
-                      <div className="w-2 h-2 rounded-full bg-[#D4AF37] mt-1.5 shrink-0" />
-                      <div>
-                        <p className="font-semibold text-stone-800 dark:text-emerald-100">
-                          Profile details synchronized & backed up
-                        </p>
-                        <p className="text-[10px] text-stone-400 dark:text-emerald-400/60">Yesterday, 04:15 PM</p>
-                      </div>
-                    </div>
-
-                    <div className="flex items-start gap-3 text-stone-600 dark:text-emerald-200/80">
-                      <div className="w-2 h-2 rounded-full bg-[#2E7D32] mt-1.5 shrink-0" />
-                      <div>
-                        <p className="font-semibold text-stone-800 dark:text-emerald-100">
-                          PM Vishwakarma Scheme eligibility check completed
-                        </p>
-                        <p className="text-[10px] text-stone-400 dark:text-emerald-400/60">2 days ago</p>
-                      </div>
-                    </div>
+                    ) : (
+                      recentActivity.map((act: any) => (
+                        <div key={act.id} className="flex items-start gap-3 text-stone-600 dark:text-emerald-200/80">
+                          <div className="w-2 h-2 rounded-full bg-[#0F5132] dark:bg-emerald-400 mt-1.5 shrink-0" />
+                          <div>
+                            <p className="font-semibold text-stone-800 dark:text-emerald-100">
+                              {act.title}
+                            </p>
+                            {act.description && (
+                              <p className="text-[11px] text-stone-500 dark:text-emerald-300/70">
+                                {act.description}
+                              </p>
+                            )}
+                            <p className="text-[10px] text-stone-400 dark:text-emerald-400/60">
+                              {act.createdAt ? new Date(act.createdAt).toLocaleString([], { dateStyle: 'short', timeStyle: 'short' }) : 'Recently'}
+                            </p>
+                          </div>
+                        </div>
+                      ))
+                    )}
                   </div>
                 </div>
               </div>

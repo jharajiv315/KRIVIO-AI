@@ -22,26 +22,9 @@ export const ImageStudio: React.FC = () => {
   const [mode, setMode] = useState<StudioMode>('diagnosis');
 
   // Photo Diagnosis state
-  const [selectedImage, setSelectedImage] = useState<string | null>(
-    'https://images.unsplash.com/photo-1578749556568-bc2c40e68b61?w=600&auto=format&fit=crop'
-  );
+  const [selectedImage, setSelectedImage] = useState<string | null>(null);
   const [analyzing, setAnalyzing] = useState(false);
-  const [analysis, setAnalysis] = useState<ImageAnalysis | null>({
-    id: 'img_sample',
-    imageUrl: 'https://images.unsplash.com/photo-1578749556568-bc2c40e68b61?w=600&auto=format&fit=crop',
-    lightingScore: 78,
-    backgroundScore: 84,
-    overallScore: 81,
-    lightingFeedback: 'Good natural illumination detected. Reducing soft shadows on the left side will enhance texture details.',
-    backgroundFeedback: 'Clean neutral backdrop. Removes visual clutter and keeps focus entirely on the terracotta craft.',
-    suggestions: [
-      'Place your product near an open window between 8 AM - 10 AM for soft morning sunlight.',
-      'Use a plain white chart paper sheet underneath to create a seamless background.',
-      'Take 1 close-up picture capturing the intricate handmade clay texture.',
-    ],
-    detectedSubject: 'Terracotta Pottery Craft',
-    createdAt: new Date().toISOString(),
-  });
+  const [analysis, setAnalysis] = useState<ImageAnalysis | null>(null);
 
   const handleFileUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
