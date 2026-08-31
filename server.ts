@@ -231,6 +231,9 @@ app.post('/api/auth/supabase-sync', async (req: Request, res: Response) => {
       { expiresIn: '7d' }
     );
 
+    const subRes = await queryPg(`SELECT plan, status, end_date FROM subscriptions WHERE user_id = $1`, [user.id]);
+    const subPlan = subRes.rows[0]?.plan || 'free';
+
     res.json({
       token,
       access_token: token,
@@ -247,6 +250,9 @@ app.post('/api/auth/supabase-sync', async (req: Request, res: Response) => {
         role: user.role,
         is_active: user.is_active,
         is_verified: user.is_verified,
+        subscriptionPlan: subPlan,
+        subscriptionValidUntil: subRes.rows[0]?.end_date,
+        createdAt: user.created_at,
         created_at: user.created_at,
         updated_at: user.updated_at
       }
@@ -270,6 +276,9 @@ app.get('/api/auth/me', authenticateToken, async (req: AuthenticatedRequest, res
       res.status(404).json({ error: 'User not found' });
       return;
     }
+    const subRes = await queryPg(`SELECT plan, status, end_date FROM subscriptions WHERE user_id = $1`, [user.id]);
+    const subPlan = subRes.rows[0]?.plan || 'free';
+
     res.json({
       user: {
         id: user.id,
@@ -284,6 +293,9 @@ app.get('/api/auth/me', authenticateToken, async (req: AuthenticatedRequest, res
         role: user.role,
         is_active: user.is_active,
         is_verified: user.is_verified,
+        subscriptionPlan: subPlan,
+        subscriptionValidUntil: subRes.rows[0]?.end_date,
+        createdAt: user.created_at,
         created_at: user.created_at,
         updated_at: user.updated_at
       }
@@ -332,6 +344,8 @@ app.post('/api/auth/register', async (req: Request, res: Response) => {
         role: user.role,
         is_active: user.is_active,
         is_verified: user.is_verified,
+        subscriptionPlan: 'free',
+        createdAt: user.created_at,
         created_at: user.created_at,
         updated_at: user.updated_at
       }
@@ -356,6 +370,9 @@ app.post('/api/auth/login', async (req: Request, res: Response) => {
       return;
     }
     const token = jwt.sign({ id: user.id, sub: user.id, email: user.email, role: user.role }, JWT_SECRET, { expiresIn: '7d' });
+    const subRes = await queryPg(`SELECT plan, status, end_date FROM subscriptions WHERE user_id = $1`, [user.id]);
+    const subPlan = subRes.rows[0]?.plan || 'free';
+
     res.json({
       token,
       access_token: token,
@@ -371,6 +388,9 @@ app.post('/api/auth/login', async (req: Request, res: Response) => {
         role: user.role,
         is_active: user.is_active,
         is_verified: user.is_verified,
+        subscriptionPlan: subPlan,
+        subscriptionValidUntil: subRes.rows[0]?.end_date,
+        createdAt: user.created_at,
         created_at: user.created_at,
         updated_at: user.updated_at
       }
