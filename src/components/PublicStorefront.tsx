@@ -2,6 +2,8 @@ import React, { useEffect, useState } from 'react';
 import { storefrontApi } from '../services/api';
 import { Product, PublicStorefrontData } from '../types';
 import { Logo } from './Logo';
+import { useI18n } from '../i18n/LanguageContext';
+import { LanguageSelector } from './LanguageSelector';
 import {
   MapPin,
   CheckCircle2,
@@ -10,22 +12,12 @@ import {
   MessageCircle,
   Package,
   Search,
-  Sparkles,
-  ExternalLink,
+  Check,
+  ChevronRight,
+  X,
+  Copy,
   ShieldCheck,
   Award,
-  ArrowRight,
-  Copy,
-  Check,
-  Heart,
-  Layers,
-  ChevronRight,
-  Info,
-  X,
-  Send,
-  Truck,
-  ShoppingBag,
-  HelpCircle,
 } from 'lucide-react';
 
 interface PublicStorefrontProps {
@@ -39,6 +31,7 @@ export const PublicStorefront: React.FC<PublicStorefrontProps> = ({
   onNavigateHome,
   onOpenAuth,
 }) => {
+  const { t, formatCurrency } = useI18n();
   const [storeData, setStoreData] = useState<PublicStorefrontData | null>(null);
   const [loading, setLoading] = useState<boolean>(true);
   const [searchQuery, setSearchQuery] = useState<string>('');
@@ -230,7 +223,7 @@ export const PublicStorefront: React.FC<PublicStorefrontProps> = ({
 
   const handleShareProduct = (product: Product, e: React.MouseEvent) => {
     e.stopPropagation();
-    const productText = `Check out this authentic handmade "${product.title}" (₹${product.price}) by ${artisan?.name} on KRIVIO AI: ${window.location.href}`;
+    const productText = `Check out this authentic handmade "${product.title}" (${formatCurrency(product.price)}) by ${artisan?.name} on KRIVIO AI: ${window.location.href}`;
     navigator.clipboard.writeText(productText);
     setCopiedProduct(product.id);
     setTimeout(() => setCopiedProduct(null), 2500);
@@ -240,7 +233,7 @@ export const PublicStorefront: React.FC<PublicStorefrontProps> = ({
     return (
       <div className="min-h-screen bg-[#F8F9F5] dark:bg-[#0B1911] flex flex-col items-center justify-center p-6 gap-3">
         <div className="w-12 h-12 border-3 border-[#0F5132]/20 border-t-[#0F5132] rounded-full animate-spin" />
-        <p className="text-xs font-semibold text-[#0F5132] font-poppins">Loading Artisan Showcase...</p>
+        <p className="text-xs font-semibold text-[#0F5132] font-poppins">{t('common.loading')}</p>
       </div>
     );
   }
@@ -254,17 +247,18 @@ export const PublicStorefront: React.FC<PublicStorefrontProps> = ({
             <Logo size="sm" />
             <div className="hidden sm:block">
               <span className="text-[10px] font-bold uppercase tracking-wider text-[#0F5132] bg-[#0F5132]/10 px-2 py-0.5 rounded-full font-poppins">
-                Artisan Showcase
+                {t('storefront.title')}
               </span>
             </div>
           </div>
 
           <div className="flex items-center gap-3">
+            <LanguageSelector variant="compact" />
             <button
               onClick={handleShareStore}
               className="inline-flex items-center gap-1.5 px-3.5 py-2 text-xs font-bold text-stone-700 bg-stone-100 hover:bg-stone-200 rounded-xl transition-all font-poppins cursor-pointer"
             >
-              {copiedLink ? <Check className="w-3.5 h-3.5 text-[#0F5132]" /> : <Share2 className="w-3.5 h-3.5" />}
+              {copiedLink ? <Check className="w-3.5 h-3.5 text-[#0F5132]" /> : <Share2 className="w-3.5 h-3.5 text-stone-700" />}
               <span>{copiedLink ? 'Link Copied!' : 'Share Store'}</span>
             </button>
 
@@ -273,7 +267,7 @@ export const PublicStorefront: React.FC<PublicStorefrontProps> = ({
                 onClick={onOpenAuth}
                 className="inline-flex items-center gap-1 px-4 py-2 text-xs font-bold text-white bg-[#0F5132] hover:bg-[#0B3D26] rounded-xl shadow-xs transition-all font-poppins cursor-pointer"
               >
-                <span>Artisan Login</span>
+                <span>{t('auth.login')}</span>
                 <ChevronRight className="w-3.5 h-3.5" />
               </button>
             )}
@@ -328,7 +322,7 @@ export const PublicStorefront: React.FC<PublicStorefrontProps> = ({
                   className="inline-flex items-center gap-2 px-5 py-2.5 bg-[#25D366] hover:bg-[#1EBE5D] text-white font-extrabold text-xs rounded-xl shadow-lg transition-all font-poppins active:scale-98 cursor-pointer"
                 >
                   <MessageCircle className="w-4 h-4 fill-white" />
-                  <span>Chat on WhatsApp</span>
+                  <span>{t('storefront.contactArtisan')}</span>
                 </button>
 
                 {artisan?.phone && (
@@ -337,7 +331,7 @@ export const PublicStorefront: React.FC<PublicStorefrontProps> = ({
                     className="inline-flex items-center gap-2 px-4 py-2.5 bg-white/10 hover:bg-white/20 text-white font-semibold text-xs rounded-xl backdrop-blur-xs transition-all font-poppins"
                   >
                     <Phone className="w-3.5 h-3.5 text-[#D4AF37]" />
-                    <span>Call Artisan</span>
+                    <span>{t('businessProfile.ownerDetails')}</span>
                   </a>
                 )}
               </div>
@@ -356,7 +350,7 @@ export const PublicStorefront: React.FC<PublicStorefrontProps> = ({
               type="text"
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
-              placeholder="Search handcrafted products..."
+              placeholder={t('common.searchPlaceholder')}
               className="w-full pl-10 pr-4 py-2 bg-[#F8F9F5] border border-stone-200 rounded-xl text-xs text-stone-900 outline-none focus:ring-2 focus:ring-[#0F5132] font-inter"
             />
           </div>
@@ -373,7 +367,7 @@ export const PublicStorefront: React.FC<PublicStorefrontProps> = ({
                     : 'bg-[#F8F9F5] text-stone-600 hover:bg-stone-200'
                 }`}
               >
-                {cat === 'all' ? 'All Creations' : cat}
+                {cat === 'all' ? t('common.all') : cat}
               </button>
             ))}
           </div>
@@ -384,8 +378,8 @@ export const PublicStorefront: React.FC<PublicStorefrontProps> = ({
       <section className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 pt-10">
         <div className="flex items-center justify-between mb-6">
           <div>
-            <h2 className="text-lg font-bold text-stone-900 font-poppins">Handcrafted Creations</h2>
-            <p className="text-xs text-stone-500 font-inter">Direct from creator • Fair Price Guaranteed</p>
+            <h2 className="text-lg font-bold text-stone-900 font-poppins">{t('storefront.products')}</h2>
+            <p className="text-xs text-stone-500 font-inter">{t('storefront.craftStory')}</p>
           </div>
           <span className="text-xs font-bold text-[#0F5132] font-poppins bg-[#0F5132]/10 px-3 py-1 rounded-full">
             {filteredProducts.length} Items Listed
@@ -395,9 +389,9 @@ export const PublicStorefront: React.FC<PublicStorefrontProps> = ({
         {filteredProducts.length === 0 ? (
           <div className="text-center py-16 bg-white rounded-3xl border border-[#0F5132]/10 space-y-4">
             <Package className="w-12 h-12 text-stone-300 mx-auto stroke-1" />
-            <h3 className="text-sm font-bold text-stone-900 font-poppins">No matching crafts found</h3>
+            <h3 className="text-sm font-bold text-stone-900 font-poppins">{t('products.emptyTitle')}</h3>
             <p className="text-xs text-stone-500 font-inter max-w-sm mx-auto">
-              Try searching with another keyword or explore the categories above.
+              {t('products.emptySubtitle')}
             </p>
           </div>
         ) : (
@@ -428,11 +422,11 @@ export const PublicStorefront: React.FC<PublicStorefrontProps> = ({
 
                   {prod.stock > 0 ? (
                     <span className="absolute top-3 right-3 px-2 py-0.5 rounded-full text-[9px] font-bold bg-[#0F5132] text-white shadow-xs font-poppins">
-                      In Stock ({prod.stock})
+                      {t('products.inStock')} ({prod.stock})
                     </span>
                   ) : (
                     <span className="absolute top-3 right-3 px-2 py-0.5 rounded-full text-[9px] font-bold bg-stone-600 text-white font-poppins">
-                      Made to Order
+                      {t('products.outOfStock')}
                     </span>
                   )}
                 </div>
@@ -460,7 +454,7 @@ export const PublicStorefront: React.FC<PublicStorefrontProps> = ({
                     <div className="flex items-baseline justify-between">
                       <div>
                         <span className="text-lg font-extrabold text-[#0F5132] font-poppins">
-                          ₹{prod.price.toLocaleString('en-IN')}
+                          {formatCurrency(prod.price)}
                         </span>
                         <span className="text-[10px] text-stone-400 font-medium ml-1.5">Fair Artisan Price</span>
                       </div>
@@ -477,7 +471,7 @@ export const PublicStorefront: React.FC<PublicStorefrontProps> = ({
                         className="flex-1 inline-flex items-center justify-center gap-2 py-2.5 px-3 bg-[#25D366] hover:bg-[#1EBE5D] text-white font-bold text-xs rounded-xl shadow-xs transition-all font-poppins active:scale-98 cursor-pointer"
                       >
                         <MessageCircle className="w-3.5 h-3.5 fill-white" />
-                        <span>Order on WhatsApp</span>
+                        <span>{t('storefront.orderOnWhatsApp')}</span>
                       </button>
 
                       <button

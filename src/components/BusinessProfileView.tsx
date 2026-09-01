@@ -1,26 +1,19 @@
 import React, { useEffect, useState } from 'react';
 import { businessProfileApi } from '../services/api';
 import { BusinessProfile } from '../types';
+import { useI18n } from '../i18n/LanguageContext';
 import {
   Building2,
   User,
-  Phone,
-  Mail,
-  MapPin,
-  Globe,
-  Share2,
   FileText,
   Save,
   CheckCircle2,
   AlertCircle,
-  Clock,
-  Sparkles,
-  Camera,
-  Languages,
   Store,
 } from 'lucide-react';
 
 export const BusinessProfileView: React.FC = () => {
+  const { t, supportedLanguages, setLanguage } = useI18n();
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [successMsg, setSuccessMsg] = useState('');
@@ -74,7 +67,7 @@ export const BusinessProfileView: React.FC = () => {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!profile.businessName?.trim()) {
-      setErrorMsg('Business Name is required.');
+      setErrorMsg(t('validation.required'));
       return;
     }
 
@@ -86,11 +79,11 @@ export const BusinessProfileView: React.FC = () => {
       const res = await businessProfileApi.create(profile);
       if (res.businessProfile) {
         setProfile(res.businessProfile);
-        setSuccessMsg('Business Profile updated successfully!');
+        setSuccessMsg(t('businessProfile.savedSuccess'));
         setTimeout(() => setSuccessMsg(''), 4000);
       }
     } catch (err: any) {
-      setErrorMsg(err.message || 'Failed to update business profile.');
+      setErrorMsg(err.message || t('errors.general'));
     } finally {
       setSaving(false);
     }
@@ -120,10 +113,10 @@ export const BusinessProfileView: React.FC = () => {
           </div>
           <div className="space-y-1">
             <h1 className="text-lg sm:text-2xl font-bold text-stone-900 dark:text-white font-poppins">
-              {profile.businessName || 'Your Business Profile'}
+              {profile.businessName || t('businessProfile.title')}
             </h1>
             <p className="text-xs text-stone-500 dark:text-emerald-300/70">
-              Manage core enterprise identity, location, owner contacts, and official registration details.
+              {t('businessProfile.subtitle')}
             </p>
           </div>
         </div>
@@ -134,7 +127,7 @@ export const BusinessProfileView: React.FC = () => {
           className="w-full sm:w-auto inline-flex items-center justify-center gap-2 px-6 py-3 bg-[#0F5132] hover:bg-[#0B3D26] text-white font-semibold text-xs rounded-xl shadow-md transition-all active:scale-98 disabled:opacity-50 shrink-0 font-poppins cursor-pointer"
         >
           <Save className="w-4 h-4 text-[#D4AF37]" />
-          <span>{saving ? 'Saving...' : 'Save Profile Changes'}</span>
+          <span>{saving ? t('common.loading') : t('businessProfile.saveChanges')}</span>
         </button>
       </div>
 
@@ -159,14 +152,14 @@ export const BusinessProfileView: React.FC = () => {
           <div className="flex items-center gap-3 pb-4 border-b border-stone-100 dark:border-emerald-900/40">
             <Building2 className="w-5 h-5 text-[#0F5132] dark:text-emerald-400" />
             <h2 className="text-sm sm:text-base font-bold text-stone-900 dark:text-white font-poppins">
-              Enterprise Overview
+              {t('businessProfile.title')}
             </h2>
           </div>
 
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4 sm:gap-6">
             <div className="space-y-1.5">
               <label className="text-xs font-bold text-stone-700 dark:text-emerald-200 font-poppins">
-                Business Name <span className="text-red-500">*</span>
+                {t('businessProfile.businessName')} <span className="text-red-500">*</span>
               </label>
               <input
                 type="text"
@@ -180,7 +173,7 @@ export const BusinessProfileView: React.FC = () => {
 
             <div className="space-y-1.5">
               <label className="text-xs font-bold text-stone-700 dark:text-emerald-200 font-poppins">
-                Business Category
+                {t('businessProfile.category')}
               </label>
               <select
                 value={profile.businessCategory || 'Handicrafts & Rural Craft'}
@@ -199,7 +192,7 @@ export const BusinessProfileView: React.FC = () => {
 
             <div className="space-y-1.5 md:col-span-2">
               <label className="text-xs font-bold text-stone-700 dark:text-emerald-200 font-poppins">
-                Business Story & Description
+                {t('businessProfile.description')}
               </label>
               <textarea
                 rows={3}
@@ -212,7 +205,7 @@ export const BusinessProfileView: React.FC = () => {
 
             <div className="space-y-1.5">
               <label className="text-xs font-bold text-stone-700 dark:text-emerald-200 font-poppins">
-                Years in Business
+                {t('businessProfile.craftHeritage')}
               </label>
               <input
                 type="number"
@@ -225,20 +218,22 @@ export const BusinessProfileView: React.FC = () => {
 
             <div className="space-y-1.5">
               <label className="text-xs font-bold text-stone-700 dark:text-emerald-200 font-poppins">
-                Primary Operating Language
+                {t('common.language')}
               </label>
               <select
                 value={profile.primaryLanguage || 'Hindi'}
-                onChange={(e) => setProfile({ ...profile, primaryLanguage: e.target.value })}
+                onChange={(e) => {
+                  setProfile({ ...profile, primaryLanguage: e.target.value });
+                  const matched = supportedLanguages.find((l) => l.name.toLowerCase() === e.target.value.toLowerCase());
+                  if (matched) setLanguage(matched.code);
+                }}
                 className={`${inputClass} cursor-pointer`}
               >
-                <option value="Hindi">Hindi (हिंदी)</option>
-                <option value="English">English</option>
-                <option value="Bengali">Bengali (বাংলা)</option>
-                <option value="Marathi">Marathi (मराठी)</option>
-                <option value="Tamil">Tamil (தமிழ்)</option>
-                <option value="Telugu">Telugu (తెలుగు)</option>
-                <option value="Gujarati">Gujarati (ગુજરાતી)</option>
+                {supportedLanguages.map((lang) => (
+                  <option key={lang.code} value={lang.name}>
+                    {lang.name} ({lang.nativeName})
+                  </option>
+                ))}
               </select>
             </div>
 
@@ -262,14 +257,14 @@ export const BusinessProfileView: React.FC = () => {
           <div className="flex items-center gap-3 pb-4 border-b border-stone-100 dark:border-emerald-900/40">
             <User className="w-5 h-5 text-[#0F5132] dark:text-emerald-400" />
             <h2 className="text-sm sm:text-base font-bold text-stone-900 dark:text-white font-poppins">
-              Owner Details & Location
+              {t('profile.title')} & {t('businessProfile.location')}
             </h2>
           </div>
 
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4 sm:gap-6">
             <div className="space-y-1.5">
               <label className="text-xs font-bold text-stone-700 dark:text-emerald-200 font-poppins">
-                Owner / Representative Name
+                {t('profile.fullName')}
               </label>
               <input
                 type="text"
@@ -282,7 +277,7 @@ export const BusinessProfileView: React.FC = () => {
 
             <div className="space-y-1.5">
               <label className="text-xs font-bold text-stone-700 dark:text-emerald-200 font-poppins">
-                Phone Number
+                {t('profile.phone')}
               </label>
               <input
                 type="text"
@@ -295,7 +290,7 @@ export const BusinessProfileView: React.FC = () => {
 
             <div className="space-y-1.5">
               <label className="text-xs font-bold text-stone-700 dark:text-emerald-200 font-poppins">
-                Official Email
+                {t('profile.email')}
               </label>
               <input
                 type="email"
@@ -308,7 +303,7 @@ export const BusinessProfileView: React.FC = () => {
 
             <div className="space-y-1.5">
               <label className="text-xs font-bold text-stone-700 dark:text-emerald-200 font-poppins">
-                State
+                {t('businessProfile.location')} (State)
               </label>
               <input
                 type="text"
@@ -437,7 +432,7 @@ export const BusinessProfileView: React.FC = () => {
             className="w-full sm:w-auto inline-flex items-center justify-center gap-2 px-8 py-3.5 bg-[#0F5132] hover:bg-[#0B3D26] text-white font-bold text-xs rounded-xl shadow-lg transition-all active:scale-98 disabled:opacity-50 font-poppins cursor-pointer"
           >
             <Save className="w-4 h-4 text-[#D4AF37]" />
-            <span>{saving ? 'Saving Profile...' : 'Save Business Profile'}</span>
+            <span>{saving ? t('common.loading') : t('businessProfile.saveChanges')}</span>
           </button>
         </div>
       </form>

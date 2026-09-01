@@ -1,10 +1,12 @@
 import React, { useState } from 'react';
 import { useAuth } from '../context/AuthContext';
-import { X, Mail, Lock, User as UserIcon, Building, MapPin, KeyRound, CheckCircle2, AlertCircle, Loader2 } from 'lucide-react';
+import { useI18n } from '../i18n/LanguageContext';
+import { X, Mail, Lock, User as UserIcon, Building, MapPin, CheckCircle2, AlertCircle, Loader2 } from 'lucide-react';
 import { Logo } from './Logo';
 
 export const AuthModal: React.FC = () => {
   const { isAuthModalOpen, closeAuthModal, login, register, loginWithGoogle, signInWithGoogle } = useAuth();
+  const { t } = useI18n();
   const [mode, setMode] = useState<'login' | 'register' | 'forgot'>('login');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
@@ -28,16 +30,16 @@ export const AuthModal: React.FC = () => {
     try {
       if (mode === 'login') {
         if (!email || !password) {
-          throw new Error('Please enter both email and password.');
+          throw new Error(t('validation.required'));
         }
         await login(email, password);
-        setSuccessMsg('Successfully authenticated! Loading dashboard...');
+        setSuccessMsg(t('auth.loginSuccess'));
       } else if (mode === 'register') {
         if (!email || !password || !name) {
-          throw new Error('Full name, email, and password are required.');
+          throw new Error(t('validation.required'));
         }
         if (password.length < 6) {
-          throw new Error('Password must be at least 6 characters long.');
+          throw new Error(t('validation.passwordMinLength'));
         }
         await register({
           name,
@@ -47,15 +49,15 @@ export const AuthModal: React.FC = () => {
           businessName: businessName || `${name}'s Business`,
           location: location || 'India',
         });
-        setSuccessMsg('Account created successfully! Loading your workspace...');
+        setSuccessMsg(t('auth.registerSuccess'));
       } else if (mode === 'forgot') {
         if (!email) {
-          throw new Error('Please enter your registered email address.');
+          throw new Error(t('validation.invalidEmail'));
         }
-        setSuccessMsg(`Password reset instructions have been sent to ${email}`);
+        setSuccessMsg(t('auth.resetSent'));
       }
     } catch (err: any) {
-      setError(err.message || 'Incorrect email or password. Please try again.');
+      setError(err.message || t('errors.general'));
     } finally {
       setSubmitting(false);
     }
@@ -68,14 +70,14 @@ export const AuthModal: React.FC = () => {
     try {
       // Trigger Supabase Google OAuth
       await signInWithGoogle();
-      setSuccessMsg('Redirecting to Google Sign-In...');
+      setSuccessMsg(t('auth.loginSuccess'));
     } catch (err: any) {
       console.warn('OAuth redirect issue, falling back:', err);
       try {
         await loginWithGoogle('Google Entrepreneur', email || 'artisan@krivio.ai');
-        setSuccessMsg('Signed in with Google');
+        setSuccessMsg(t('auth.loginSuccess'));
       } catch (innerErr: any) {
-        setError(innerErr.message || 'Google Sign-In failed');
+        setError(innerErr.message || t('errors.general'));
       }
     } finally {
       setGoogleLoading(false);
@@ -89,6 +91,7 @@ export const AuthModal: React.FC = () => {
         <button
           id="btn-close-auth-modal"
           onClick={closeAuthModal}
+          aria-label={t('common.close')}
           className="absolute top-4 right-4 p-2 rounded-xl text-stone-400 hover:text-stone-700 dark:text-emerald-400/60 dark:hover:text-emerald-100 hover:bg-[#0F5132]/10 dark:hover:bg-emerald-900/30 transition-colors cursor-pointer"
         >
           <X className="w-5 h-5" />
@@ -99,17 +102,17 @@ export const AuthModal: React.FC = () => {
           <Logo variant="horizontal" size="md" showTagline={true} />
           <h2 className="text-lg sm:text-xl font-bold text-stone-900 dark:text-white font-poppins mt-2">
             {mode === 'login'
-              ? 'Sign In to KRIVIO AI'
+              ? t('auth.signInTitle')
               : mode === 'register'
-              ? 'Create Entrepreneur Account'
-              : 'Reset Your Password'}
+              ? t('auth.signUpTitle')
+              : t('auth.forgotPasswordTitle')}
           </h2>
           <p className="text-xs text-stone-600 dark:text-emerald-200/70 font-inter max-w-xs">
             {mode === 'login'
-              ? 'Access your Voice AI mentor & product studio'
+              ? t('auth.signInSubtitle')
               : mode === 'register'
-              ? 'Save your enterprise profile and access your business workspace'
-              : 'Enter your registered email to receive reset instructions'}
+              ? t('auth.signUpSubtitle')
+              : t('auth.forgotPasswordSubtitle')}
           </p>
         </div>
 
@@ -125,7 +128,7 @@ export const AuthModal: React.FC = () => {
                 : 'text-stone-600 dark:text-emerald-300 hover:text-stone-900 dark:hover:text-white'
             }`}
           >
-            Sign In
+            {t('auth.signIn')}
           </button>
           <button
             type="button"
@@ -137,7 +140,7 @@ export const AuthModal: React.FC = () => {
                 : 'text-stone-600 dark:text-emerald-300 hover:text-stone-900 dark:hover:text-white'
             }`}
           >
-            Register
+            {t('auth.signUp')}
           </button>
           <button
             type="button"
@@ -149,7 +152,7 @@ export const AuthModal: React.FC = () => {
                 : 'text-stone-600 dark:text-emerald-300 hover:text-stone-900 dark:hover:text-white'
             }`}
           >
-            Forgot
+            {t('auth.forgotPassword')}
           </button>
         </div>
 
@@ -174,14 +177,14 @@ export const AuthModal: React.FC = () => {
           {mode === 'register' && (
             <>
               <div>
-                <label className="block text-[11px] font-semibold text-stone-700 dark:text-emerald-200 mb-1 font-poppins">Full Name *</label>
+                <label className="block text-[11px] font-semibold text-stone-700 dark:text-emerald-200 mb-1 font-poppins">{t('auth.fullName')} *</label>
                 <div className="relative">
                   <UserIcon className="w-4 h-4 text-stone-400 dark:text-emerald-500 absolute left-3 top-3" />
                   <input
                     type="text"
                     value={name}
                     onChange={(e) => setName(e.target.value)}
-                    placeholder="e.g. Ramesh Kumar"
+                    placeholder={t('auth.fullNamePlaceholder')}
                     required
                     className="w-full pl-9 pr-3.5 py-2.5 bg-[#F8F9F5] dark:bg-[#0E2016] border border-[#0F5132]/20 dark:border-emerald-800/60 rounded-xl text-xs text-stone-900 dark:text-white focus:ring-2 focus:ring-[#0F5132] outline-none font-inter"
                   />
@@ -190,20 +193,20 @@ export const AuthModal: React.FC = () => {
 
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
                 <div>
-                  <label className="block text-[11px] font-semibold text-stone-700 dark:text-emerald-200 mb-1 font-poppins">Role</label>
+                  <label className="block text-[11px] font-semibold text-stone-700 dark:text-emerald-200 mb-1 font-poppins">{t('auth.role')}</label>
                   <select
                     value={role}
                     onChange={(e) => setRole(e.target.value as any)}
                     className="w-full px-3 py-2.5 bg-[#F8F9F5] dark:bg-[#0E2016] border border-[#0F5132]/20 dark:border-emerald-800/60 rounded-xl text-xs text-stone-900 dark:text-white focus:ring-2 focus:ring-[#0F5132] outline-none font-inter cursor-pointer"
                   >
-                    <option value="artisan">Artisan / Weaver</option>
-                    <option value="shg">Self-Help Group (SHG)</option>
-                    <option value="farmer">Small Farmer</option>
-                    <option value="small_business">Small Business</option>
+                    <option value="artisan">{t('auth.roleArtisan')}</option>
+                    <option value="shg">{t('auth.roleSHG')}</option>
+                    <option value="farmer">{t('auth.roleFarmer')}</option>
+                    <option value="small_business">{t('auth.roleSmallBusiness')}</option>
                   </select>
                 </div>
                 <div>
-                  <label className="block text-[11px] font-semibold text-stone-700 dark:text-emerald-200 mb-1 font-poppins">Location</label>
+                  <label className="block text-[11px] font-semibold text-stone-700 dark:text-emerald-200 mb-1 font-poppins">{t('businessProfile.state')}</label>
                   <div className="relative">
                     <MapPin className="w-4 h-4 text-stone-400 dark:text-emerald-500 absolute left-3 top-3" />
                     <input
@@ -218,14 +221,14 @@ export const AuthModal: React.FC = () => {
               </div>
 
               <div>
-                <label className="block text-[11px] font-semibold text-stone-700 dark:text-emerald-200 mb-1 font-poppins">Business / Brand Name</label>
+                <label className="block text-[11px] font-semibold text-stone-700 dark:text-emerald-200 mb-1 font-poppins">{t('auth.businessName')}</label>
                 <div className="relative">
                   <Building className="w-4 h-4 text-stone-400 dark:text-emerald-500 absolute left-3 top-3" />
                   <input
                     type="text"
                     value={businessName}
                     onChange={(e) => setBusinessName(e.target.value)}
-                    placeholder="e.g. Ganga Silk Handlooms"
+                    placeholder={t('auth.businessNamePlaceholder')}
                     className="w-full pl-9 pr-3.5 py-2.5 bg-[#F8F9F5] dark:bg-[#0E2016] border border-[#0F5132]/20 dark:border-emerald-800/60 rounded-xl text-xs text-stone-900 dark:text-white focus:ring-2 focus:ring-[#0F5132] outline-none font-inter"
                   />
                 </div>
@@ -234,14 +237,14 @@ export const AuthModal: React.FC = () => {
           )}
 
           <div>
-            <label className="block text-[11px] font-semibold text-stone-700 dark:text-emerald-200 mb-1 font-poppins">Email Address *</label>
+            <label className="block text-[11px] font-semibold text-stone-700 dark:text-emerald-200 mb-1 font-poppins">{t('auth.email')} *</label>
             <div className="relative">
               <Mail className="w-4 h-4 text-stone-400 dark:text-emerald-500 absolute left-3 top-3" />
               <input
                 type="email"
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
-                placeholder="e.g. ramesh@example.com"
+                placeholder={t('auth.emailPlaceholder')}
                 required
                 className="w-full pl-9 pr-3.5 py-2.5 bg-[#F8F9F5] dark:bg-[#0E2016] border border-[#0F5132]/20 dark:border-emerald-800/60 rounded-xl text-xs text-stone-900 dark:text-white focus:ring-2 focus:ring-[#0F5132] outline-none font-inter"
               />
@@ -251,14 +254,14 @@ export const AuthModal: React.FC = () => {
           {mode !== 'forgot' && (
             <div>
               <div className="flex justify-between items-center mb-1">
-                <label className="block text-[11px] font-semibold text-stone-700 dark:text-emerald-200 font-poppins">Password *</label>
+                <label className="block text-[11px] font-semibold text-stone-700 dark:text-emerald-200 font-poppins">{t('auth.password')} *</label>
                 {mode === 'login' && (
                   <button
                     type="button"
                     onClick={() => { setMode('forgot'); setError(''); }}
                     className="text-[10px] text-[#0F5132] dark:text-[#34D399] hover:underline font-inter cursor-pointer"
                   >
-                    Forgot password?
+                    {t('auth.forgotPassword')}
                   </button>
                 )}
               </div>
@@ -268,7 +271,7 @@ export const AuthModal: React.FC = () => {
                   type="password"
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}
-                  placeholder="••••••••"
+                  placeholder={t('auth.passwordPlaceholder')}
                   required
                   className="w-full pl-9 pr-3.5 py-2.5 bg-[#F8F9F5] dark:bg-[#0E2016] border border-[#0F5132]/20 dark:border-emerald-800/60 rounded-xl text-xs text-stone-900 dark:text-white focus:ring-2 focus:ring-[#0F5132] outline-none font-inter"
                 />
@@ -284,14 +287,14 @@ export const AuthModal: React.FC = () => {
             {submitting ? (
               <>
                 <Loader2 className="w-4 h-4 animate-spin text-[#D4AF37]" />
-                <span>{mode === 'login' ? 'Signing In...' : mode === 'register' ? 'Creating Account...' : 'Sending Link...'}</span>
+                <span>{t('auth.submitting')}</span>
               </>
             ) : mode === 'login' ? (
-              'Sign In'
+              t('auth.signIn')
             ) : mode === 'register' ? (
-              'Create Account'
+              t('auth.signUp')
             ) : (
-              'Send Reset Link'
+              t('auth.sendResetLink')
             )}
           </button>
         </form>
@@ -304,7 +307,7 @@ export const AuthModal: React.FC = () => {
                 <div className="w-full border-t border-stone-200 dark:border-emerald-900/40" />
               </div>
               <div className="relative flex justify-center text-[10px] uppercase">
-                <span className="bg-white dark:bg-[#13251B] px-2 text-stone-400 dark:text-emerald-400/60 font-semibold font-poppins">Or continue with</span>
+                <span className="bg-white dark:bg-[#13251B] px-2 text-stone-400 dark:text-emerald-400/60 font-semibold font-poppins">{t('auth.orWithEmail')}</span>
               </div>
             </div>
 
@@ -319,7 +322,7 @@ export const AuthModal: React.FC = () => {
               {googleLoading ? (
                 <>
                   <Loader2 className="w-4 h-4 animate-spin text-[#0F5132] dark:text-[#34D399]" />
-                  <span>Connecting to Google...</span>
+                  <span>{t('auth.submitting')}</span>
                 </>
               ) : (
                 <>
@@ -341,11 +344,10 @@ export const AuthModal: React.FC = () => {
                       d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.06l3.66 2.84c.87-2.6 3.3-4.52 6.16-4.52z"
                     />
                   </svg>
-                  <span className="font-poppins font-medium">Continue with Google</span>
+                  <span className="font-poppins font-medium">{t('auth.continueWithGoogle')}</span>
                 </>
               )}
             </button>
-
           </>
         )}
       </div>

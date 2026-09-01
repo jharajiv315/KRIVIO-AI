@@ -67,13 +67,16 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         role,
       });
 
-      if (res.user && res.token) {
-        setStoredToken(res.token);
-        localStorage.setItem(USER_STORAGE_KEY, JSON.stringify(res.user));
-        setUser(res.user);
-        setToken(res.token);
-        return;
+      if (res.user.preferred_language || res.user.preferredLanguage) {
+        const userLang = res.user.preferred_language || res.user.preferredLanguage;
+        localStorage.setItem('krivio_preferred_language', userLang);
+        window.dispatchEvent(new CustomEvent('krivio_language_sync', { detail: userLang }));
       }
+      setStoredToken(res.token);
+      localStorage.setItem(USER_STORAGE_KEY, JSON.stringify(res.user));
+      setUser(res.user);
+      setToken(res.token);
+      return;
     } catch (err) {
       console.warn('Backend identity sync notice:', err);
     }
@@ -93,6 +96,8 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       profile_image: avatarUrl,
       is_verified: true,
       is_active: true,
+      preferred_language: 'en',
+      preferredLanguage: 'en',
       subscriptionPlan: 'free',
       createdAt: sbUser.created_at || new Date().toISOString(),
     };
@@ -118,6 +123,11 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         try {
           const res = await authApi.getMe();
           if (res.user) {
+            if (res.user.preferred_language || res.user.preferredLanguage) {
+              const userLang = res.user.preferred_language || res.user.preferredLanguage;
+              localStorage.setItem('krivio_preferred_language', userLang);
+              window.dispatchEvent(new CustomEvent('krivio_language_sync', { detail: userLang }));
+            }
             localStorage.setItem(USER_STORAGE_KEY, JSON.stringify(res.user));
             setUser(res.user);
             setToken(currentToken);

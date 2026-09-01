@@ -112,6 +112,20 @@ export const authApi = {
     return await fetchWithAuth('/api/auth/me');
   },
 
+  updateLanguage: async (language: string): Promise<{ success: boolean; preferred_language: string }> => {
+    return await fetchWithAuth('/api/users/language', {
+      method: 'PUT',
+      body: JSON.stringify({ language }),
+    });
+  },
+
+  updateProfile: async (data: Partial<User>): Promise<{ user: User }> => {
+    return await fetchWithAuth('/api/users/profile', {
+      method: 'PUT',
+      body: JSON.stringify(data),
+    });
+  },
+
   changePassword: async (currentPassword: string, newPassword: string): Promise<{ status: string; message: string }> => {
     return await fetchWithAuth('/api/auth/change-password', {
       method: 'POST',
@@ -266,6 +280,7 @@ export const productsApi = {
     craftType?: string;
     materials?: string;
     targetPrice?: number;
+    language?: string;
   }): Promise<{ data: any }> => {
     try {
       return await fetchWithAuth('/api/products/generate-details', {
@@ -279,19 +294,21 @@ export const productsApi = {
     const ai = getClientAI();
     if (ai) {
       try {
+        const lang = params.language || 'English';
         const prompt = `Act as an e-commerce marketing specialist for rural artisans and SHGs.
 Input Product details:
 - Name/Concept: ${params.rawName || 'Handcrafted item'}
 - Craft Type: ${params.craftType || 'Artisan Craft'}
 - Materials used: ${params.materials || 'Natural materials'}
 - Intended Price: ${params.targetPrice ? `₹${params.targetPrice}` : 'Suggest fair price'}
+- Output Language: ${lang}
 
 Generate JSON with:
-1. "title": High-converting descriptive title suitable for Amazon/ONDC (max 80 chars)
-2. "description": Engaging narrative highlighting artisan heritage and craft story (120-180 words)
-3. "category": Best fitting category name
+1. "title": High-converting descriptive title suitable for Amazon/ONDC in ${lang} (max 80 chars)
+2. "description": Engaging narrative highlighting artisan heritage and craft story in ${lang} (120-180 words)
+3. "category": Best fitting category name in ${lang}
 4. "suggestedPrice": Integer in INR
-5. "keywords": Array of 5-8 search tags
+5. "keywords": Array of 5-8 search tags in ${lang}
 6. "readinessScore": Integer 80-98`;
 
         const response = await ai.models.generateContent({

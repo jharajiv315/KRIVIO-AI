@@ -1,6 +1,7 @@
 import React, { useState, useCallback, useEffect, useRef } from 'react';
 import { productsApi, imagesApi, businessProfileApi } from '../services/api';
 import { useAuth } from '../context/AuthContext';
+import { useI18n } from '../i18n/LanguageContext';
 import {
   Upload, Camera, ChevronRight, ChevronLeft, Sparkles, RefreshCw,
   CheckCircle2, AlertCircle, Save, X, Tag, Star, Wand2, Package,
@@ -42,11 +43,17 @@ const LISTING_MODES: { id: ListingMode; label: string; emoji: string }[] = [
   { id: 'short', label: 'Short', emoji: '⚡' },
 ];
 
-const LANGUAGES = ['English', 'Hindi', 'Marathi'];
 const BRAND_PERSONALITIES = ['Traditional', 'Modern', 'Premium', 'Natural', 'Handmade', 'Cultural', 'Minimal', 'Friendly'];
 
 const StepBar: React.FC<{ current: WizardStep; total: number }> = ({ current, total }) => {
-  const labels = ['Upload', 'About It', 'Brand', 'Description', 'Save'];
+  const { t } = useI18n();
+  const labels = [
+    t('wizard.step1'),
+    t('wizard.step2'),
+    t('wizard.step3'),
+    t('wizard.step4'),
+    t('wizard.step5'),
+  ];
   return (
     <div className="space-y-2">
       <div className="flex items-center justify-between text-[11px] font-semibold text-stone-500 dark:text-emerald-400/80 font-poppins">
@@ -92,9 +99,9 @@ export const ProductIdentityWizard: React.FC<ProductIdentityWizardProps> = ({
   initialImage,
   initialDetectedSubject,
   onSaved,
-  onCancel,
 }) => {
   const { user, openAuthModal } = useAuth();
+  const { t, formatCurrency, currentLanguageConfig, supportedLanguages } = useI18n();
   const [step, setStep] = useState<WizardStep>(initialImage ? 2 : 1);
 
   // Step 1
@@ -113,7 +120,7 @@ export const ProductIdentityWizard: React.FC<ProductIdentityWizardProps> = ({
   const [region, setRegion] = useState('');
   const [targetAudience] = useState('Craft lovers, home decor buyers, gift shoppers');
   const [priceRange, setPriceRange] = useState('');
-  const [language, setLanguage] = useState('English');
+  const [language, setLanguage] = useState(currentLanguageConfig.name);
   const [listingMode, setListingMode] = useState<ListingMode>('marketplace');
 
   // Step 3
@@ -136,13 +143,15 @@ export const ProductIdentityWizard: React.FC<ProductIdentityWizardProps> = ({
   const [saveSuccess, setSaveSuccess] = useState(false);
 
   useEffect(() => {
+    setLanguage(currentLanguageConfig.name);
+  }, [currentLanguageConfig]);
+
+  useEffect(() => {
     businessProfileApi.get().then((res) => {
       const bp = res.businessProfile;
       if (!bp) return;
       if (bp.state && bp.district) setRegion(`${bp.district}, ${bp.state}`);
       else if (bp.state) setRegion(bp.state);
-      const lang = bp.primaryLanguage || '';
-      if (lang === 'Hindi' || lang === 'Marathi') setLanguage(lang);
       if (bp.businessName) setExistingBrandName(bp.businessName);
     }).catch(() => {});
   }, []);
@@ -179,7 +188,7 @@ export const ProductIdentityWizard: React.FC<ProductIdentityWizardProps> = ({
         region, personality: brandPersonalities.join(', '), language,
       });
       setBrandSuggestions(res.suggestions || []);
-    } catch { setBrandError('Something went wrong while finding brand ideas. Please try again.'); }
+    } catch { setBrandError(t('errors.general')); }
     finally { setLoadingBrand(false); }
   };
 
@@ -194,7 +203,7 @@ export const ProductIdentityWizard: React.FC<ProductIdentityWizardProps> = ({
         language: lang || language, listingMode: mode || listingMode,
       });
       setIdentity(res.data);
-    } catch { setIdentityError('Something went wrong while creating your content. Please try again.'); }
+    } catch { setIdentityError(t('errors.general')); }
     finally { setLoadingIdentity(false); }
   };
 
@@ -218,7 +227,7 @@ export const ProductIdentityWizard: React.FC<ProductIdentityWizardProps> = ({
       });
       setSaveSuccess(true);
       setTimeout(() => onSaved?.(), 2500);
-    } catch (err: any) { setSaveError(err.message || 'Something went wrong while saving. Please try again.'); }
+    } catch (err: any) { setSaveError(err.message || t('errors.general')); }
     finally { setSaving(false); }
   };
 
@@ -378,12 +387,12 @@ export const ProductIdentityWizard: React.FC<ProductIdentityWizardProps> = ({
             </div>
 
             <div className="space-y-1.5">
-              <label className="text-xs font-bold text-stone-700 dark:text-emerald-200 flex items-center gap-1.5 font-poppins"><Globe className="w-3.5 h-3.5 text-[#0F5132] dark:text-emerald-400" /> Content language</label>
+              <label className="text-xs font-bold text-stone-700 dark:text-emerald-200 flex items-center gap-1.5 font-poppins"><Globe className="w-3.5 h-3.5 text-[#0F5132] dark:text-emerald-400" /> {t('common.language')}</label>
               <div className="flex gap-2 flex-wrap">
-                {LANGUAGES.map((lang) => (
-                  <button key={lang} onClick={() => setLanguage(lang)}
-                    className={`px-4 py-1.5 rounded-xl text-xs font-semibold border transition-all font-poppins cursor-pointer ${language === lang ? 'bg-[#0F5132] text-white border-[#0F5132]' : 'bg-[#F8F9F5] dark:bg-[#0E2016] text-stone-600 dark:text-emerald-300/80 border-[#0F5132]/15 dark:border-emerald-900/40 hover:border-[#0F5132]'}`}>
-                    {lang}
+                {supportedLanguages.map((lang) => (
+                  <button key={lang.code} onClick={() => setLanguage(lang.name)}
+                    className={`px-3 py-1.5 rounded-xl text-xs font-semibold border transition-all font-poppins cursor-pointer ${language === lang.name ? 'bg-[#0F5132] text-white border-[#0F5132]' : 'bg-[#F8F9F5] dark:bg-[#0E2016] text-stone-600 dark:text-emerald-300/80 border-[#0F5132]/15 dark:border-emerald-900/40 hover:border-[#0F5132]'}`}>
+                    {lang.flag} {lang.nativeName}
                   </button>
                 ))}
               </div>
@@ -391,8 +400,8 @@ export const ProductIdentityWizard: React.FC<ProductIdentityWizardProps> = ({
           </div>
 
           <div className="flex justify-between pt-2">
-            <button onClick={goPrev} className={btnBack}><ChevronLeft className="w-4 h-4" /> Back</button>
-            <button onClick={goNext} disabled={!canProceedStep2} className={btnPrimary}>Continue <ChevronRight className="w-4 h-4" /></button>
+            <button onClick={goPrev} className={btnBack}><ChevronLeft className="w-4 h-4" /> {t('wizard.back')}</button>
+            <button onClick={goNext} disabled={!canProceedStep2} className={btnPrimary}>{t('wizard.next')} <ChevronRight className="w-4 h-4" /></button>
           </div>
         </div>
       )}
@@ -490,9 +499,9 @@ export const ProductIdentityWizard: React.FC<ProductIdentityWizardProps> = ({
           )}
 
           <div className="flex justify-between pt-2">
-            <button onClick={goPrev} className={btnBack}><ChevronLeft className="w-4 h-4" /> Back</button>
+            <button onClick={goPrev} className={btnBack}><ChevronLeft className="w-4 h-4" /> {t('wizard.back')}</button>
             <button onClick={goNext} disabled={!canProceedStep3} className={btnPrimary}>
-              Generate Description <ChevronRight className="w-4 h-4" />
+              {t('wizard.next')} <ChevronRight className="w-4 h-4" />
             </button>
           </div>
         </div>
@@ -512,11 +521,11 @@ export const ProductIdentityWizard: React.FC<ProductIdentityWizardProps> = ({
                   </button>
                 ))}
               </div>
-              <div className="flex gap-1.5 shrink-0">
-                {LANGUAGES.map((lang) => (
-                  <button key={lang} onClick={() => { setLanguage(lang); if (identity) handleGenerateIdentity(undefined, lang); }} disabled={loadingIdentity}
-                    className={`px-3 py-1.5 rounded-xl text-[11px] font-bold transition-all font-poppins cursor-pointer ${language === lang ? 'bg-[#0F5132] text-white' : 'bg-stone-100 dark:bg-[#0E2016] text-stone-600 dark:text-emerald-300/80 hover:bg-stone-200'}`}>
-                    {lang}
+              <div className="flex gap-1.5 overflow-x-auto pb-1 shrink-0 no-scrollbar">
+                {supportedLanguages.map((lang) => (
+                  <button key={lang.code} onClick={() => { setLanguage(lang.name); if (identity) handleGenerateIdentity(undefined, lang.name); }} disabled={loadingIdentity}
+                    className={`px-2.5 py-1.5 rounded-xl text-[11px] font-bold transition-all font-poppins cursor-pointer ${language === lang.name ? 'bg-[#0F5132] text-white' : 'bg-stone-100 dark:bg-[#0E2016] text-stone-600 dark:text-emerald-300/80 hover:bg-stone-200'}`}>
+                    {lang.flag} {lang.nativeName}
                   </button>
                 ))}
               </div>

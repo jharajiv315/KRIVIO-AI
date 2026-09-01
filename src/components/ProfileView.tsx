@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { useAuth } from '../context/AuthContext';
-import { authApi } from '../services/api';
+import { useI18n } from '../i18n/LanguageContext';
 import {
   User as UserIcon,
   Mail,
@@ -11,7 +11,6 @@ import {
   MapPin,
   Save,
   Crown,
-  KeyRound,
   LogOut,
   Sparkles,
   AlertCircle
@@ -24,6 +23,7 @@ interface ProfileViewProps {
 
 export const ProfileView: React.FC<ProfileViewProps> = ({ setCurrentTab, openPricingModal }) => {
   const { user, logout, updateUser } = useAuth();
+  const { t, formatDate } = useI18n();
   const [name, setName] = useState(user?.name || user?.full_name || '');
   const [email, setEmail] = useState(user?.email || '');
   const [phone, setPhone] = useState(user?.phone || user?.phone_number || '');
@@ -60,9 +60,9 @@ export const ProfileView: React.FC<ProfileViewProps> = ({ setCurrentTab, openPri
         location,
       });
 
-      setMessage({ type: 'success', text: 'Profile details saved successfully!' });
+      setMessage({ type: 'success', text: t('businessProfile.savedSuccess') });
     } catch (err: any) {
-      setMessage({ type: 'error', text: err.message || 'Error updating profile' });
+      setMessage({ type: 'error', text: err.message || t('errors.general') });
     } finally {
       setIsSubmitting(false);
     }
@@ -74,16 +74,16 @@ export const ProfileView: React.FC<ProfileViewProps> = ({ setCurrentTab, openPri
         <div className="bg-white dark:bg-[#13251B] p-8 rounded-3xl border border-[#0F5132]/15 dark:border-emerald-800/60 shadow-lg max-w-md mx-auto">
           <AlertCircle className="w-12 h-12 text-[#D4AF37] mx-auto mb-4" />
           <h2 className="text-xl font-bold font-poppins text-stone-900 dark:text-white mb-2">
-            Authentication Required
+            {t('auth.login')}
           </h2>
           <p className="text-xs text-stone-600 dark:text-emerald-200/80 mb-6 font-inter">
-            Please sign in to access your KRIVIO AI entrepreneur profile and business settings.
+            {t('businessProfile.subtitle')}
           </p>
           <button
             onClick={() => setCurrentTab('landing')}
             className="w-full py-3 bg-[#0F5132] hover:bg-[#0B3D26] text-white font-poppins text-xs font-semibold rounded-xl shadow-md cursor-pointer transition-colors"
           >
-            Go to Sign In
+            {t('auth.login')}
           </button>
         </div>
       </div>
@@ -104,7 +104,7 @@ export const ProfileView: React.FC<ProfileViewProps> = ({ setCurrentTab, openPri
               <div className="flex flex-wrap items-center gap-2">
                 <h1 className="text-xl sm:text-2xl font-bold font-poppins text-white">{user.name || user.full_name}</h1>
                 <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[10px] font-bold bg-[#D4AF37] text-stone-950 font-poppins">
-                  <CheckCircle2 className="w-3 h-3 text-stone-950" /> Verified Entrepreneur
+                  <CheckCircle2 className="w-3 h-3 text-stone-950" /> {t('subscription.active')}
                 </span>
               </div>
               <p className="text-xs text-emerald-200/90 font-inter mt-1">
@@ -119,14 +119,14 @@ export const ProfileView: React.FC<ProfileViewProps> = ({ setCurrentTab, openPri
               className="flex-1 sm:flex-initial px-4 py-2.5 bg-[#D4AF37] hover:bg-[#C29F2B] text-[#1A1A1A] font-semibold text-xs rounded-xl shadow-md flex items-center justify-center gap-1.5 transition-all font-poppins cursor-pointer active:scale-98"
             >
               <Crown className="w-4 h-4" />
-              <span>{user.subscriptionPlan === 'pro' ? 'Pro Member' : 'Upgrade Pro'}</span>
+              <span>{user.subscriptionPlan === 'pro' ? 'Pro Member' : t('subscription.upgradeToPro')}</span>
             </button>
             <button
               onClick={logout}
               className="px-4 py-2.5 bg-white/10 hover:bg-white/20 text-white font-medium text-xs rounded-xl border border-white/20 flex items-center justify-center gap-1.5 transition-all font-inter cursor-pointer"
             >
               <LogOut className="w-4 h-4" />
-              <span>Sign Out</span>
+              <span>{t('nav.logout')}</span>
             </button>
           </div>
         </div>
@@ -177,7 +177,7 @@ export const ProfileView: React.FC<ProfileViewProps> = ({ setCurrentTab, openPri
               <div className="flex justify-between py-2">
                 <span className="text-stone-500 dark:text-emerald-300/60">Member Since</span>
                 <span className="text-stone-800 dark:text-emerald-200">
-                  {user.createdAt ? new Date(user.createdAt).toLocaleDateString() : 'Active'}
+                  {user.createdAt ? formatDate(user.createdAt) : 'Active'}
                 </span>
               </div>
             </div>
@@ -195,7 +195,7 @@ export const ProfileView: React.FC<ProfileViewProps> = ({ setCurrentTab, openPri
               onClick={openPricingModal}
               className="w-full py-2.5 bg-[#0F5132] hover:bg-[#0B3D26] text-white font-poppins text-xs font-semibold rounded-xl transition-all shadow-xs cursor-pointer active:scale-98"
             >
-              Manage Subscription
+              {t('subscription.manage')}
             </button>
           </div>
         </div>
@@ -204,13 +204,13 @@ export const ProfileView: React.FC<ProfileViewProps> = ({ setCurrentTab, openPri
         <div className="lg:col-span-2 bg-white dark:bg-[#13251B] rounded-3xl p-5 sm:p-8 border border-[#0F5132]/15 dark:border-emerald-800/60 shadow-xs">
           <h2 className="text-base font-bold font-poppins text-stone-900 dark:text-white mb-6 flex items-center gap-2">
             <UserIcon className="w-5 h-5 text-[#0F5132] dark:text-emerald-400" />
-            <span>Edit Profile & Business Details</span>
+            <span>{t('profile.title')}</span>
           </h2>
 
           <form onSubmit={handleUpdateProfile} className="space-y-4 font-inter">
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
               <div>
-                <label className="block text-xs font-semibold text-stone-700 dark:text-emerald-200 mb-1.5 font-poppins">Full Name</label>
+                <label className="block text-xs font-semibold text-stone-700 dark:text-emerald-200 mb-1.5 font-poppins">{t('profile.fullName')}</label>
                 <div className="relative">
                   <UserIcon className="w-4 h-4 text-stone-400 dark:text-emerald-500 absolute left-3 top-3.5" />
                   <input
@@ -224,7 +224,7 @@ export const ProfileView: React.FC<ProfileViewProps> = ({ setCurrentTab, openPri
               </div>
 
               <div>
-                <label className="block text-xs font-semibold text-stone-700 dark:text-emerald-200 mb-1.5 font-poppins">Email Address (Read-only)</label>
+                <label className="block text-xs font-semibold text-stone-700 dark:text-emerald-200 mb-1.5 font-poppins">{t('profile.email')}</label>
                 <div className="relative">
                   <Mail className="w-4 h-4 text-stone-400 dark:text-emerald-500 absolute left-3 top-3.5" />
                   <input
@@ -239,7 +239,7 @@ export const ProfileView: React.FC<ProfileViewProps> = ({ setCurrentTab, openPri
 
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
               <div>
-                <label className="block text-xs font-semibold text-stone-700 dark:text-emerald-200 mb-1.5 font-poppins">Phone Number</label>
+                <label className="block text-xs font-semibold text-stone-700 dark:text-emerald-200 mb-1.5 font-poppins">{t('profile.phone')}</label>
                 <div className="relative">
                   <Phone className="w-4 h-4 text-stone-400 dark:text-emerald-500 absolute left-3 top-3.5" />
                   <input
@@ -253,23 +253,23 @@ export const ProfileView: React.FC<ProfileViewProps> = ({ setCurrentTab, openPri
               </div>
 
               <div>
-                <label className="block text-xs font-semibold text-stone-700 dark:text-emerald-200 mb-1.5 font-poppins">Entrepreneur Role</label>
+                <label className="block text-xs font-semibold text-stone-700 dark:text-emerald-200 mb-1.5 font-poppins">{t('auth.role')}</label>
                 <select
                   value={role}
                   onChange={(e) => setRole(e.target.value)}
                   className="w-full px-3.5 py-2.5 bg-[#F8F9F5] dark:bg-[#0E2016] border border-[#0F5132]/20 dark:border-emerald-800/60 rounded-xl text-xs text-stone-900 dark:text-white focus:ring-2 focus:ring-[#0F5132] outline-none font-inter cursor-pointer"
                 >
-                  <option value="artisan">Artisan / Weaver</option>
-                  <option value="shg">Self-Help Group (SHG)</option>
-                  <option value="farmer">Small Farmer</option>
-                  <option value="small_business">Small Business</option>
+                  <option value="artisan">{t('auth.roleArtisan')}</option>
+                  <option value="shg">{t('auth.roleShg')}</option>
+                  <option value="farmer">{t('auth.roleFarmer')}</option>
+                  <option value="small_business">{t('auth.roleSmallBusiness')}</option>
                 </select>
               </div>
             </div>
 
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
               <div>
-                <label className="block text-xs font-semibold text-stone-700 dark:text-emerald-200 mb-1.5 font-poppins">Business / Brand Name</label>
+                <label className="block text-xs font-semibold text-stone-700 dark:text-emerald-200 mb-1.5 font-poppins">{t('businessProfile.businessName')}</label>
                 <div className="relative">
                   <Building className="w-4 h-4 text-stone-400 dark:text-emerald-500 absolute left-3 top-3.5" />
                   <input
@@ -283,7 +283,7 @@ export const ProfileView: React.FC<ProfileViewProps> = ({ setCurrentTab, openPri
               </div>
 
               <div>
-                <label className="block text-xs font-semibold text-stone-700 dark:text-emerald-200 mb-1.5 font-poppins">State & Location</label>
+                <label className="block text-xs font-semibold text-stone-700 dark:text-emerald-200 mb-1.5 font-poppins">{t('businessProfile.location')}</label>
                 <div className="relative">
                   <MapPin className="w-4 h-4 text-stone-400 dark:text-emerald-500 absolute left-3 top-3.5" />
                   <input
@@ -304,7 +304,7 @@ export const ProfileView: React.FC<ProfileViewProps> = ({ setCurrentTab, openPri
                 className="w-full sm:w-auto px-6 py-3 bg-[#0F5132] hover:bg-[#0B3D26] text-white font-poppins text-xs font-semibold rounded-xl shadow-md transition-all flex items-center justify-center gap-2 cursor-pointer active:scale-98"
               >
                 <Save className="w-4 h-4 text-[#D4AF37]" />
-                <span>{isSubmitting ? 'Saving Changes...' : 'Save Profile Details'}</span>
+                <span>{isSubmitting ? t('common.loading') : t('profile.saveChanges')}</span>
               </button>
             </div>
           </form>

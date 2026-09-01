@@ -62,6 +62,7 @@ export interface AuthenticatedUser {
   email: string;
   name: string;
   role: string;
+  preferredLanguage?: string;
   profileImage?: string;
   phone?: string;
 }
@@ -157,6 +158,7 @@ async function resolveUserFromToken(token: string): Promise<AuthenticatedUser | 
         email: userRow.email,
         name: userRow.full_name || fullName,
         role: userRow.role || role,
+        preferredLanguage: userRow.preferred_language || 'en',
         profileImage: userRow.profile_image || avatarUrl,
         phone: userRow.phone_number || phone
       };
@@ -192,12 +194,13 @@ const authenticateToken = async (req: AuthenticatedRequest, res: Response, next:
 
 app.post('/api/auth/supabase-sync', async (req: Request, res: Response) => {
   try {
-    const { supabase_user_id, email, full_name, name, profile_image, avatar_url, phone_number, role } = req.body;
+    const { supabase_user_id, email, full_name, name, profile_image, avatar_url, phone_number, role, preferred_language } = req.body;
     const subId = supabase_user_id;
     const userEmail = email ? email.toLowerCase().trim() : '';
     const userName = full_name || name || (userEmail ? userEmail.split('@')[0] : 'Artisan');
     const userAvatar = profile_image || avatar_url || '';
     const userRole = role || 'artisan';
+    const userLang = preferred_language || 'en';
 
     if (!subId && !userEmail) {
       res.status(400).json({ error: 'supabase_user_id or email is required' });
@@ -214,10 +217,10 @@ app.post('/api/auth/supabase-sync', async (req: Request, res: Response) => {
     if (!user) {
       const newId = `usr_${Date.now()}_${Math.random().toString(36).slice(2, 7)}`;
       const insertRes = await queryPg(
-        `INSERT INTO users (id, supabase_user_id, full_name, email, profile_image, phone_number, role, is_active, is_verified, created_at, updated_at)
-         VALUES ($1, $2, $3, $4, $5, $6, $7, true, true, NOW(), NOW())
+        `INSERT INTO users (id, supabase_user_id, full_name, email, profile_image, phone_number, role, preferred_language, is_active, is_verified, created_at, updated_at)
+         VALUES ($1, $2, $3, $4, $5, $6, $7, $8, true, true, NOW(), NOW())
          RETURNING *`,
-        [newId, subId, userName, userEmail, userAvatar, phone_number || '', userRole]
+        [newId, subId, userName, userEmail, userAvatar, phone_number || '', userRole, userLang]
       );
       user = insertRes.rows[0];
     } else if (subId && !user.supabase_user_id) {
@@ -248,6 +251,8 @@ app.post('/api/auth/supabase-sync', async (req: Request, res: Response) => {
         profile_image: user.profile_image,
         avatarUrl: user.profile_image,
         role: user.role,
+        preferred_language: user.preferred_language || 'en',
+        preferredLanguage: user.preferred_language || 'en',
         is_active: user.is_active,
         is_verified: user.is_verified,
         subscriptionPlan: subPlan,
@@ -291,6 +296,8 @@ app.get('/api/auth/me', authenticateToken, async (req: AuthenticatedRequest, res
         profile_image: user.profile_image,
         avatarUrl: user.profile_image,
         role: user.role,
+        preferred_language: user.preferred_language || 'en',
+        preferredLanguage: user.preferred_language || 'en',
         is_active: user.is_active,
         is_verified: user.is_verified,
         subscriptionPlan: subPlan,
@@ -307,7 +314,7 @@ app.get('/api/auth/me', authenticateToken, async (req: AuthenticatedRequest, res
 
 app.post('/api/auth/register', async (req: Request, res: Response) => {
   try {
-    const { name, email, password, role, phone } = req.body;
+    const { name, email, password, role, phone, preferred_language } = req.body;
     if (!email || !password) {
       res.status(400).json({ error: 'Email and password required' });
       return;
@@ -322,10 +329,10 @@ app.post('/api/auth/register', async (req: Request, res: Response) => {
     const newId = `usr_${Date.now()}_${Math.random().toString(36).slice(2, 7)}`;
     const hash = bcrypt.hashSync(password, 10);
     const insertRes = await queryPg(
-      `INSERT INTO users (id, full_name, email, password_hash, phone_number, role, is_active, is_verified, created_at, updated_at)
-       VALUES ($1, $2, $3, $4, $5, $6, true, false, NOW(), NOW())
+      `INSERT INTO users (id, full_name, email, password_hash, phone_number, role, preferred_language, is_active, is_verified, created_at, updated_at)
+       VALUES ($1, $2, $3, $4, $5, $6, $7, true, false, NOW(), NOW())
        RETURNING *`,
-      [newId, name || cleanEmail.split('@')[0], cleanEmail, hash, phone || '', role || 'artisan']
+      [newId, name || cleanEmail.split('@')[0], cleanEmail, hash, phone || '', role || 'artisan', preferred_language || 'en']
     );
     const user = insertRes.rows[0];
     const token = jwt.sign({ id: user.id, sub: user.id, email: user.email, role: user.role }, JWT_SECRET, { expiresIn: '7d' });
@@ -342,6 +349,8 @@ app.post('/api/auth/register', async (req: Request, res: Response) => {
         phone: user.phone_number,
         profile_image: user.profile_image,
         role: user.role,
+        preferred_language: user.preferred_language || 'en',
+        preferredLanguage: user.preferred_language || 'en',
         is_active: user.is_active,
         is_verified: user.is_verified,
         subscriptionPlan: 'free',
@@ -386,6 +395,8 @@ app.post('/api/auth/login', async (req: Request, res: Response) => {
         phone: user.phone_number,
         profile_image: user.profile_image,
         role: user.role,
+        preferred_language: user.preferred_language || 'en',
+        preferredLanguage: user.preferred_language || 'en',
         is_active: user.is_active,
         is_verified: user.is_verified,
         subscriptionPlan: subPlan,
@@ -397,6 +408,68 @@ app.post('/api/auth/login', async (req: Request, res: Response) => {
     });
   } catch (err) {
     res.status(500).json({ error: 'Login failed' });
+  }
+});
+
+// --- USER PREFERENCES & PROFILE ROUTES ---
+
+app.put('/api/users/language', authenticateToken, async (req: AuthenticatedRequest, res: Response) => {
+  try {
+    const userId = req.user!.id;
+    const { language = 'en' } = req.body;
+    const validLangs = ['en', 'hi', 'mr', 'gu', 'ta', 'bn', 'as'];
+    if (!validLangs.includes(language)) {
+      res.status(400).json({ error: `Invalid language code. Supported: ${validLangs.join(', ')}` });
+      return;
+    }
+    await queryPg(`UPDATE users SET preferred_language = $1, updated_at = NOW() WHERE id = $2`, [language, userId]);
+    res.json({ success: true, preferred_language: language, message: 'Language preference saved successfully' });
+  } catch (err) {
+    res.status(500).json({ error: 'Failed to update preferred language' });
+  }
+});
+
+app.put('/api/users/profile', authenticateToken, async (req: AuthenticatedRequest, res: Response) => {
+  try {
+    const userId = req.user!.id;
+    const { name, full_name, phone, phone_number, role, preferred_language } = req.body;
+    const newName = name || full_name;
+    const newPhone = phone || phone_number;
+
+    const updateRes = await queryPg(
+      `UPDATE users SET
+        full_name = COALESCE($1, full_name),
+        phone_number = COALESCE($2, phone_number),
+        role = COALESCE($3, role),
+        preferred_language = COALESCE($4, preferred_language),
+        updated_at = NOW()
+       WHERE id = $5 RETURNING *`,
+      [newName || null, newPhone || null, role || null, preferred_language || null, userId]
+    );
+
+    const user = updateRes.rows[0];
+    res.json({
+      user: {
+        id: user.id,
+        supabase_user_id: user.supabase_user_id,
+        full_name: user.full_name,
+        name: user.full_name,
+        email: user.email,
+        phone_number: user.phone_number,
+        phone: user.phone_number,
+        profile_image: user.profile_image,
+        role: user.role,
+        preferred_language: user.preferred_language || 'en',
+        preferredLanguage: user.preferred_language || 'en',
+        is_active: user.is_active,
+        is_verified: user.is_verified,
+        createdAt: user.created_at,
+        created_at: user.created_at,
+        updated_at: user.updated_at
+      }
+    });
+  } catch (err) {
+    res.status(500).json({ error: 'Failed to update profile' });
   }
 });
 
@@ -459,9 +532,30 @@ app.get('/api/products', authenticateToken, async (req: AuthenticatedRequest, re
   }
 });
 
+const LANGUAGE_NAME_MAP: Record<string, string> = {
+  en: 'English',
+  hi: 'Hindi',
+  mr: 'Marathi',
+  gu: 'Gujarati',
+  ta: 'Tamil',
+  bn: 'Bengali',
+  as: 'Assamese'
+};
+
+function normalizeLanguageName(langInput?: string): string {
+  if (!langInput) return 'English';
+  const clean = langInput.toLowerCase().trim();
+  if (LANGUAGE_NAME_MAP[clean]) return LANGUAGE_NAME_MAP[clean];
+  for (const [code, name] of Object.entries(LANGUAGE_NAME_MAP)) {
+    if (clean === name.toLowerCase() || clean.startsWith(code)) return name;
+  }
+  return langInput;
+}
+
 app.post('/api/products/generate-details', authenticateToken, async (req: AuthenticatedRequest, res: Response) => {
   try {
-    const { rawName = 'Handcrafted Craft Piece', craftType = 'Handicrafts & Art', materials = 'Natural materials', targetPrice = 850 } = req.body;
+    const { rawName = 'Handcrafted Craft Piece', craftType = 'Handicrafts & Art', materials = 'Natural materials', targetPrice = 850, language = 'en' } = req.body;
+    const targetLang = normalizeLanguageName(language || req.user?.preferredLanguage || 'en');
 
     if (ai) {
       try {
@@ -471,14 +565,20 @@ Input Product details:
 - Craft Type: ${craftType}
 - Materials used: ${materials}
 - Target Price: ₹${targetPrice}
+- Output Language: ${targetLang}
 
 Generate JSON with:
-1. "title": High-converting descriptive title suitable for Amazon/ONDC (max 80 chars)
-2. "description": Engaging narrative highlighting artisan heritage and craft story (120-180 words)
-3. "category": Best fitting category name
+1. "title": High-converting descriptive title suitable for Amazon/ONDC in ${targetLang} (max 80 chars)
+2. "description": Engaging narrative highlighting artisan heritage and craft story in ${targetLang} (120-180 words)
+3. "category": Best fitting category name in ${targetLang}
 4. "suggestedPrice": Integer in INR
-5. "keywords": Array of 5-8 search tags
-6. "readinessScore": Integer 80-98`;
+5. "keywords": Array of 5-8 search tags in ${targetLang}
+6. "readinessScore": Integer 80-98
+
+Rules:
+- Generate all human-facing text in ${targetLang}.
+- Keep brand name "KRIVIO AI", numbers, and currency in standard ₹ (INR) format.
+- Ensure natural phrasing and authentic cultural terms suitable for Indian regional buyers.`;
 
         const response = await ai.models.generateContent({
           model: 'gemini-2.5-flash',
@@ -509,19 +609,96 @@ Generate JSON with:
 });
 
 app.post('/api/products/suggest-brand', authenticateToken, async (req: AuthenticatedRequest, res: Response) => {
-  res.json({
-    suggestions: [
-      { name: 'KalaGram', meaning: 'Village of Art', whyItFits: 'Connects traditional craft with rural roots', personality: 'Cultural & Authentic', tagline: 'Every piece tells a story' },
-      { name: 'HastKraft', meaning: 'Handmade Craft', whyItFits: 'Simple, memorable, and highlights handmade origin', personality: 'Traditional & Handmade', tagline: 'Made with hands, made with heart' },
-      { name: 'MittiMool', meaning: 'Earth Root', whyItFits: 'Reflects natural materials and rural heritage', personality: 'Natural & Earthy', tagline: 'Rooted in tradition' },
-      { name: 'BharatHast', meaning: "India's Hands", whyItFits: 'Artisan focused identity', personality: 'Authentic & Artisan', tagline: 'Crafted for India, loved by the world' }
-    ]
-  });
+  try {
+    const { craftType = 'Handicrafts', region = 'Rural India', personality = 'Authentic & Cultural', language = 'en' } = req.body;
+    const targetLang = normalizeLanguageName(language || req.user?.preferredLanguage || 'en');
+
+    if (ai) {
+      try {
+        const prompt = `You are a creative brand naming consultant for Indian rural enterprises, self-help groups (SHGs), and artisans.
+Craft Domain: ${craftType}
+Region: ${region}
+Personality: ${personality}
+Language for explanation/taglines: ${targetLang}
+
+Generate JSON with:
+"suggestions": Array of 4 brand objects with:
+- "name": Catchy, memorable brand name (in Roman/English letters, root words from Sanskrit, Hindi or regional language)
+- "meaning": Meaning of the name translated in ${targetLang}
+- "whyItFits": 1 sentence why it fits in ${targetLang}
+- "personality": Brand personality attribute in ${targetLang}
+- "tagline": Meaningful, high-impact brand slogan/tagline in ${targetLang}`;
+
+        const response = await ai.models.generateContent({
+          model: 'gemini-2.5-flash',
+          contents: prompt,
+          config: { responseMimeType: 'application/json' }
+        });
+        const parsed = JSON.parse(response.text || '{}');
+        if (parsed.suggestions && parsed.suggestions.length > 0) {
+          res.json({ suggestions: parsed.suggestions });
+          return;
+        }
+      } catch (e) {
+        console.warn('Gemini brand suggest note:', e);
+      }
+    }
+
+    res.json({
+      suggestions: [
+        { name: 'KalaGram', meaning: 'Village of Art', whyItFits: 'Connects traditional craft with rural roots', personality: 'Cultural & Authentic', tagline: 'Every piece tells a story' },
+        { name: 'HastKraft', meaning: 'Handmade Craft', whyItFits: 'Simple, memorable, and highlights handmade origin', personality: 'Traditional & Handmade', tagline: 'Made with hands, made with heart' },
+        { name: 'MittiMool', meaning: 'Earth Root', whyItFits: 'Reflects natural materials and rural heritage', personality: 'Natural & Earthy', tagline: 'Rooted in tradition' },
+        { name: 'BharatHast', meaning: "India's Hands", whyItFits: 'Artisan focused identity', personality: 'Authentic & Artisan', tagline: 'Crafted for India, loved by the world' }
+      ]
+    });
+  } catch (err) {
+    res.status(500).json({ error: 'Failed to suggest brand names' });
+  }
 });
 
 app.post('/api/products/generate-identity', authenticateToken, async (req: AuthenticatedRequest, res: Response) => {
-  const { productName, detectedSubject, materials = 'Natural traditional materials', region = 'Rural India', brandName = 'Artisan Collective', targetAudience = 'Home décor enthusiasts & conscious buyers' } = req.body;
+  const { productName, detectedSubject, materials = 'Natural traditional materials', region = 'Rural India', brandName = 'Artisan Collective', targetAudience = 'Home décor enthusiasts & conscious buyers', language = 'en' } = req.body;
+  const targetLang = normalizeLanguageName(language || req.user?.preferredLanguage || 'en');
   const title = productName || detectedSubject || 'Handcrafted Artisan Product';
+
+  if (ai) {
+    try {
+      const prompt = `Act as an e-commerce branding strategist for Indian rural artisans.
+Product: ${title}
+Materials: ${materials}
+Region: ${region}
+Brand: ${brandName}
+Audience: ${targetAudience}
+Language: ${targetLang}
+
+Generate JSON with:
+- "productTitle": Title in ${targetLang}
+- "shortDescription": 1-2 sentence hook in ${targetLang}
+- "detailedDescription": 2-3 paragraph artisan story in ${targetLang}
+- "keyFeatures": Array of 4 bullet points in ${targetLang}
+- "materials": ${materials}
+- "craftMethod": Craft technique description in ${targetLang}
+- "idealFor": Target buyer description in ${targetLang}
+- "productStory": Heritage narrative in ${targetLang}
+- "careInstructions": Practical care advice in ${targetLang}
+- "suggestedTags": Array of 5 tags in ${targetLang}
+- "suggestedKeywords": Array of 5 SEO search keywords in ${targetLang}
+- "suggestedPrice": Integer 850
+- "category": Category in ${targetLang}`;
+
+      const response = await ai.models.generateContent({
+        model: 'gemini-2.5-flash',
+        contents: prompt,
+        config: { responseMimeType: 'application/json' }
+      });
+      const parsed = JSON.parse(response.text || '{}');
+      res.json({ data: parsed });
+      return;
+    } catch (e) {
+      console.warn('Gemini identity generation note:', e);
+    }
+  }
 
   res.json({
     data: {
@@ -1630,6 +1807,7 @@ async function initPgDatabase() {
         phone_number VARCHAR(100),
         profile_image TEXT,
         role VARCHAR(50) DEFAULT 'artisan',
+        preferred_language VARCHAR(10) DEFAULT 'en',
         is_active BOOLEAN DEFAULT TRUE,
         is_verified BOOLEAN DEFAULT FALSE,
         created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
@@ -1723,6 +1901,7 @@ async function initPgDatabase() {
       );
     `;
     await pgPool.query(createTablesQuery);
+    await pgPool.query(`ALTER TABLE users ADD COLUMN IF NOT EXISTS preferred_language VARCHAR(10) DEFAULT 'en'`).catch(() => {});
     console.log('PostgreSQL production database tables verified.');
   } catch (err: any) {
     console.warn('PostgreSQL initialization notice:', err.message || err);

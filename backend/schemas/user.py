@@ -8,6 +8,7 @@ class UserBase(BaseModel):
     phone_number: Optional[str] = Field(None, alias="phone")
     profile_image: Optional[str] = None
     role: Optional[str] = "artisan"
+    preferred_language: Optional[str] = "en"
 
     class Config:
         populate_by_name = True
@@ -21,6 +22,7 @@ class UserCreate(BaseModel):
     phone_number: Optional[str] = Field(None, alias="phone")
     profile_image: Optional[str] = None
     role: Optional[str] = "artisan"
+    preferred_language: Optional[str] = "en"
     businessName: Optional[str] = None
     location: Optional[str] = None
 
@@ -37,6 +39,7 @@ class SupabaseSyncRequest(BaseModel):
     avatar_url: Optional[str] = None
     phone_number: Optional[str] = None
     role: Optional[str] = "artisan"
+    preferred_language: Optional[str] = "en"
 
 class UserUpdate(BaseModel):
     full_name: Optional[str] = Field(None, alias="name")
@@ -46,6 +49,10 @@ class UserUpdate(BaseModel):
     role: Optional[str] = None
     location: Optional[str] = None
     businessName: Optional[str] = None
+    preferred_language: Optional[str] = None
+
+class LanguageUpdateRequest(BaseModel):
+    language: str
 
 class UserResponse(BaseModel):
     id: str
@@ -58,6 +65,7 @@ class UserResponse(BaseModel):
     profile_image: Optional[str] = None
     avatarUrl: Optional[str] = None
     role: str
+    preferred_language: Optional[str] = "en"
     is_active: bool
     is_verified: bool
     created_at: datetime

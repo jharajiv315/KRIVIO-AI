@@ -1,18 +1,12 @@
 import React, { useState } from 'react';
 import { useAuth } from '../context/AuthContext';
 import { paymentsApi } from '../services/api';
+import { useI18n } from '../i18n/LanguageContext';
 import {
   Crown,
   CheckCircle2,
-  Sparkles,
   ShieldCheck,
-  CreditCard,
   Zap,
-  Mic,
-  Package,
-  Camera,
-  Store,
-  HelpCircle,
 } from 'lucide-react';
 
 interface SubscriptionViewProps {
@@ -21,6 +15,7 @@ interface SubscriptionViewProps {
 
 export const SubscriptionView: React.FC<SubscriptionViewProps> = ({ openPricingModal }) => {
   const { user, refreshUser } = useAuth();
+  const { t, formatCurrency } = useI18n();
   const [isProcessing, setIsProcessing] = useState(false);
   const [statusMessage, setStatusMessage] = useState<string | null>(null);
 
@@ -37,10 +32,10 @@ export const SubscriptionView: React.FC<SubscriptionViewProps> = ({ openPricingM
 
       if (verifyRes.success) {
         await refreshUser();
-        setStatusMessage('Your account is now upgraded to Pro Member!');
+        setStatusMessage(t('subscription.active'));
       }
     } catch (err: any) {
-      setStatusMessage(err.message || 'Payment simulation failed.');
+      setStatusMessage(err.message || t('errors.general'));
     } finally {
       setIsProcessing(false);
     }
@@ -56,15 +51,15 @@ export const SubscriptionView: React.FC<SubscriptionViewProps> = ({ openPricingM
         <div className="relative z-10 flex flex-col md:flex-row md:items-center justify-between gap-5 sm:gap-6">
           <div className="space-y-2">
             <span className="px-2.5 py-0.5 rounded-full text-[10px] font-bold uppercase tracking-wider bg-[#D4AF37] text-stone-950 font-poppins">
-              Subscription Management
+              {t('subscription.title')}
             </span>
             <h1 className="text-xl sm:text-3xl font-bold font-poppins">
-              {isPro ? 'Pro Member Workspace Active' : 'Free Artisan Plan'}
+              {isPro ? `${t('subscription.proPlan')} — ${t('subscription.active')}` : t('subscription.freePlan')}
             </h1>
             <p className="text-xs sm:text-sm text-emerald-100/85 max-w-xl font-inter">
               {isPro
-                ? 'Enjoy unlimited Voice AI mentor sessions, AI product studio generation, camera photo enhancements, and priority ONDC syndication.'
-                : 'Unlock full AI capabilities for your rural business including unlimited voice mentor chats and automated product cataloging.'}
+                ? t('pricing.proSubtitle')
+                : t('pricing.freeSubtitle')}
             </p>
           </div>
 
@@ -74,7 +69,7 @@ export const SubscriptionView: React.FC<SubscriptionViewProps> = ({ openPricingM
               className="w-full sm:w-auto px-6 py-3 bg-[#D4AF37] hover:bg-[#C29F2B] text-[#1A1A1A] font-extrabold text-xs rounded-xl shadow-lg flex items-center justify-center gap-2 shrink-0 transition-all font-poppins cursor-pointer active:scale-98"
             >
               <Crown className="w-4 h-4" />
-              <span>Upgrade to Pro (₹299/mo)</span>
+              <span>{t('subscription.upgradeToPro')} ({formatCurrency(299)}/{t('pricing.perMonth')})</span>
             </button>
           )}
         </div>
@@ -93,36 +88,36 @@ export const SubscriptionView: React.FC<SubscriptionViewProps> = ({ openPricingM
         <div className={`bg-white dark:bg-[#13251B] p-5 sm:p-8 rounded-3xl border shadow-xs space-y-6 ${!isPro ? 'border-[#0F5132] ring-2 ring-[#0F5132]/20' : 'border-[#0F5132]/15 dark:border-emerald-800/60'}`}>
           <div className="flex items-center justify-between">
             <div>
-              <h3 className="text-base sm:text-lg font-bold text-stone-900 dark:text-white font-poppins">Free Starter Plan</h3>
-              <p className="text-xs text-stone-500 dark:text-emerald-300/70">For newly onboarding rural artisans & weavers</p>
+              <h3 className="text-base sm:text-lg font-bold text-stone-900 dark:text-white font-poppins">{t('subscription.freePlan')}</h3>
+              <p className="text-xs text-stone-500 dark:text-emerald-300/70">{t('pricing.freeSubtitle')}</p>
             </div>
             {!isPro && (
               <span className="px-3 py-1 bg-[#0F5132]/10 dark:bg-emerald-950 text-[#0F5132] dark:text-emerald-300 text-[10px] font-bold rounded-full uppercase font-poppins">
-                Current Plan
+                {t('subscription.active')}
               </span>
             )}
           </div>
 
           <div className="text-2xl sm:text-3xl font-extrabold text-stone-900 dark:text-white font-poppins">
-            ₹0 <span className="text-xs font-normal text-stone-400 font-inter">/ forever</span>
+            ₹0 <span className="text-xs font-normal text-stone-400 font-inter">/ {t('pricing.perMonth')}</span>
           </div>
 
           <ul className="space-y-3 text-xs text-stone-600 dark:text-emerald-200/80 font-inter">
             <li className="flex items-center gap-2.5">
               <CheckCircle2 className="w-4 h-4 text-[#0F5132] dark:text-[#34D399] shrink-0" />
-              <span>Up to 5 AI-assisted product listings</span>
+              <span>{t('pricing.freeFeature1')}</span>
             </li>
             <li className="flex items-center gap-2.5">
               <CheckCircle2 className="w-4 h-4 text-[#0F5132] dark:text-[#34D399] shrink-0" />
-              <span>10 Voice AI Mentor queries per month</span>
+              <span>{t('pricing.freeFeature2')}</span>
             </li>
             <li className="flex items-center gap-2.5">
               <CheckCircle2 className="w-4 h-4 text-[#0F5132] dark:text-[#34D399] shrink-0" />
-              <span>Basic photo lighting guidance</span>
+              <span>{t('pricing.freeFeature3')}</span>
             </li>
             <li className="flex items-center gap-2.5">
               <CheckCircle2 className="w-4 h-4 text-[#0F5132] dark:text-[#34D399] shrink-0" />
-              <span>ONDC & Amazon Saheli readiness checklist</span>
+              <span>{t('pricing.freeFeature4')}</span>
             </li>
           </ul>
 
@@ -131,7 +126,7 @@ export const SubscriptionView: React.FC<SubscriptionViewProps> = ({ openPricingM
               disabled
               className="w-full py-3 bg-stone-100 dark:bg-[#183023] text-stone-400 text-xs font-bold rounded-xl cursor-not-allowed font-poppins"
             >
-              Default Starter Tier
+              {t('subscription.freePlan')}
             </button>
           )}
         </div>
@@ -139,48 +134,48 @@ export const SubscriptionView: React.FC<SubscriptionViewProps> = ({ openPricingM
         {/* Pro Entrepreneur Plan */}
         <div className={`bg-[#0E2016] text-white p-5 sm:p-8 rounded-3xl border border-[#D4AF37]/50 shadow-xl space-y-6 relative overflow-hidden ${isPro ? 'ring-2 ring-[#D4AF37]' : ''}`}>
           <div className="absolute top-0 right-0 bg-[#D4AF37] text-[#1A1A1A] font-extrabold text-[10px] px-4 py-1 rounded-bl-xl uppercase tracking-wider font-poppins">
-            RECOMMENDED FOR GROWING SHGs
+            {t('pricing.recommendedBadge')}
           </div>
 
           <div className="flex items-center justify-between">
             <div>
               <div className="flex items-center gap-2">
                 <Crown className="w-5 h-5 text-[#D4AF37]" />
-                <h3 className="text-base sm:text-lg font-bold font-poppins text-white">Pro Entrepreneur Plan</h3>
+                <h3 className="text-base sm:text-lg font-bold font-poppins text-white">{t('subscription.proPlan')}</h3>
               </div>
-              <p className="text-xs text-emerald-200/70 mt-0.5">Full AI suite for maximum sales expansion</p>
+              <p className="text-xs text-emerald-200/70 mt-0.5">{t('pricing.proSubtitle')}</p>
             </div>
             {isPro && (
               <span className="px-3 py-1 bg-[#D4AF37] text-stone-950 text-[10px] font-bold rounded-full uppercase font-poppins">
-                Active Plan
+                {t('subscription.active')}
               </span>
             )}
           </div>
 
           <div className="text-2xl sm:text-3xl font-extrabold font-poppins text-[#D4AF37]">
-            ₹299 <span className="text-xs font-normal text-emerald-200/70 font-inter">/ month</span>
+            {formatCurrency(299)} <span className="text-xs font-normal text-emerald-200/70 font-inter">/ {t('pricing.perMonth')}</span>
           </div>
 
           <ul className="space-y-3 text-xs text-emerald-100/90 font-inter">
             <li className="flex items-center gap-2.5">
               <Zap className="w-4 h-4 text-[#D4AF37] shrink-0" />
-              <span>Unlimited Voice & Text AI Mentor in 7 Regional Languages</span>
+              <span>{t('pricing.proFeature1')}</span>
             </li>
             <li className="flex items-center gap-2.5">
               <Zap className="w-4 h-4 text-[#D4AF37] shrink-0" />
-              <span>Unlimited Product Studio listings with auto AI details</span>
+              <span>{t('pricing.proFeature2')}</span>
             </li>
             <li className="flex items-center gap-2.5">
               <Zap className="w-4 h-4 text-[#D4AF37] shrink-0" />
-              <span>Advanced smartphone camera lighting & background analysis</span>
+              <span>{t('pricing.proFeature3')}</span>
             </li>
             <li className="flex items-center gap-2.5">
               <Zap className="w-4 h-4 text-[#D4AF37] shrink-0" />
-              <span>Priority ONDC, Amazon Karigar & GeM fast-track</span>
+              <span>{t('pricing.proFeature4')}</span>
             </li>
             <li className="flex items-center gap-2.5">
               <Zap className="w-4 h-4 text-[#D4AF37] shrink-0" />
-              <span>Automated Cloud Catalog Backup & 1-Click Export</span>
+              <span>{t('pricing.proFeature5')}</span>
             </li>
           </ul>
 
@@ -189,11 +184,11 @@ export const SubscriptionView: React.FC<SubscriptionViewProps> = ({ openPricingM
               onClick={openPricingModal}
               className="w-full py-3.5 bg-[#D4AF37] hover:bg-[#C29F2B] text-[#1A1A1A] font-extrabold text-xs rounded-xl shadow-md transition-all font-poppins cursor-pointer active:scale-98"
             >
-              Upgrade to Pro Plan (₹299/mo)
+              {t('subscription.upgradeToPro')} ({formatCurrency(299)}/{t('pricing.perMonth')})
             </button>
           ) : (
             <div className="p-3 bg-[#0F5132]/60 rounded-xl border border-[#2E7D32]/60 text-center text-xs font-bold text-emerald-200 font-poppins">
-              ✓ Pro Membership Active on Your Enterprise Account
+              ✓ {t('subscription.active')}
             </div>
           )}
         </div>

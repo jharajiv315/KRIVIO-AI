@@ -1,11 +1,10 @@
-@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=Poppins:wght@500;600;700;800&display=swap');
 @import "tailwindcss";
 
 @custom-variant dark (&:where(.dark, .dark *));
 
 @theme {
-  --font-poppins: 'Poppins', sans-serif;
-  --font-inter: 'Inter', sans-serif;
+  --font-poppins: 'Poppins', 'Noto Sans Devanagari', 'Noto Sans Gujarati', 'Noto Sans Tamil', 'Noto Sans Bengali', sans-serif;
+  --font-inter: 'Inter', 'Noto Sans', 'Noto Sans Devanagari', 'Noto Sans Gujarati', 'Noto Sans Tamil', 'Noto Sans Bengali', sans-serif;
 
   --color-forest: #0F5132;
   --color-forest-hover: #0B3D26;
@@ -24,7 +23,7 @@
 }
 
 :root, html {
-  font-family: 'Inter', sans-serif;
+  font-family: 'Inter', 'Noto Sans', 'Noto Sans Devanagari', 'Noto Sans Gujarati', 'Noto Sans Tamil', 'Noto Sans Bengali', sans-serif;
   color-scheme: only light;
   --bg-page: #F8F9F5;
   --bg-card: #FFFFFF;
@@ -55,12 +54,13 @@ h1, h2, h3, h4, .font-heading, .font-poppins {
 }
 
 body {
-  font-family: 'Inter', sans-serif;
+  font-family: 'Inter', 'Noto Sans', 'Noto Sans Devanagari', 'Noto Sans Gujarati', 'Noto Sans Tamil', 'Noto Sans Bengali', sans-serif;
   background-color: #F8F9F5;
   color: #1A1A1A;
   color-scheme: only light;
   overflow-x: hidden;
   -webkit-tap-highlight-color: transparent;
+  line-height: 1.6;
 }
 
 .dark body, body.dark {

@@ -22,6 +22,7 @@ def get_my_profile(current_user: User = Depends(get_current_user)):
         profile_image=current_user.profile_image,
         avatarUrl=current_user.profile_image,
         role=current_user.role,
+        preferred_language=current_user.preferred_language or "en",
         is_active=current_user.is_active,
         is_verified=current_user.is_verified,
         created_at=current_user.created_at,
@@ -46,8 +47,27 @@ def update_my_profile(
         profile_image=updated.profile_image,
         avatarUrl=updated.profile_image,
         role=updated.role,
+        preferred_language=updated.preferred_language or "en",
         is_active=updated.is_active,
         is_verified=updated.is_verified,
         created_at=updated.created_at,
         updated_at=updated.updated_at
     )
+
+@router.put("/language")
+def update_preferred_language(
+    payload: Dict[str, str],
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db)
+):
+    lang = payload.get("language", "en")
+    valid_langs = {"en", "hi", "mr", "gu", "ta", "bn", "as"}
+    if lang not in valid_langs:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=f"Invalid language. Must be one of {list(valid_langs)}"
+        )
+    current_user.preferred_language = lang
+    db.commit()
+    db.refresh(current_user)
+    return {"success": True, "preferred_language": current_user.preferred_language}

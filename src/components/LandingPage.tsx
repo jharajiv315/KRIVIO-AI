@@ -8,7 +8,6 @@ import {
   CheckCircle2,
   Sparkles,
   ShieldCheck,
-  TrendingUp,
   Volume2,
   Star,
   Users,
@@ -17,6 +16,7 @@ import {
   HeartHandshake,
 } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
+import { useI18n } from '../i18n/LanguageContext';
 import { Logo } from './Logo';
 
 interface LandingPageProps {
@@ -26,6 +26,7 @@ interface LandingPageProps {
 
 export const LandingPage: React.FC<LandingPageProps> = ({ setCurrentTab, openPricingModal }) => {
   const { user, openAuthModal } = useAuth();
+  const { t, currentLanguageConfig, formatCurrency } = useI18n();
   const [demoPlaying, setDemoPlaying] = useState(false);
 
   const handlePrimaryCTA = () => {
@@ -40,9 +41,9 @@ export const LandingPage: React.FC<LandingPageProps> = ({ setCurrentTab, openPri
     setDemoPlaying(true);
     if ('speechSynthesis' in window) {
       window.speechSynthesis.cancel();
-      const utterance = new SpeechSynthesisUtterance(
-        'Namaste! Welcome to KRIVIO AI, your dedicated AI Business Mentor for Rural Entrepreneurs. From local hands to global markets, I help you price your crafts, fix product photography, and sell on ONDC.'
-      );
+      const demoText = t('mentor.welcomeMessage');
+      const utterance = new SpeechSynthesisUtterance(demoText);
+      utterance.lang = currentLanguageConfig.speechCode || 'en-IN';
       utterance.rate = 0.95;
       utterance.pitch = 1.0;
       utterance.onend = () => setDemoPlaying(false);
@@ -66,18 +67,18 @@ export const LandingPage: React.FC<LandingPageProps> = ({ setCurrentTab, openPri
               {/* Brand Tagline Badge */}
               <div className="inline-flex items-center gap-2 px-3.5 py-1.5 rounded-full bg-[#0F5132]/10 dark:bg-emerald-950/80 text-[#0F5132] dark:text-emerald-300 text-xs font-semibold border border-[#0F5132]/20 dark:border-emerald-800 shadow-xs">
                 <Sparkles className="w-3.5 h-3.5 text-[#D4AF37] fill-[#D4AF37]" />
-                <span>AI Business Mentor for Rural Entrepreneurs</span>
+                <span>{t('landing.heroBadge')}</span>
               </div>
 
-              <h1 className="text-4xl sm:text-5xl lg:text-6xl font-extrabold tracking-tight text-[#0F5132] dark:text-white leading-[1.12] font-poppins">
-                AI Business Mentor for <br className="hidden sm:block" />
+              <h1 className="text-4xl sm:text-5xl lg:text-6xl font-extrabold tracking-tight text-[#0F5132] dark:text-white leading-[1.15] font-poppins">
+                {t('landing.heroTitle1')} <br className="hidden sm:block" />
                 <span className="text-transparent bg-clip-text bg-gradient-to-r from-[#0F5132] via-[#2E7D32] to-[#D4AF37] dark:from-emerald-300 dark:via-emerald-400 dark:to-[#D4AF37]">
-                  Rural Entrepreneurs
+                  {t('landing.heroTitle2')}
                 </span>
               </h1>
 
               <p className="text-base sm:text-lg text-stone-700 dark:text-emerald-100/90 max-w-2xl mx-auto lg:mx-0 font-inter leading-relaxed">
-                KRIVIO AI empowers artisans, Self-Help Groups (SHGs), weavers, potters, and rural business owners. Speak your questions naturally in regional languages, auto-calculate fair product pricing, generate e-commerce stories, and list your products on ONDC.
+                {t('landing.heroSubtitle')}
               </p>
 
               {/* Primary & Secondary CTAs */}
@@ -85,10 +86,10 @@ export const LandingPage: React.FC<LandingPageProps> = ({ setCurrentTab, openPri
                 <button
                   id="btn-hero-start-journey"
                   onClick={handlePrimaryCTA}
-                  className="w-full sm:w-auto inline-flex items-center justify-center gap-2.5 px-8 py-4 bg-[#0F5132] hover:bg-[#0F5132]/90 text-white font-poppins font-semibold text-base rounded-xl shadow-lg shadow-[#0F5132]/25 transition-all hover:scale-[1.02] active:scale-[0.98]"
+                  className="w-full sm:w-auto inline-flex items-center justify-center gap-2.5 px-8 py-4 bg-[#0F5132] hover:bg-[#0F5132]/90 text-white font-poppins font-semibold text-base rounded-xl shadow-lg shadow-[#0F5132]/25 transition-all hover:scale-[1.02] active:scale-[0.98] cursor-pointer"
                 >
                   <Mic className="w-5 h-5 text-[#D4AF37]" />
-                  <span>Start Your Business Journey</span>
+                  <span>{t('landing.ctaStartFree')}</span>
                   <ArrowRight className="w-4 h-4 ml-1" />
                 </button>
 
@@ -96,26 +97,26 @@ export const LandingPage: React.FC<LandingPageProps> = ({ setCurrentTab, openPri
                   id="btn-hero-watch-demo"
                   onClick={playDemoAudio}
                   disabled={demoPlaying}
-                  className="w-full sm:w-auto inline-flex items-center justify-center gap-2 px-6 py-4 bg-white dark:bg-emerald-950/60 hover:bg-stone-50 dark:hover:bg-emerald-900/40 text-stone-800 dark:text-emerald-100 font-poppins font-semibold text-sm rounded-xl border border-stone-300 dark:border-emerald-800 transition-all shadow-xs"
+                  className="w-full sm:w-auto inline-flex items-center justify-center gap-2 px-6 py-4 bg-white dark:bg-emerald-950/60 hover:bg-stone-50 dark:hover:bg-emerald-900/40 text-stone-800 dark:text-emerald-100 font-poppins font-semibold text-sm rounded-xl border border-stone-300 dark:border-emerald-800 transition-all shadow-xs cursor-pointer"
                 >
                   <Volume2 className={`w-4 h-4 text-[#0F5132] dark:text-emerald-400 ${demoPlaying ? 'animate-bounce' : ''}`} />
-                  <span>{demoPlaying ? 'Playing Mentor Audio...' : 'Watch Demo'}</span>
+                  <span>{demoPlaying ? t('mentor.micListening') : t('mentor.micStart')}</span>
                 </button>
               </div>
 
-              {/* Why Users Should Trust KRIVIO AI */}
+              {/* Trust Indicators */}
               <div className="pt-6 border-t border-stone-200/80 dark:border-emerald-900/40 grid grid-cols-1 sm:grid-cols-3 gap-4 text-xs text-stone-600 dark:text-emerald-200/80">
                 <div className="flex items-center gap-2 justify-center lg:justify-start">
                   <ShieldCheck className="w-4 h-4 text-[#0F5132] dark:text-emerald-400 shrink-0" />
-                  <span>Verified Vernacular Voice AI</span>
+                  <span>{t('profile.securityVerified')}</span>
                 </div>
                 <div className="flex items-center gap-2 justify-center lg:justify-start">
                   <Award className="w-4 h-4 text-[#D4AF37] shrink-0" />
-                  <span>ONDC & Amazon Karigar Compliant</span>
+                  <span>{t('product.marketplaceReady')}</span>
                 </div>
                 <div className="flex items-center gap-2 justify-center lg:justify-start">
                   <HeartHandshake className="w-4 h-4 text-[#2E7D32] dark:text-emerald-400 shrink-0" />
-                  <span>Designed for 100% Privacy & Safety</span>
+                  <span>{t('common.poweredBy')}</span>
                 </div>
               </div>
             </div>
@@ -127,7 +128,7 @@ export const LandingPage: React.FC<LandingPageProps> = ({ setCurrentTab, openPri
                 <div className="flex items-center justify-between pb-4 border-b border-stone-100 dark:border-emerald-900/40 mb-4">
                   <Logo variant="horizontal" size="xs" showTagline={false} />
                   <span className="text-[10px] font-semibold text-[#0F5132] dark:text-emerald-300 bg-[#0F5132]/10 dark:bg-emerald-950 px-2.5 py-1 rounded-full">
-                    Voice Mentor Active
+                    {t('mentor.title')}
                   </span>
                 </div>
 
@@ -136,13 +137,13 @@ export const LandingPage: React.FC<LandingPageProps> = ({ setCurrentTab, openPri
                   {/* User Speak */}
                   <div className="flex items-start gap-2.5">
                     <div className="w-7 h-7 rounded-full bg-[#D4AF37]/20 text-[#8B6E10] font-bold flex items-center justify-center shrink-0 text-xs">
-                      S
+                      A
                     </div>
                     <div className="bg-stone-100 dark:bg-emerald-900/30 p-3 rounded-2xl rounded-tl-xs text-stone-800 dark:text-emerald-100">
                       <p className="font-semibold text-[11px] text-[#2E7D32] dark:text-emerald-300 mb-0.5">
-                        Sunita Devi (Artisan, Bihar)
+                        {t('auth.roleArtisan')}
                       </p>
-                      "How do I set the right price for my handmade Madhubani wall hanging so I don't lose money on thread and dye?"
+                      "{t('mentor.prompt1')}"
                     </div>
                   </div>
 
@@ -154,18 +155,14 @@ export const LandingPage: React.FC<LandingPageProps> = ({ setCurrentTab, openPri
                     <div className="bg-[#0F5132]/5 dark:bg-emerald-950/70 p-3 rounded-2xl rounded-tr-xs text-stone-800 dark:text-emerald-100 border border-[#0F5132]/15 dark:border-emerald-800/60">
                       <div className="flex items-center justify-between mb-1">
                         <span className="font-bold text-[11px] text-[#0F5132] dark:text-emerald-300">
-                          KRIVIO AI Mentor
+                          {t('common.brand')}
                         </span>
                         <span className="text-[10px] text-[#0F5132] dark:text-emerald-400 flex items-center gap-1">
-                          <Volume2 className="w-3 h-3" /> Voice Active
+                          <Volume2 className="w-3 h-3" /> {t('mentor.voiceLang')} ({currentLanguageConfig.nativeName})
                         </span>
                       </div>
                       <p className="leading-relaxed">
-                        To calculate fair profit: <br />
-                        1. Add raw dye & silk cost (₹450). <br />
-                        2. Multiply working hours by fair rate (6 hrs × ₹150 = ₹900). <br />
-                        3. Add 20% craft margin. <br />
-                        <strong className="text-[#0F5132] dark:text-emerald-300 font-semibold">Suggested price: ₹1,620 - ₹1,850.</strong>
+                        {t('mentor.prompt1')} → {t('landing.featurePricingDesc')}
                       </p>
                     </div>
                   </div>
@@ -175,10 +172,10 @@ export const LandingPage: React.FC<LandingPageProps> = ({ setCurrentTab, openPri
                 <div className="mt-5 pt-4 border-t border-stone-100 dark:border-emerald-900/40">
                   <button
                     onClick={() => setCurrentTab('mentor')}
-                    className="w-full py-2.5 px-4 bg-[#0F5132] hover:bg-[#0F5132]/90 text-white font-poppins font-medium text-xs rounded-xl flex items-center justify-center gap-2 transition-colors shadow-xs"
+                    className="w-full py-2.5 px-4 bg-[#0F5132] hover:bg-[#0F5132]/90 text-white font-poppins font-medium text-xs rounded-xl flex items-center justify-center gap-2 transition-colors shadow-xs cursor-pointer"
                   >
                     <Mic className="w-4 h-4 text-[#D4AF37]" />
-                    <span>Talk to Voice Mentor Now</span>
+                    <span>{t('dashboard.actionVoiceMentor')}</span>
                   </button>
                 </div>
               </div>
@@ -187,78 +184,75 @@ export const LandingPage: React.FC<LandingPageProps> = ({ setCurrentTab, openPri
         </div>
       </section>
 
-      {/* What is KRIVIO AI, Who it Helps & Why Trust It */}
+      {/* Core Highlights */}
       <section className="py-16 lg:py-24 bg-white dark:bg-[#0E2016]">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="text-center max-w-3xl mx-auto mb-16 space-y-3">
             <h2 className="text-xs font-bold text-[#0F5132] dark:text-emerald-400 uppercase tracking-widest font-poppins">
-              From Local Hands to Global Markets
+              {t('landing.heroBadge')}
             </h2>
             <p className="text-3xl sm:text-4xl font-extrabold text-[#0F5132] dark:text-white font-poppins">
-              Built Specifically for Rural Entrepreneurs
+              {t('landing.featuresTitle')}
             </p>
             <p className="text-sm sm:text-base text-stone-600 dark:text-emerald-200/80 font-inter">
-              No technical buzzwords or complex interfaces. Speak in your natural language to get practical advice on pricing, photography, packaging, and digital sales.
+              {t('landing.featuresSubtitle')}
             </p>
           </div>
 
           <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
-            {/* What is KRIVIO AI */}
             <div className="p-7 rounded-2xl bg-[#F8F9F5] dark:bg-[#13251B] border border-[#0F5132]/15 dark:border-emerald-800/60 space-y-4">
               <div className="w-12 h-12 rounded-xl bg-[#0F5132]/10 dark:bg-emerald-950 text-[#0F5132] dark:text-emerald-300 flex items-center justify-center">
                 <Mic className="w-6 h-6" />
               </div>
               <h3 className="text-xl font-bold font-poppins text-[#0F5132] dark:text-white">
-                What KRIVIO AI Is
+                {t('landing.featureMentorTitle')}
               </h3>
               <p className="text-xs text-stone-700 dark:text-emerald-100/80 leading-relaxed font-inter">
-                An all-in-one voice-activated AI mentor tailored for non-technical creators. It combines intelligent voice conversation with automated product cataloging, profit margin calculators, and smartphone lighting diagnosis.
+                {t('landing.featureMentorDesc')}
               </p>
             </div>
 
-            {/* Who it Helps */}
             <div className="p-7 rounded-2xl bg-[#F8F9F5] dark:bg-[#13251B] border border-[#0F5132]/15 dark:border-emerald-800/60 space-y-4">
               <div className="w-12 h-12 rounded-xl bg-[#D4AF37]/20 text-[#8B6E10] dark:text-[#D4AF37] flex items-center justify-center">
                 <Users className="w-6 h-6" />
               </div>
               <h3 className="text-xl font-bold font-poppins text-[#0F5132] dark:text-white">
-                Who It Helps
+                {t('landing.featurePhotoTitle')}
               </h3>
               <p className="text-xs text-stone-700 dark:text-emerald-100/80 leading-relaxed font-inter">
-                Rural artisans, handloom weavers, terracotta potters, bamboo craftspeople, Women Self-Help Groups (SHGs), organic farmers, and micro-entrepreneurs seeking to sell direct to nationwide consumers.
+                {t('landing.featurePhotoDesc')}
               </p>
             </div>
 
-            {/* Why Users Trust It */}
             <div className="p-7 rounded-2xl bg-[#F8F9F5] dark:bg-[#13251B] border border-[#0F5132]/15 dark:border-emerald-800/60 space-y-4">
               <div className="w-12 h-12 rounded-xl bg-[#2E7D32]/10 dark:bg-emerald-950 text-[#2E7D32] dark:text-emerald-400 flex items-center justify-center">
                 <Globe className="w-6 h-6" />
               </div>
               <h3 className="text-xl font-bold font-poppins text-[#0F5132] dark:text-white">
-                Why You Can Trust It
+                {t('landing.featureMarketplaceTitle')}
               </h3>
               <p className="text-xs text-stone-700 dark:text-emerald-100/80 leading-relaxed font-inter">
-                Built on verified craft economics and government compliance benchmarks (ONDC, Government e-Marketplace, Amazon Karigar). Powered by bank-grade security and zero hidden fees.
+                {t('landing.featureMarketplaceDesc')}
               </p>
             </div>
           </div>
         </div>
       </section>
 
-      {/* 4 Core Features */}
+      {/* 4 Core Studios */}
       <section className="py-16 lg:py-24 border-t border-[#0F5132]/10 dark:border-emerald-900/30">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="text-center max-w-3xl mx-auto mb-16 space-y-3">
             <h2 className="text-xs font-bold text-[#0F5132] dark:text-emerald-400 uppercase tracking-widest font-poppins">
-              Complete Digital Toolkit
+              {t('landing.howItWorksSubtitle')}
             </h2>
             <p className="text-3xl sm:text-4xl font-extrabold text-[#0F5132] dark:text-white font-poppins">
-              4 Powerful Studios to Expand Your Reach
+              {t('landing.howItWorksTitle')}
             </p>
           </div>
 
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-8">
-            {/* Feature 1 */}
+            {/* Studio 1 */}
             <div
               onClick={() => setCurrentTab('mentor')}
               className="group p-6 rounded-2xl bg-white dark:bg-[#13251B] border border-stone-200 dark:border-emerald-800/60 hover:border-[#0F5132] transition-all hover:shadow-lg cursor-pointer"
@@ -267,17 +261,17 @@ export const LandingPage: React.FC<LandingPageProps> = ({ setCurrentTab, openPri
                 <Mic className="w-6 h-6" />
               </div>
               <h3 className="text-lg font-bold font-poppins text-[#0F5132] dark:text-white mb-2">
-                Voice AI Mentor
+                {t('nav.voiceMentor')}
               </h3>
               <p className="text-xs text-stone-600 dark:text-emerald-100/80 leading-relaxed mb-4 font-inter">
-                Ask business questions by speaking in plain language. Get practical guidance on loans, pricing, packaging, and government grants.
+                {t('landing.featureMentorDesc')}
               </p>
               <span className="text-xs font-semibold text-[#0F5132] dark:text-emerald-400 flex items-center gap-1 group-hover:translate-x-1 transition-transform">
-                Open Voice Mentor <ArrowRight className="w-3.5 h-3.5" />
+                {t('mentor.title')} <ArrowRight className="w-3.5 h-3.5" />
               </span>
             </div>
 
-            {/* Feature 2 */}
+            {/* Studio 2 */}
             <div
               onClick={() => setCurrentTab('products')}
               className="group p-6 rounded-2xl bg-white dark:bg-[#13251B] border border-stone-200 dark:border-emerald-800/60 hover:border-[#0F5132] transition-all hover:shadow-lg cursor-pointer"
@@ -286,17 +280,17 @@ export const LandingPage: React.FC<LandingPageProps> = ({ setCurrentTab, openPri
                 <Package className="w-6 h-6" />
               </div>
               <h3 className="text-lg font-bold font-poppins text-[#0F5132] dark:text-white mb-2">
-                AI Product Studio
+                {t('nav.productStudio')}
               </h3>
               <p className="text-xs text-stone-600 dark:text-emerald-100/80 leading-relaxed mb-4 font-inter">
-                Describe your craft in a few words. Gemini automatically crafts e-commerce titles, story descriptions, and pricing calculations.
+                {t('product.subtitle')}
               </p>
               <span className="text-xs font-semibold text-[#8B6E10] dark:text-[#D4AF37] flex items-center gap-1 group-hover:translate-x-1 transition-transform">
-                Generate Product Story <ArrowRight className="w-3.5 h-3.5" />
+                {t('product.wizardBtn')} <ArrowRight className="w-3.5 h-3.5" />
               </span>
             </div>
 
-            {/* Feature 3 */}
+            {/* Studio 3 */}
             <div
               onClick={() => setCurrentTab('images')}
               className="group p-6 rounded-2xl bg-white dark:bg-[#13251B] border border-stone-200 dark:border-emerald-800/60 hover:border-[#0F5132] transition-all hover:shadow-lg cursor-pointer"
@@ -305,17 +299,17 @@ export const LandingPage: React.FC<LandingPageProps> = ({ setCurrentTab, openPri
                 <Camera className="w-6 h-6" />
               </div>
               <h3 className="text-lg font-bold font-poppins text-[#0F5132] dark:text-white mb-2">
-                Smartphone Image Studio
+                {t('nav.imageStudio')}
               </h3>
               <p className="text-xs text-stone-600 dark:text-emerald-100/80 leading-relaxed mb-4 font-inter">
-                Upload smartphone photos. AI analyzes shadows, background cleanliness, and gives instant lighting improvement advice.
+                {t('imageStudio.subtitle')}
               </p>
               <span className="text-xs font-semibold text-[#2E7D32] dark:text-emerald-400 flex items-center gap-1 group-hover:translate-x-1 transition-transform">
-                Test Photo Quality <ArrowRight className="w-3.5 h-3.5" />
+                {t('imageStudio.analyzeBtn')} <ArrowRight className="w-3.5 h-3.5" />
               </span>
             </div>
 
-            {/* Feature 4 */}
+            {/* Studio 4 */}
             <div
               onClick={() => setCurrentTab('marketplace')}
               className="group p-6 rounded-2xl bg-white dark:bg-[#13251B] border border-stone-200 dark:border-emerald-800/60 hover:border-[#0F5132] transition-all hover:shadow-lg cursor-pointer"
@@ -324,28 +318,28 @@ export const LandingPage: React.FC<LandingPageProps> = ({ setCurrentTab, openPri
                 <Store className="w-6 h-6" />
               </div>
               <h3 className="text-lg font-bold font-poppins text-[#0F5132] dark:text-white mb-2">
-                Marketplace Readiness
+                {t('nav.marketplace')}
               </h3>
               <p className="text-xs text-stone-600 dark:text-emerald-100/80 leading-relaxed mb-4 font-inter">
-                Verify if your listings satisfy compliance standards for ONDC, Amazon Saheli, and GeM portals before submitting.
+                {t('marketplace.subtitle')}
               </p>
               <span className="text-xs font-semibold text-[#0F5132] dark:text-emerald-400 flex items-center gap-1 group-hover:translate-x-1 transition-transform">
-                Check Channel Readiness <ArrowRight className="w-3.5 h-3.5" />
+                {t('marketplace.applyNow')} <ArrowRight className="w-3.5 h-3.5" />
               </span>
             </div>
           </div>
         </div>
       </section>
 
-      {/* Community Testimonials */}
+      {/* Community Voices */}
       <section className="py-16 lg:py-24 bg-[#0F5132] text-white">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="text-center max-w-2xl mx-auto mb-12 space-y-2">
             <span className="text-xs font-semibold text-[#D4AF37] uppercase tracking-widest font-poppins">
-              Community Voices
+              {t('landing.testimonialsTitle')}
             </span>
             <h2 className="text-3xl font-bold font-poppins">
-              Empowering Rural Entrepreneurs Across India
+              {t('landing.heroTitle1')}
             </h2>
           </div>
 
@@ -357,7 +351,7 @@ export const LandingPage: React.FC<LandingPageProps> = ({ setCurrentTab, openPri
                 ))}
               </div>
               <p className="text-xs text-emerald-100 leading-relaxed italic font-inter">
-                "As a Madhubani folk artist in Bihar, I didn't know how to write e-commerce descriptions. KRIVIO Voice AI prepared my product story in 30 seconds!"
+                "{t('mentor.prompt1')} — {t('mentor.welcomeMessage')}"
               </p>
               <div className="pt-2 flex items-center gap-3">
                 <div className="w-9 h-9 rounded-full bg-[#D4AF37] text-[#0F5132] font-bold flex items-center justify-center text-xs">
@@ -365,7 +359,7 @@ export const LandingPage: React.FC<LandingPageProps> = ({ setCurrentTab, openPri
                 </div>
                 <div>
                   <h4 className="text-xs font-bold font-poppins text-white">Sunita Devi</h4>
-                  <p className="text-[11px] text-emerald-300">Handloom Artisan, Bihar</p>
+                  <p className="text-[11px] text-emerald-300">{t('auth.roleArtisan')}, Bihar</p>
                 </div>
               </div>
             </div>
@@ -377,7 +371,7 @@ export const LandingPage: React.FC<LandingPageProps> = ({ setCurrentTab, openPri
                 ))}
               </div>
               <p className="text-xs text-emerald-100 leading-relaxed italic font-inter">
-                "Our Mahila Bachat SHG group uses KRIVIO Voice AI to calculate exact raw material costs for terracotta pottery and apply for MUDRA bank loans."
+                "{t('mentor.prompt2')}"
               </p>
               <div className="pt-2 flex items-center gap-3">
                 <div className="w-9 h-9 rounded-full bg-[#D4AF37] text-[#0F5132] font-bold flex items-center justify-center text-xs">
@@ -385,7 +379,7 @@ export const LandingPage: React.FC<LandingPageProps> = ({ setCurrentTab, openPri
                 </div>
                 <div>
                   <h4 className="text-xs font-bold font-poppins text-white">Ramesh Prajapati</h4>
-                  <p className="text-[11px] text-emerald-300">Pottery Guild Leader, Rajasthan</p>
+                  <p className="text-[11px] text-emerald-300">{t('auth.roleSHG')}, Rajasthan</p>
                 </div>
               </div>
             </div>
@@ -397,7 +391,7 @@ export const LandingPage: React.FC<LandingPageProps> = ({ setCurrentTab, openPri
                 ))}
               </div>
               <p className="text-xs text-emerald-100 leading-relaxed italic font-inter">
-                "The smartphone image feedback helped us fix dark shadows on our bamboo craft photos. Our catalog got approved for ONDC listing on the first attempt."
+                "{t('mentor.prompt3')}"
               </p>
               <div className="pt-2 flex items-center gap-3">
                 <div className="w-9 h-9 rounded-full bg-[#D4AF37] text-[#0F5132] font-bold flex items-center justify-center text-xs">
@@ -405,7 +399,7 @@ export const LandingPage: React.FC<LandingPageProps> = ({ setCurrentTab, openPri
                 </div>
                 <div>
                   <h4 className="text-xs font-bold font-poppins text-white">Animesh Nandi</h4>
-                  <p className="text-[11px] text-emerald-300">Bamboo Weaver SHG, Assam</p>
+                  <p className="text-[11px] text-emerald-300">{t('auth.roleSHG')}, Assam</p>
                 </div>
               </div>
             </div>
@@ -418,10 +412,10 @@ export const LandingPage: React.FC<LandingPageProps> = ({ setCurrentTab, openPri
         <div className="max-w-4xl mx-auto px-4 text-center space-y-8">
           <div className="space-y-3">
             <h2 className="text-3xl font-extrabold text-[#0F5132] dark:text-white font-poppins">
-              Affordable Plans for Rural Entrepreneurs
+              {t('pricing.modalTitle')}
             </h2>
             <p className="text-sm text-stone-600 dark:text-emerald-200/80 font-inter">
-              Start completely free. Upgrade to Pro for unlimited voice sessions, advanced photo scoring, and 1-click catalog syndication.
+              {t('pricing.modalSubtitle')}
             </p>
           </div>
 
@@ -429,49 +423,49 @@ export const LandingPage: React.FC<LandingPageProps> = ({ setCurrentTab, openPri
             {/* Free Plan */}
             <div className="bg-white dark:bg-[#13251B] p-6 rounded-2xl border border-stone-200 dark:border-emerald-800/60 space-y-6">
               <div>
-                <h3 className="text-lg font-bold font-poppins text-[#0F5132] dark:text-white">Free Starter</h3>
-                <p className="text-xs text-stone-500 dark:text-emerald-300/70">Ideal for individual artisans</p>
+                <h3 className="text-lg font-bold font-poppins text-[#0F5132] dark:text-white">{t('pricing.freePlanTitle')}</h3>
+                <p className="text-xs text-stone-500 dark:text-emerald-300/70">{t('pricing.freePlanPrice')}</p>
                 <p className="text-2xl font-black font-poppins text-[#0F5132] dark:text-white mt-3">₹0 <span className="text-xs font-normal text-stone-500">/ forever</span></p>
               </div>
 
               <ul className="space-y-2.5 text-xs text-stone-700 dark:text-emerald-100 font-inter">
-                <li className="flex items-center gap-2"><CheckCircle2 className="w-4 h-4 text-[#0F5132] dark:text-emerald-400 shrink-0" /> 10 Voice Mentor Queries / mo</li>
-                <li className="flex items-center gap-2"><CheckCircle2 className="w-4 h-4 text-[#0F5132] dark:text-emerald-400 shrink-0" /> 5 Product Story Generations</li>
-                <li className="flex items-center gap-2"><CheckCircle2 className="w-4 h-4 text-[#0F5132] dark:text-emerald-400 shrink-0" /> Basic Smartphone Photo Diagnosis</li>
-                <li className="flex items-center gap-2"><CheckCircle2 className="w-4 h-4 text-[#0F5132] dark:text-emerald-400 shrink-0" /> ONDC Readiness Checklist</li>
+                <li className="flex items-center gap-2"><CheckCircle2 className="w-4 h-4 text-[#0F5132] dark:text-emerald-400 shrink-0" /> {t('pricing.freePlanFeature1')}</li>
+                <li className="flex items-center gap-2"><CheckCircle2 className="w-4 h-4 text-[#0F5132] dark:text-emerald-400 shrink-0" /> {t('pricing.freePlanFeature2')}</li>
+                <li className="flex items-center gap-2"><CheckCircle2 className="w-4 h-4 text-[#0F5132] dark:text-emerald-400 shrink-0" /> {t('pricing.freePlanFeature3')}</li>
+                <li className="flex items-center gap-2"><CheckCircle2 className="w-4 h-4 text-[#0F5132] dark:text-emerald-400 shrink-0" /> {t('pricing.freePlanFeature4')}</li>
               </ul>
 
               <button
                 onClick={handlePrimaryCTA}
-                className="w-full py-2.5 bg-stone-100 hover:bg-stone-200 dark:bg-emerald-900/40 dark:hover:bg-emerald-900/60 text-[#0F5132] dark:text-emerald-200 font-poppins font-semibold text-xs rounded-xl transition-colors"
+                className="w-full py-2.5 bg-stone-100 hover:bg-stone-200 dark:bg-emerald-900/40 dark:hover:bg-emerald-900/60 text-[#0F5132] dark:text-emerald-200 font-poppins font-semibold text-xs rounded-xl transition-colors cursor-pointer"
               >
-                Start Free
+                {t('landing.ctaStartFree')}
               </button>
             </div>
 
             {/* Pro Plan */}
             <div className="bg-[#0F5132]/5 dark:bg-emerald-950/40 p-6 rounded-2xl border-2 border-[#0F5132] dark:border-emerald-500 space-y-6 relative shadow-lg">
               <div className="absolute -top-3 right-4 bg-[#D4AF37] text-[#1A1A1A] text-[10px] font-bold uppercase tracking-wider px-2.5 py-0.5 rounded-full font-poppins">
-                Recommended for SHGs
+                {t('common.recommended')}
               </div>
               <div>
-                <h3 className="text-lg font-bold font-poppins text-[#0F5132] dark:text-white">Pro Mentor</h3>
-                <p className="text-xs text-[#2E7D32] dark:text-emerald-300">Unlimited Voice & Multilingual Guidance</p>
+                <h3 className="text-lg font-bold font-poppins text-[#0F5132] dark:text-white">{t('pricing.proPlanTitle')}</h3>
+                <p className="text-xs text-[#2E7D32] dark:text-emerald-300">{t('pricing.proPlanFeature3')}</p>
                 <p className="text-2xl font-black font-poppins text-[#0F5132] dark:text-white mt-3">₹299 <span className="text-xs font-normal text-stone-500">/ month</span></p>
               </div>
 
               <ul className="space-y-2.5 text-xs text-stone-700 dark:text-emerald-100 font-inter">
-                <li className="flex items-center gap-2"><CheckCircle2 className="w-4 h-4 text-[#0F5132] dark:text-emerald-400 shrink-0" /> Unlimited Voice AI Mentor Advice</li>
-                <li className="flex items-center gap-2"><CheckCircle2 className="w-4 h-4 text-[#0F5132] dark:text-emerald-400 shrink-0" /> Unlimited AI Product Descriptions</li>
-                <li className="flex items-center gap-2"><CheckCircle2 className="w-4 h-4 text-[#0F5132] dark:text-emerald-400 shrink-0" /> Advanced Lighting & Background Analysis</li>
-                <li className="flex items-center gap-2"><CheckCircle2 className="w-4 h-4 text-[#0F5132] dark:text-emerald-400 shrink-0" /> Instant Digital Payment Links for Buyers</li>
+                <li className="flex items-center gap-2"><CheckCircle2 className="w-4 h-4 text-[#0F5132] dark:text-emerald-400 shrink-0" /> {t('pricing.proPlanFeature1')}</li>
+                <li className="flex items-center gap-2"><CheckCircle2 className="w-4 h-4 text-[#0F5132] dark:text-emerald-400 shrink-0" /> {t('pricing.proPlanFeature2')}</li>
+                <li className="flex items-center gap-2"><CheckCircle2 className="w-4 h-4 text-[#0F5132] dark:text-emerald-400 shrink-0" /> {t('pricing.proPlanFeature4')}</li>
+                <li className="flex items-center gap-2"><CheckCircle2 className="w-4 h-4 text-[#0F5132] dark:text-emerald-400 shrink-0" /> {t('pricing.proPlanFeature5')}</li>
               </ul>
 
               <button
                 onClick={openPricingModal}
-                className="w-full py-2.5 bg-[#0F5132] hover:bg-[#0F5132]/90 text-white font-poppins font-semibold text-xs rounded-xl shadow-md transition-colors"
+                className="w-full py-2.5 bg-[#0F5132] hover:bg-[#0F5132]/90 text-white font-poppins font-semibold text-xs rounded-xl shadow-md transition-colors cursor-pointer"
               >
-                Upgrade to Pro (₹299/mo)
+                {t('pricing.upgradeBtn')}
               </button>
             </div>
           </div>
@@ -480,4 +474,5 @@ export const LandingPage: React.FC<LandingPageProps> = ({ setCurrentTab, openPri
     </div>
   );
 };
+
 

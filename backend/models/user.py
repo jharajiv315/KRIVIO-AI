@@ -15,6 +15,7 @@ class User(Base):
     phone_number = Column(String, nullable=True)
     profile_image = Column(String, nullable=True)
     role = Column(String, default="artisan")  # artisan, shg, farmer, small_business
+    preferred_language = Column(String(10), default="en", nullable=False)  # en, hi, mr, gu, ta, bn, as
     is_active = Column(Boolean, default=True, nullable=False)
     is_verified = Column(Boolean, default=False, nullable=False)
     created_at = Column(DateTime, default=datetime.datetime.utcnow)

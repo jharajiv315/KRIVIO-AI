@@ -1,6 +1,8 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { useAuth } from '../context/AuthContext';
 import { useTheme } from '../context/ThemeContext';
+import { useI18n } from '../i18n/LanguageContext';
+import { LanguageSelector } from './LanguageSelector';
 import { Logo } from './Logo';
 import {
   Mic,
@@ -27,16 +29,17 @@ interface NavbarProps {
 export const Navbar: React.FC<NavbarProps> = ({ currentTab, setCurrentTab, openPricingModal }) => {
   const { user, openAuthModal, logout } = useAuth();
   const { theme, toggleTheme } = useTheme();
+  const { t } = useI18n();
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const mobileMenuRef = useRef<HTMLDivElement>(null);
   const toggleBtnRef = useRef<HTMLButtonElement>(null);
 
   const navItems = [
-    { id: 'dashboard', label: 'Dashboard', icon: LayoutDashboard },
-    { id: 'mentor', label: 'Voice AI Mentor', icon: Mic, badge: 'Voice AI' },
-    { id: 'products', label: 'Product Studio', icon: Package },
-    { id: 'images', label: 'Image Studio', icon: Camera },
-    { id: 'marketplace', label: 'Marketplaces', icon: Store },
+    { id: 'dashboard', label: t('nav.dashboard'), icon: LayoutDashboard },
+    { id: 'mentor', label: t('nav.voiceMentor'), icon: Mic, badge: t('nav.voiceAiBadge') },
+    { id: 'products', label: t('nav.productStudio'), icon: Package },
+    { id: 'images', label: t('nav.imageStudio'), icon: Camera },
+    { id: 'marketplace', label: t('nav.marketplace'), icon: Store },
   ];
 
   const handleNavClick = (id: string) => {
@@ -72,7 +75,7 @@ export const Navbar: React.FC<NavbarProps> = ({ currentTab, setCurrentTab, openP
                 handleNavClick('landing');
               }
             }}
-            aria-label="KRIVIO AI - Go to Home Page"
+            aria-label={`${t('common.brand')} - ${t('nav.home')}`}
           >
             <Logo variant="horizontal" size="sm" showTagline={false} />
           </div>
@@ -107,21 +110,24 @@ export const Navbar: React.FC<NavbarProps> = ({ currentTab, setCurrentTab, openP
           </nav>
 
           {/* Right Action Tools */}
-          <div className="flex items-center gap-2 sm:gap-2.5">
+          <div className="flex items-center gap-1.5 sm:gap-2.5">
+            {/* Language Selector */}
+            <LanguageSelector />
+
             {/* Pro Upgrade Badge */}
             {user?.subscriptionPlan === 'pro' ? (
               <span className="hidden sm:inline-flex items-center gap-1 px-2.5 py-1 text-xs font-semibold bg-[#D4AF37] text-[#1A1A1A] rounded-full shadow-xs">
                 <Crown className="w-3.5 h-3.5" />
-                <span>Pro Mentor</span>
+                <span>{t('common.proBadge')}</span>
               </span>
             ) : (
               <button
                 id="btn-upgrade-pro"
                 onClick={openPricingModal}
-                className="hidden sm:inline-flex items-center gap-1.5 px-3.5 py-1.5 text-xs font-semibold bg-[#0F5132] hover:bg-[#0F5132]/90 text-white rounded-lg shadow-sm transition-all active:scale-98 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#0F5132] dark:focus-visible:ring-emerald-400"
+                className="hidden sm:inline-flex items-center gap-1.5 px-3.5 py-1.5 text-xs font-semibold bg-[#0F5132] hover:bg-[#0F5132]/90 text-white rounded-lg shadow-sm transition-all active:scale-98 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#0F5132] dark:focus-visible:ring-emerald-400 font-poppins"
               >
                 <Sparkles className="w-3.5 h-3.5 text-[#D4AF37]" />
-                <span>Upgrade Pro</span>
+                <span>{t('common.upgradePro')}</span>
               </button>
             )}
 
@@ -129,8 +135,9 @@ export const Navbar: React.FC<NavbarProps> = ({ currentTab, setCurrentTab, openP
             <button
               id="btn-theme-toggle"
               onClick={toggleTheme}
-              aria-label={`Switch to ${theme === 'dark' ? 'light' : 'dark'} mode`}
-              className="p-2 rounded-lg text-stone-600 dark:text-emerald-200 hover:bg-stone-200/60 dark:hover:bg-emerald-900/40 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#0F5132] dark:focus-visible:ring-emerald-400"
+              aria-label={t('common.switchTheme')}
+              title={theme === 'dark' ? t('common.lightMode') : t('common.darkMode')}
+              className="p-2 rounded-lg text-stone-600 dark:text-emerald-200 hover:bg-stone-200/60 dark:hover:bg-emerald-900/40 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#0F5132] dark:focus-visible:ring-emerald-400 cursor-pointer"
             >
               {theme === 'dark' ? <Sun className="w-4 h-4 text-[#D4AF37]" /> : <Moon className="w-4 h-4 text-[#0F5132]" />}
             </button>
@@ -141,8 +148,8 @@ export const Navbar: React.FC<NavbarProps> = ({ currentTab, setCurrentTab, openP
                 <button
                   id="btn-profile-view"
                   onClick={() => setCurrentTab('profile')}
-                  aria-label={`View ${user.name}'s Profile`}
-                  className="flex items-center gap-2 p-1.5 rounded-lg hover:bg-stone-200/60 dark:hover:bg-emerald-900/40 text-stone-800 dark:text-emerald-100 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#0F5132] dark:focus-visible:ring-emerald-400"
+                  aria-label={`${t('nav.profile')} - ${user.name}`}
+                  className="flex items-center gap-2 p-1.5 rounded-lg hover:bg-stone-200/60 dark:hover:bg-emerald-900/40 text-stone-800 dark:text-emerald-100 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#0F5132] dark:focus-visible:ring-emerald-400 cursor-pointer"
                 >
                   <div className="w-7 h-7 rounded-full bg-[#0F5132] text-white font-bold text-xs flex items-center justify-center border border-[#D4AF37]/50">
                     {user.name ? user.name.charAt(0).toUpperCase() : 'U'}
@@ -154,9 +161,9 @@ export const Navbar: React.FC<NavbarProps> = ({ currentTab, setCurrentTab, openP
                 <button
                   id="btn-logout"
                   onClick={logout}
-                  title="Sign Out"
-                  aria-label="Sign Out"
-                  className="p-1.5 rounded-lg text-stone-400 hover:text-red-600 hover:bg-red-50 dark:hover:bg-red-950/30 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-red-500"
+                  title={t('common.logout')}
+                  aria-label={t('common.logout')}
+                  className="p-1.5 rounded-lg text-stone-400 hover:text-red-600 hover:bg-red-50 dark:hover:bg-red-950/30 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-red-500 cursor-pointer"
                 >
                   <LogOut className="w-4 h-4" />
                 </button>
@@ -165,10 +172,10 @@ export const Navbar: React.FC<NavbarProps> = ({ currentTab, setCurrentTab, openP
               <button
                 id="btn-open-auth"
                 onClick={openAuthModal}
-                className="flex items-center gap-1.5 px-3.5 py-1.5 text-xs font-semibold bg-[#1A1A1A] hover:bg-stone-800 dark:bg-emerald-100 dark:hover:bg-white text-white dark:text-[#0F5132] rounded-lg shadow-sm transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#0F5132] dark:focus-visible:ring-emerald-400"
+                className="flex items-center gap-1.5 px-3.5 py-1.5 text-xs font-semibold bg-[#1A1A1A] hover:bg-stone-800 dark:bg-emerald-100 dark:hover:bg-white text-white dark:text-[#0F5132] rounded-lg shadow-sm transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#0F5132] dark:focus-visible:ring-emerald-400 cursor-pointer font-poppins"
               >
                 <User className="w-3.5 h-3.5" />
-                <span>Sign In</span>
+                <span>{t('common.login')}</span>
               </button>
             )}
 
@@ -233,7 +240,7 @@ export const Navbar: React.FC<NavbarProps> = ({ currentTab, setCurrentTab, openP
             {user?.subscriptionPlan === 'pro' ? (
               <div className="flex items-center gap-2 px-3 py-2 bg-[#D4AF37]/15 rounded-xl text-xs font-semibold text-[#8B6E10] dark:text-[#F3E5AB]">
                 <Crown className="w-4 h-4 text-[#D4AF37]" />
-                <span>Pro Mentor Subscription Active</span>
+                <span>{t('common.proBadge')}</span>
               </div>
             ) : (
               <button
@@ -244,7 +251,7 @@ export const Navbar: React.FC<NavbarProps> = ({ currentTab, setCurrentTab, openP
                 className="w-full flex items-center justify-center gap-2 px-4 py-2.5 bg-[#0F5132] hover:bg-[#0F5132]/90 text-white text-xs font-semibold rounded-xl shadow-xs transition-all active:scale-98 font-poppins focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#0F5132]"
               >
                 <Sparkles className="w-4 h-4 text-[#D4AF37]" />
-                <span>Upgrade to Pro Plan (₹299/mo)</span>
+                <span>{t('common.upgradePro')}</span>
               </button>
             )}
           </div>
@@ -253,5 +260,6 @@ export const Navbar: React.FC<NavbarProps> = ({ currentTab, setCurrentTab, openP
     </header>
   );
 };
+
 
 

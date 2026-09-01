@@ -16,6 +16,8 @@ export interface User {
   subscriptionValidUntil?: string;
   avatarUrl?: string;
   profile_image?: string;
+  preferred_language?: string;
+  preferredLanguage?: string;
   createdAt: string;
 }
 

@@ -1,13 +1,12 @@
 import React, { useState } from 'react';
 import { NotificationItem } from '../types';
+import { useI18n } from '../i18n/LanguageContext';
 import {
   Bell,
-  Check,
   CheckCheck,
   Trash2,
   Info,
   Sparkles,
-  AlertTriangle,
   CheckCircle2,
   X,
 } from 'lucide-react';
@@ -16,39 +15,41 @@ interface NotificationsPopoverProps {
   onSelectTab?: (tab: string) => void;
 }
 
-const INITIAL_NOTIFICATIONS: NotificationItem[] = [
-  {
-    id: 'notif-1',
-    title: 'Welcome to KRIVIO AI Workspace',
-    message: 'Your enterprise account is securely set up. Welcome to your business growth workspace.',
-    time: 'Just now',
-    read: false,
-    type: 'success',
-    linkTab: 'dashboard',
-  },
-  {
-    id: 'notif-2',
-    title: 'PM Vishwakarma Scheme Update',
-    message: 'New toolkit subsidy up to ₹15,000 is open for traditional artisans and weavers.',
-    time: '2 hours ago',
-    read: false,
-    type: 'info',
-    linkTab: 'schemes',
-  },
-  {
-    id: 'notif-3',
-    title: 'Voice AI Mentor Tip',
-    message: 'Ask your mentor in Hindi, English, or regional voices to calculate your handmade product cost and fair margins.',
-    time: '1 day ago',
-    read: true,
-    type: 'mentor',
-    linkTab: 'mentor',
-  },
-];
-
 export const NotificationsPopover: React.FC<NotificationsPopoverProps> = ({ onSelectTab }) => {
+  const { t } = useI18n();
   const [isOpen, setIsOpen] = useState(false);
-  const [notifications, setNotifications] = useState<NotificationItem[]>(INITIAL_NOTIFICATIONS);
+
+  const initialNotifications: NotificationItem[] = [
+    {
+      id: 'notif-1',
+      title: t('notifications.title'),
+      message: t('landing.heroSubtitle'),
+      time: 'Just now',
+      read: false,
+      type: 'success',
+      linkTab: 'dashboard',
+    },
+    {
+      id: 'notif-2',
+      title: 'PM Vishwakarma Scheme Update',
+      message: 'New toolkit subsidy up to ₹15,000 is open for traditional artisans and weavers.',
+      time: '2 hours ago',
+      read: false,
+      type: 'info',
+      linkTab: 'schemes',
+    },
+    {
+      id: 'notif-3',
+      title: t('mentor.title'),
+      message: t('mentor.subtitle'),
+      time: '1 day ago',
+      read: true,
+      type: 'mentor',
+      linkTab: 'mentor',
+    },
+  ];
+
+  const [notifications, setNotifications] = useState<NotificationItem[]>(initialNotifications);
 
   const unreadCount = notifications.filter((n) => !n.read).length;
 
@@ -101,7 +102,7 @@ export const NotificationsPopover: React.FC<NotificationsPopoverProps> = ({ onSe
               <div className="flex items-center gap-2">
                 <Bell className="w-4 h-4 text-[#0F5132] dark:text-emerald-400" />
                 <h3 className="font-bold text-stone-900 dark:text-white font-poppins">
-                  Notifications
+                  {t('notifications.title')}
                 </h3>
                 {unreadCount > 0 && (
                   <span className="px-2 py-0.5 bg-[#0F5132]/10 text-[#0F5132] dark:bg-emerald-950 dark:text-emerald-300 font-extrabold rounded-full text-[10px] border border-[#0F5132]/20 dark:border-emerald-800">
@@ -114,10 +115,10 @@ export const NotificationsPopover: React.FC<NotificationsPopoverProps> = ({ onSe
                 {unreadCount > 0 && (
                   <button
                     onClick={handleMarkAllAsRead}
-                    title="Mark all as read"
+                    title={t('notifications.markAllRead')}
                     className="text-[11px] font-semibold text-[#0F5132] dark:text-emerald-400 hover:underline flex items-center gap-1"
                   >
-                    <CheckCheck className="w-3.5 h-3.5" /> Read All
+                    <CheckCheck className="w-3.5 h-3.5" /> {t('notifications.markAllRead')}
                   </button>
                 )}
                 <button
@@ -133,8 +134,7 @@ export const NotificationsPopover: React.FC<NotificationsPopoverProps> = ({ onSe
               {notifications.length === 0 ? (
                 <div className="py-8 text-center text-stone-400 dark:text-emerald-300/60 space-y-2">
                   <Bell className="w-8 h-8 mx-auto opacity-30" />
-                  <p className="font-medium text-xs">No notifications right now.</p>
-                  <p className="text-[10px] text-stone-500 dark:text-emerald-400/60">You're all caught up!</p>
+                  <p className="font-medium text-xs">{t('notifications.noNotifications')}</p>
                 </div>
               ) : (
                 notifications.map((n) => (
@@ -171,7 +171,7 @@ export const NotificationsPopover: React.FC<NotificationsPopoverProps> = ({ onSe
                   onClick={handleClearAll}
                   className="text-stone-400 hover:text-red-500 dark:hover:text-red-400 flex items-center gap-1 transition-colors"
                 >
-                  <Trash2 className="w-3.5 h-3.5" /> Clear list
+                  <Trash2 className="w-3.5 h-3.5" /> Clear
                 </button>
                 <span className="text-stone-400 dark:text-emerald-400/60 text-[10px]">Live Cloud Sync</span>
               </div>

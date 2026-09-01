@@ -1,18 +1,16 @@
 import React, { useState } from 'react';
 import { paymentsApi } from '../services/api';
 import { useAuth } from '../context/AuthContext';
+import { useI18n } from '../i18n/LanguageContext';
 import {
   X,
   Sparkles,
   CheckCircle2,
-  ShieldCheck,
   Crown,
   CreditCard,
   Lock,
   Smartphone,
   Building2,
-  QrCode,
-  ArrowRight,
   Check,
   AlertCircle,
   Loader2,
@@ -26,6 +24,7 @@ interface PricingModalProps {
 
 export const PricingModal: React.FC<PricingModalProps> = ({ isOpen, onClose }) => {
   const { user, refreshUser } = useAuth();
+  const { t, formatCurrency } = useI18n();
   const [submitting, setSubmitting] = useState(false);
   const [paymentStep, setPaymentStep] = useState<string>('');
   const [errorMessage, setErrorMessage] = useState('');
@@ -72,7 +71,7 @@ export const PricingModal: React.FC<PricingModalProps> = ({ isOpen, onClose }) =
               setPaymentSuccess(true);
               await refreshUser();
             } else {
-              setErrorMessage('Payment verification was not completed. Please try again.');
+              setErrorMessage(t('errors.general'));
             }
             setSubmitting(false);
           },
@@ -112,13 +111,13 @@ export const PricingModal: React.FC<PricingModalProps> = ({ isOpen, onClose }) =
           setPaymentSuccess(true);
           await refreshUser();
         } else {
-          setErrorMessage('Payment verification failed. Please try again.');
+          setErrorMessage(t('errors.general'));
         }
         setSubmitting(false);
       }
     } catch (err: any) {
       console.error('Payment checkout error', err);
-      setErrorMessage(err.message || 'Payment processing error. Please try again.');
+      setErrorMessage(err.message || t('errors.general'));
       setSubmitting(false);
     }
   };
@@ -128,7 +127,7 @@ export const PricingModal: React.FC<PricingModalProps> = ({ isOpen, onClose }) =
       <div className="bg-white dark:bg-[#13251B] rounded-3xl max-w-lg w-full p-5 sm:p-8 shadow-2xl border border-[#0F5132]/20 dark:border-emerald-800/60 relative space-y-6 max-h-[92vh] overflow-y-auto font-inter">
         <button
           onClick={onClose}
-          aria-label="Close dialog"
+          aria-label={t('common.close')}
           className="absolute top-4 sm:top-6 right-4 sm:right-6 p-2 text-stone-400 dark:text-emerald-400/60 hover:text-stone-700 dark:hover:text-emerald-100 hover:bg-[#0F5132]/10 dark:hover:bg-emerald-900/30 rounded-xl transition-colors cursor-pointer"
         >
           <X className="w-5 h-5" />
@@ -143,29 +142,29 @@ export const PricingModal: React.FC<PricingModalProps> = ({ isOpen, onClose }) =
 
             <div className="space-y-2">
               <span className="px-3 py-0.5 rounded-full text-[10px] font-bold bg-[#D4AF37] text-stone-950 uppercase tracking-wider font-poppins">
-                Payment Successful
+                {t('common.success')}
               </span>
               <h2 className="text-xl sm:text-2xl font-extrabold text-[#0F5132] dark:text-white font-poppins">
-                Welcome to KRIVIO AI Pro!
+                {t('pricing.modalTitle')}
               </h2>
               <p className="text-xs text-stone-600 dark:text-emerald-200/80 max-w-sm mx-auto font-inter">
-                Your ₹299 monthly subscription is activated. Enjoy unlimited voice mentorship and AI catalog generation.
+                {t('pricing.modalSubtitle')}
               </p>
             </div>
 
             <div className="p-4 bg-[#F8F9F5] dark:bg-[#0E2016] rounded-2xl border border-stone-200 dark:border-emerald-900/40 text-left space-y-2 text-xs">
               <div className="flex justify-between text-stone-600 dark:text-emerald-300/80">
-                <span>Plan:</span>
-                <span className="font-bold text-stone-900 dark:text-white">Pro Entrepreneur</span>
+                <span>{t('profile.plan')}:</span>
+                <span className="font-bold text-stone-900 dark:text-white">{t('pricing.proPlanTitle')}</span>
               </div>
               <div className="flex justify-between text-stone-600 dark:text-emerald-300/80">
-                <span>Amount Paid:</span>
-                <span className="font-bold text-[#0F5132] dark:text-emerald-300">₹299.00 (Inclusive of GST)</span>
+                <span>{t('product.tablePrice')}:</span>
+                <span className="font-bold text-[#0F5132] dark:text-emerald-300">₹299.00</span>
               </div>
               <div className="flex justify-between text-stone-600 dark:text-emerald-300/80">
-                <span>Status:</span>
+                <span>{t('common.status')}:</span>
                 <span className="font-bold text-emerald-600 dark:text-emerald-400 flex items-center gap-1">
-                  <Check className="w-3.5 h-3.5" /> Active (30 Days)
+                  <Check className="w-3.5 h-3.5" /> {t('subscription.active')}
                 </span>
               </div>
             </div>
@@ -174,7 +173,7 @@ export const PricingModal: React.FC<PricingModalProps> = ({ isOpen, onClose }) =
               onClick={onClose}
               className="w-full py-3.5 bg-[#0F5132] hover:bg-[#0B3D26] text-white font-bold text-xs rounded-xl shadow-lg transition-all font-poppins cursor-pointer"
             >
-              Continue to Workspace
+              {t('common.close')}
             </button>
           </div>
         ) : (
@@ -184,13 +183,13 @@ export const PricingModal: React.FC<PricingModalProps> = ({ isOpen, onClose }) =
               <Logo variant="horizontal" size="md" showTagline={true} />
               <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-[#0F5132]/10 dark:bg-emerald-950/80 text-[#0F5132] dark:text-emerald-300 text-xs font-bold mt-2 font-poppins">
                 <Crown className="w-3.5 h-3.5 text-[#D4AF37]" />
-                <span>KRIVIO AI Pro Subscription</span>
+                <span>{t('pricing.proPlanTitle')}</span>
               </div>
               <h2 className="text-lg sm:text-2xl font-bold text-stone-900 dark:text-white font-poppins">
-                Upgrade Your Business Mentor
+                {t('pricing.modalTitle')}
               </h2>
               <p className="text-xs text-stone-600 dark:text-emerald-200/70 font-inter max-w-sm">
-                Unlimited voice queries in 7 regional languages, automated craft stories, and catalog export.
+                {t('pricing.modalSubtitle')}
               </p>
             </div>
 
@@ -199,7 +198,7 @@ export const PricingModal: React.FC<PricingModalProps> = ({ isOpen, onClose }) =
               <div className="flex items-center justify-between">
                 <div>
                   <span className="text-xs font-bold text-[#D4AF37] uppercase tracking-wider font-poppins">
-                    Pro Mentor Plan
+                    {t('pricing.proPlanTitle')}
                   </span>
                   <div className="text-2xl font-black font-poppins mt-0.5 text-[#D4AF37]">
                     ₹299 <span className="text-xs font-normal text-emerald-200/70 font-inter">/ month</span>
@@ -213,15 +212,15 @@ export const PricingModal: React.FC<PricingModalProps> = ({ isOpen, onClose }) =
               <ul className="space-y-2 text-xs text-emerald-100/90 font-inter">
                 <li className="flex items-center gap-2">
                   <CheckCircle2 className="w-3.5 h-3.5 text-[#D4AF37] shrink-0" />
-                  <span>Unlimited Voice AI Mentor in Hindi, Bengali, Tamil, etc.</span>
+                  <span>{t('pricing.proPlanFeature1')}</span>
                 </li>
                 <li className="flex items-center gap-2">
                   <CheckCircle2 className="w-3.5 h-3.5 text-[#D4AF37] shrink-0" />
-                  <span>Unlimited E-Commerce Product Listings & AI Marketing Stories</span>
+                  <span>{t('pricing.proPlanFeature2')}</span>
                 </li>
                 <li className="flex items-center gap-2">
                   <CheckCircle2 className="w-3.5 h-3.5 text-[#D4AF37] shrink-0" />
-                  <span>Direct ONDC & Digital Storefront WhatsApp Inquiries</span>
+                  <span>{t('pricing.proPlanFeature4')}</span>
                 </li>
               </ul>
             </div>
@@ -229,7 +228,7 @@ export const PricingModal: React.FC<PricingModalProps> = ({ isOpen, onClose }) =
             {/* Payment Method Selector */}
             <div className="space-y-2">
               <span className="block text-xs font-bold text-stone-700 dark:text-emerald-200 font-poppins">
-                Select Payment Method
+                UPI / NetBanking / Card
               </span>
 
               <div className="grid grid-cols-3 gap-2">
@@ -243,7 +242,7 @@ export const PricingModal: React.FC<PricingModalProps> = ({ isOpen, onClose }) =
                   }`}
                 >
                   <Smartphone className="w-4 h-4 text-[#0F5132] dark:text-[#34D399]" />
-                  <span>UPI Instant</span>
+                  <span>UPI</span>
                 </button>
 
                 <button
@@ -324,24 +323,24 @@ export const PricingModal: React.FC<PricingModalProps> = ({ isOpen, onClose }) =
                 {submitting ? (
                   <>
                     <Loader2 className="w-4 h-4 animate-spin text-[#D4AF37]" />
-                    <span>{paymentStep || 'Processing Payment...'}</span>
+                    <span>{paymentStep || t('common.loading')}</span>
                   </>
                 ) : user?.subscriptionPlan === 'pro' ? (
                   <>
                     <Check className="w-4 h-4 text-[#D4AF37]" />
-                    <span>Pro Subscription Already Active</span>
+                    <span>{t('subscription.active')}</span>
                   </>
                 ) : (
                   <>
                     <CreditCard className="w-4 h-4 text-[#D4AF37]" />
-                    <span>Pay ₹299 (Instant Activation)</span>
+                    <span>{t('pricing.upgradeBtn')}</span>
                   </>
                 )}
               </button>
 
               <p className="text-[10px] text-center text-stone-500 dark:text-emerald-300/60 flex items-center justify-center gap-1 font-inter">
                 <Lock className="w-3 h-3 text-[#D4AF37]" />
-                <span>Secured by 256-bit Bank Grade Encryption • Instant Activation</span>
+                <span>{t('pricing.securePayment')}</span>
               </p>
             </div>
           </>

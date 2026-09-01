@@ -1,6 +1,8 @@
 import React, { useState } from 'react';
 import { useAuth } from '../context/AuthContext';
 import { useTheme } from '../context/ThemeContext';
+import { useI18n } from '../i18n/LanguageContext';
+import { LanguageSelector } from './LanguageSelector';
 import { authApi } from '../services/api';
 import {
   Settings,
@@ -12,15 +14,14 @@ import {
   ShieldCheck,
   CheckCircle2,
   KeyRound,
-  Save,
   AlertCircle,
 } from 'lucide-react';
 
 export const SettingsView: React.FC = () => {
-  const { user, refreshUser } = useAuth();
+  const { user } = useAuth();
   const { theme, toggleTheme } = useTheme();
+  const { t } = useI18n();
 
-  const [language, setLanguage] = useState('Hindi');
   const [currentPassword, setCurrentPassword] = useState('');
   const [newPassword, setNewPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
@@ -47,13 +48,13 @@ export const SettingsView: React.FC = () => {
 
     setIsSubmittingPw(true);
     try {
-      const res = await authApi.changePassword(currentPassword, newPassword);
+      await authApi.changePassword(currentPassword, newPassword);
       setPwMessage({ type: 'success', text: 'Password updated successfully!' });
       setCurrentPassword('');
       setNewPassword('');
       setConfirmPassword('');
     } catch (err: any) {
-      setPwMessage({ type: 'error', text: err.message || 'Failed to update password.' });
+      setPwMessage({ type: 'error', text: err.message || t('errors.general') });
     } finally {
       setIsSubmittingPw(false);
     }
@@ -65,10 +66,10 @@ export const SettingsView: React.FC = () => {
       <div className="flex items-center justify-between border-b border-stone-200 dark:border-emerald-900/40 pb-4">
         <div>
           <h1 className="text-xl sm:text-2xl font-bold font-poppins text-stone-900 dark:text-white flex items-center gap-2">
-            <Settings className="w-6 h-6 text-[#0F5132] dark:text-emerald-400" /> Workspace Settings
+            <Settings className="w-6 h-6 text-[#0F5132] dark:text-emerald-400" /> {t('settings.title')}
           </h1>
           <p className="text-xs text-stone-500 dark:text-emerald-300/70 mt-1">
-            Manage theme display, primary language, account security, and alert preferences.
+            {t('settings.subtitle')}
           </p>
         </div>
       </div>
@@ -77,46 +78,33 @@ export const SettingsView: React.FC = () => {
         {/* Card 1: Theme & Language */}
         <div className="bg-white dark:bg-[#13251B] p-5 sm:p-6 rounded-3xl border border-[#0F5132]/15 dark:border-emerald-800/60 shadow-xs space-y-6">
           <h2 className="text-sm font-bold text-stone-900 dark:text-white font-poppins flex items-center gap-2">
-            <Globe className="w-4 h-4 text-[#0F5132] dark:text-emerald-400" /> Display & Regional Language
+            <Globe className="w-4 h-4 text-[#0F5132] dark:text-emerald-400" /> {t('settings.language')}
           </h2>
 
           <div className="space-y-4 text-xs">
             {/* Theme selector */}
             <div className="flex items-center justify-between py-3 border-b border-stone-100 dark:border-emerald-900/40">
               <div>
-                <span className="font-semibold text-stone-800 dark:text-emerald-100 block font-poppins">Workspace Theme</span>
-                <span className="text-stone-500 dark:text-emerald-300/60 text-[11px]">Toggle between Light and Dark mode</span>
+                <span className="font-semibold text-stone-800 dark:text-emerald-100 block font-poppins">{t('settings.theme')}</span>
+                <span className="text-stone-500 dark:text-emerald-300/60 text-[11px]">{t('settings.themeSubtitle')}</span>
               </div>
               <button
                 onClick={toggleTheme}
                 className="px-3.5 py-2.5 bg-stone-100 dark:bg-[#183023] hover:bg-stone-200 dark:hover:bg-emerald-900/40 text-stone-800 dark:text-emerald-200 font-bold rounded-xl flex items-center gap-2 transition-all font-poppins cursor-pointer active:scale-98"
               >
                 {theme === 'dark' ? <Sun className="w-4 h-4 text-[#D4AF37]" /> : <Moon className="w-4 h-4 text-[#0F5132]" />}
-                <span className="capitalize">{theme} Mode</span>
+                <span className="capitalize">{theme === 'dark' ? t('settings.dark') : t('settings.light')}</span>
               </button>
             </div>
 
             {/* Language selector */}
-            <div className="space-y-1.5">
+            <div className="space-y-2">
               <label className="font-semibold text-stone-800 dark:text-emerald-100 block font-poppins">
-                Primary Mentor Language
+                {t('settings.language')}
               </label>
-              <select
-                value={language}
-                onChange={(e) => setLanguage(e.target.value)}
-                className="w-full px-3.5 py-2.5 bg-[#F8F9F5] dark:bg-[#0E2016] border border-[#0F5132]/20 dark:border-emerald-800/60 rounded-xl text-xs text-stone-900 dark:text-white focus:ring-2 focus:ring-[#0F5132] outline-none font-inter cursor-pointer"
-              >
-                <option value="Hindi">हिंदी (Hindi)</option>
-                <option value="English">English</option>
-                <option value="Gujarati">ગુજરાતી (Gujarati)</option>
-                <option value="Bengali">বাংলা (Bengali)</option>
-                <option value="Tamil">தமிழ் (Tamil)</option>
-                <option value="Telugu">తెలుగు (Telugu)</option>
-                <option value="Marathi">मराठी (Marathi)</option>
-                <option value="Kannada">ಕನ್ನಡ (Kannada)</option>
-              </select>
+              <LanguageSelector variant="inline" />
               <p className="text-[11px] text-stone-500 dark:text-emerald-300/70 pt-0.5">
-                Voice AI Mentor will respond in your chosen regional language.
+                {t('settings.languageSubtitle')}
               </p>
             </div>
           </div>
@@ -125,7 +113,7 @@ export const SettingsView: React.FC = () => {
         {/* Card 2: Account & Security */}
         <div className="bg-white dark:bg-[#13251B] p-5 sm:p-6 rounded-3xl border border-[#0F5132]/15 dark:border-emerald-800/60 shadow-xs space-y-6">
           <h2 className="text-sm font-bold text-stone-900 dark:text-white font-poppins flex items-center gap-2">
-            <ShieldCheck className="w-4 h-4 text-[#0F5132] dark:text-emerald-400" /> Enterprise Account Identity
+            <ShieldCheck className="w-4 h-4 text-[#0F5132] dark:text-emerald-400" /> {t('profile.title')}
           </h2>
 
           <div className="space-y-3 text-xs">
@@ -137,14 +125,14 @@ export const SettingsView: React.FC = () => {
             </div>
 
             <div className="flex justify-between py-2 border-b border-stone-100 dark:border-emerald-900/40">
-              <span className="text-stone-500 dark:text-emerald-300/60">Full Name</span>
+              <span className="text-stone-500 dark:text-emerald-300/60">{t('profile.fullName')}</span>
               <span className="font-semibold text-stone-800 dark:text-emerald-200">
                 {user?.name || user?.full_name || 'Artisan User'}
               </span>
             </div>
 
             <div className="flex justify-between py-2 border-b border-stone-100 dark:border-emerald-900/40">
-              <span className="text-stone-500 dark:text-emerald-300/60">Email Address</span>
+              <span className="text-stone-500 dark:text-emerald-300/60">{t('profile.email')}</span>
               <span className="font-semibold text-stone-800 dark:text-emerald-200">{user?.email}</span>
             </div>
 
@@ -226,7 +214,7 @@ export const SettingsView: React.FC = () => {
             className="w-full sm:w-auto px-5 py-3 bg-[#0F5132] hover:bg-[#0B3D26] text-white font-bold rounded-xl shadow-md transition-all flex items-center justify-center gap-2 font-poppins cursor-pointer active:scale-98"
           >
             <KeyRound className="w-4 h-4 text-[#D4AF37]" />
-            <span>{isSubmittingPw ? 'Updating Password...' : 'Update Password'}</span>
+            <span>{isSubmittingPw ? t('common.loading') : 'Update Password'}</span>
           </button>
         </form>
       </div>
@@ -234,14 +222,14 @@ export const SettingsView: React.FC = () => {
       {/* Notifications Preferences */}
       <div className="bg-white dark:bg-[#13251B] p-5 sm:p-8 rounded-3xl border border-[#0F5132]/15 dark:border-emerald-800/60 shadow-xs space-y-6 font-inter">
         <h2 className="text-sm font-bold text-stone-900 dark:text-white font-poppins flex items-center gap-2">
-          <Bell className="w-4 h-4 text-[#0F5132] dark:text-emerald-400" /> Notification Preferences
+          <Bell className="w-4 h-4 text-[#0F5132] dark:text-emerald-400" /> {t('settings.notifications')}
         </h2>
 
         <div className="space-y-4 text-xs">
           <label className="flex items-center justify-between cursor-pointer py-2 border-b border-stone-100 dark:border-emerald-900/40">
             <div>
               <span className="font-semibold text-stone-800 dark:text-emerald-100 block font-poppins">Email Digest</span>
-              <span className="text-stone-500 dark:text-emerald-300/70 text-[11px]">Receive monthly marketplace tips & new scheme updates</span>
+              <span className="text-stone-500 dark:text-emerald-300/70 text-[11px]">{t('settings.notificationsSubtitle')}</span>
             </div>
             <input
               type="checkbox"

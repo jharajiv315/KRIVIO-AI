@@ -34,6 +34,7 @@ class CRUDUser:
             phone_number=phone_number,
             profile_image=obj_in.profile_image,
             role=obj_in.role or "artisan",
+            preferred_language=obj_in.preferred_language or "en",
             is_active=True,
             is_verified=False
         )

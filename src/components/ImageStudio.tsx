@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { imagesApi } from '../services/api';
 import { ImageAnalysis } from '../types';
+import { useI18n } from '../i18n/LanguageContext';
 import {
   Camera,
   Upload,
@@ -19,6 +20,7 @@ import { ProductIdentityWizard } from './ProductIdentityWizard';
 type StudioMode = 'diagnosis' | 'create';
 
 export const ImageStudio: React.FC = () => {
+  const { t } = useI18n();
   const [mode, setMode] = useState<StudioMode>('diagnosis');
 
   // Photo Diagnosis state
@@ -59,16 +61,14 @@ export const ImageStudio: React.FC = () => {
           <div className="space-y-1">
             <div className="flex items-center gap-2">
               <h1 className="text-lg sm:text-xl font-bold text-stone-900 dark:text-white font-poppins">
-                Smartphone Image Studio
+                {t('imageStudio.title')}
               </h1>
               <span className="px-2 py-0.5 text-[10px] font-bold bg-[#0F5132]/10 text-[#0F5132] dark:bg-emerald-950 dark:text-emerald-300 rounded-full border border-[#0F5132]/20 dark:border-emerald-800 font-poppins">
                 Smart Photo Tools
               </span>
             </div>
             <p className="text-xs text-stone-500 dark:text-emerald-300/70">
-              {mode === 'diagnosis'
-                ? 'Upload photos to receive real-time feedback on lighting, backdrop clarity, and selling appeal.'
-                : 'Turn a product photo into a complete brand name, description, and ready-to-list product in minutes.'}
+              {t('imageStudio.subtitle')}
             </p>
           </div>
         </div>
@@ -97,7 +97,7 @@ export const ImageStudio: React.FC = () => {
             }`}
           >
             <Wand2 className="w-3.5 h-3.5 text-[#D4AF37]" />
-            Create Product
+            {t('product.addProduct')}
           </button>
         </div>
       </div>
@@ -125,14 +125,14 @@ export const ImageStudio: React.FC = () => {
                 ) : (
                   <div className="flex flex-col items-center justify-center h-full text-stone-400 space-y-2">
                     <ImageIcon className="w-10 h-10" />
-                    <span className="text-xs font-inter">No image selected</span>
+                    <span className="text-xs font-inter">{t('imageStudio.dropzone')}</span>
                   </div>
                 )}
 
                 {analyzing && (
                   <div className="absolute inset-0 bg-black/70 backdrop-blur-xs flex flex-col items-center justify-center text-white space-y-3">
                     <RefreshCw className="w-8 h-8 text-[#D4AF37] animate-spin" />
-                    <p className="text-xs font-bold font-poppins">Diagnosing Photo Quality...</p>
+                    <p className="text-xs font-bold font-poppins">{t('imageStudio.generating')}</p>
                   </div>
                 )}
               </div>
@@ -144,7 +144,7 @@ export const ImageStudio: React.FC = () => {
                   className="w-full py-3 px-4 bg-[#0F5132] hover:bg-[#0B3D26] text-white font-semibold text-xs rounded-xl flex items-center justify-center gap-2 shadow-md cursor-pointer transition-all active:scale-98 font-poppins"
                 >
                   <Upload className="w-4 h-4 text-[#D4AF37]" />
-                  <span>Upload Mobile Product Photo</span>
+                  <span>{t('imageStudio.uploadButton')}</span>
                 </label>
                 <input
                   id="photo-upload-input"
@@ -159,7 +159,7 @@ export const ImageStudio: React.FC = () => {
               <div className="p-3 bg-[#0F5132]/5 dark:bg-[#183023]/70 border border-[#0F5132]/20 dark:border-emerald-700/50 rounded-xl flex items-center gap-2 text-[11px] text-stone-800 dark:text-emerald-100 font-inter">
                 <Sparkles className="w-3.5 h-3.5 text-[#D4AF37] shrink-0" />
                 <span>Want to turn this photo into a full product listing?</span>
-                <button onClick={() => setMode('create')} className="ml-auto font-bold text-[#0F5132] dark:text-[#34D399] underline whitespace-nowrap cursor-pointer font-poppins">Create Product</button>
+                <button onClick={() => setMode('create')} className="ml-auto font-bold text-[#0F5132] dark:text-[#34D399] underline whitespace-nowrap cursor-pointer font-poppins">{t('product.addProduct')}</button>
               </div>
             </div>
           </div>
@@ -233,7 +233,7 @@ export const ImageStudio: React.FC = () => {
                 <div className="space-y-3 pt-2">
                   <h4 className="text-xs font-bold uppercase tracking-wider text-stone-900 dark:text-white flex items-center gap-1.5 font-poppins">
                     <Lightbulb className="w-4 h-4 text-[#D4AF37]" />
-                    3 Actionable Tips to Improve Sales Appeal
+                    {t('imageStudio.tipsTitle')}
                   </h4>
 
                   <div className="space-y-2.5">
@@ -256,7 +256,7 @@ export const ImageStudio: React.FC = () => {
                     className="w-full py-3 bg-[#0F5132] hover:bg-[#0B3D26] text-white font-semibold text-xs rounded-xl shadow-md transition-all flex items-center justify-center gap-2 font-poppins cursor-pointer"
                   >
                     <Wand2 className="w-4 h-4 text-[#D4AF37]" />
-                    Turn This Photo Into a Full Product Listing
+                    {t('imageStudio.generateAI')}
                   </button>
                 </div>
               </div>
@@ -267,15 +267,15 @@ export const ImageStudio: React.FC = () => {
                 <div className="w-14 h-14 rounded-2xl bg-stone-100 dark:bg-[#0E2016] flex items-center justify-center">
                   <CheckCircle2 className="w-7 h-7 text-stone-400 dark:text-emerald-400/60" />
                 </div>
-                <p className="text-sm font-semibold text-stone-700 dark:text-emerald-200 font-poppins">Upload a photo to see your diagnosis</p>
-                <p className="text-xs text-stone-400 font-inter">We will analyse lighting, background, and overall appeal.</p>
+                <p className="text-sm font-semibold text-stone-700 dark:text-emerald-200 font-poppins">{t('imageStudio.dropzone')}</p>
+                <p className="text-xs text-stone-400 font-inter">{t('imageStudio.subtitle')}</p>
               </div>
             )}
 
             {!analysis && analyzing && (
               <div className="bg-white dark:bg-[#13251B] p-8 sm:p-12 rounded-3xl border border-[#0F5132]/15 dark:border-emerald-800/60 flex flex-col items-center gap-4 text-center">
                 <AlertTriangle className="w-8 h-8 text-[#D4AF37]" />
-                <p className="text-sm font-semibold text-stone-800 dark:text-white font-poppins">Analysing your photo...</p>
+                <p className="text-sm font-semibold text-stone-800 dark:text-white font-poppins">{t('imageStudio.generating')}</p>
               </div>
             )}
           </div>

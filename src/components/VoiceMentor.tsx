@@ -1,34 +1,33 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { aiMentorApi } from '../services/api';
 import { MentorMessage } from '../types';
+import { useI18n } from '../i18n/LanguageContext';
 import {
   Mic,
   MicOff,
   Send,
   Volume2,
-  VolumeX,
-  Globe,
   Sparkles,
   Bot,
   User,
   HelpCircle,
-  RotateCcw,
   Square,
 } from 'lucide-react';
 
 export const VoiceMentor: React.FC = () => {
+  const { t, language, setLanguage, currentLanguageConfig, supportedLanguages } = useI18n();
+
   const [messages, setMessages] = useState<MentorMessage[]>([
     {
       id: 'msg_init',
       sender: 'assistant',
-      text: 'Namaste! I am KRIVIO AI, your voice mentor for your rural business. Ask me anything about pricing your crafts, selling on ONDC, taking product photos, or applying for government grants.',
+      text: t('mentor.welcomeGreeting'),
       timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
-      language: 'English',
+      language: currentLanguageConfig.name,
     },
   ]);
 
   const [input, setInput] = useState('');
-  const [language, setLanguage] = useState('English');
   const [isListening, setIsListening] = useState(false);
   const [isProcessing, setIsProcessing] = useState(false);
   const [speakingMessageId, setSpeakingMessageId] = useState<string | null>(null);
@@ -53,17 +52,7 @@ export const VoiceMentor: React.FC = () => {
       const recognition = new SpeechRecognition();
       recognition.continuous = false;
       recognition.interimResults = true;
-
-      const langMap: Record<string, string> = {
-        English: 'en-IN',
-        Hindi: 'hi-IN',
-        Tamil: 'ta-IN',
-        Telugu: 'te-IN',
-        Bengali: 'bn-IN',
-        Marathi: 'mr-IN',
-        Gujarati: 'gu-IN',
-      };
-      recognition.lang = langMap[language] || 'en-IN';
+      recognition.lang = currentLanguageConfig.speechCode;
 
       recognition.onresult = (event: any) => {
         const transcript = Array.from(event.results)
@@ -83,7 +72,7 @@ export const VoiceMentor: React.FC = () => {
 
       recognitionRef.current = recognition;
     }
-  }, [language]);
+  }, [currentLanguageConfig]);
 
   const toggleListening = () => {
     if (isListening) {
@@ -115,7 +104,7 @@ export const VoiceMentor: React.FC = () => {
       sender: 'user',
       text: query,
       timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
-      language,
+      language: currentLanguageConfig.name,
     };
 
     setMessages((prev) => [...prev, userMsg]);
@@ -123,14 +112,14 @@ export const VoiceMentor: React.FC = () => {
     setIsProcessing(true);
 
     try {
-      const res = await aiMentorApi.sendMessage(query, language, messages);
+      const res = await aiMentorApi.sendMessage(query, currentLanguageConfig.name, messages);
 
       const assistantMsg: MentorMessage = {
         id: `msg_a_${Date.now()}`,
         sender: 'assistant',
         text: res.reply,
         timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
-        language,
+        language: currentLanguageConfig.name,
       };
 
       setMessages((prev) => [...prev, assistantMsg]);
@@ -144,7 +133,7 @@ export const VoiceMentor: React.FC = () => {
         {
           id: `msg_err_${Date.now()}`,
           sender: 'assistant',
-          text: 'I apologize, I experienced a brief connection delay. Please tap the mic button and ask again.',
+          text: t('errors.general'),
           timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
         },
       ]);
@@ -164,16 +153,7 @@ export const VoiceMentor: React.FC = () => {
     }
 
     const utterance = new SpeechSynthesisUtterance(text);
-    const langMap: Record<string, string> = {
-      English: 'en-IN',
-      Hindi: 'hi-IN',
-      Tamil: 'ta-IN',
-      Telugu: 'te-IN',
-      Bengali: 'bn-IN',
-      Marathi: 'mr-IN',
-      Gujarati: 'gu-IN',
-    };
-    utterance.lang = langMap[language] || 'en-IN';
+    utterance.lang = currentLanguageConfig.speechCode;
     utterance.rate = 0.95;
 
     utterance.onstart = () => setSpeakingMessageId(msgId);
@@ -184,16 +164,16 @@ export const VoiceMentor: React.FC = () => {
   };
 
   const quickPills = [
-    'How do I calculate fair prices for my handmade items?',
-    'How do I list my craft products on ONDC?',
-    'What government loans or grants are available for SHGs?',
-    'How to pack terracotta pottery safely for courier shipping?',
-    'How to get customer orders on WhatsApp Business?',
+    t('mentor.pill1'),
+    t('mentor.pill2'),
+    t('mentor.pill3'),
+    t('mentor.pill4'),
+    t('mentor.pill5'),
   ];
 
   return (
     <div className="max-w-5xl mx-auto px-2 sm:px-6 lg:px-8 py-4 sm:py-8 space-y-4 sm:space-y-6 font-inter">
-      {/* Header & Language Switcher */}
+      {/* Header & Regional Voice Switcher */}
       <div className="bg-white dark:bg-[#13251B] p-4 sm:p-6 rounded-3xl border border-[#0F5132]/15 dark:border-emerald-800/60 shadow-xs">
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
           <div className="flex items-center gap-3">
@@ -203,34 +183,32 @@ export const VoiceMentor: React.FC = () => {
             <div>
               <div className="flex items-center gap-2">
                 <h1 className="text-lg sm:text-xl font-bold text-stone-900 dark:text-white font-poppins">
-                  Voice AI Business Mentor
+                  {t('mentor.title')}
                 </h1>
                 <span className="px-2 py-0.5 text-[10px] font-bold bg-[#0F5132]/10 text-[#0F5132] dark:bg-emerald-950 dark:text-emerald-300 rounded-full border border-[#0F5132]/20 dark:border-emerald-800 font-poppins">
-                  AI Active
+                  {t('mentor.voiceActive')}
                 </span>
               </div>
               <p className="text-xs text-stone-500 dark:text-emerald-300/70">
-                Speak your business query in regional languages. Practical advice for rural creators.
+                {t('mentor.subtitle')}
               </p>
             </div>
           </div>
 
           {/* Regional Voice Selector */}
           <div className="flex items-center gap-2 bg-[#F8F9F5] dark:bg-[#0E2016] p-1.5 rounded-2xl border border-[#0F5132]/15 dark:border-emerald-900/40 w-full sm:w-auto">
-            <Globe className="w-4 h-4 text-[#0F5132] dark:text-emerald-400 ml-1.5 shrink-0" />
+            <span className="text-base ml-1.5 shrink-0">{currentLanguageConfig.flag}</span>
             <select
               value={language}
-              onChange={(e) => setLanguage(e.target.value)}
-              aria-label="Select voice language"
+              onChange={(e) => setLanguage(e.target.value as any)}
+              aria-label={t('common.language')}
               className="bg-transparent text-xs font-semibold text-stone-700 dark:text-emerald-100 pr-2 py-1 outline-none cursor-pointer w-full font-poppins"
             >
-              <option value="English" className="bg-white dark:bg-[#13251B]">English Voice</option>
-              <option value="Hindi" className="bg-white dark:bg-[#13251B]">हिंदी (Hindi Voice)</option>
-              <option value="Gujarati" className="bg-white dark:bg-[#13251B]">ગુજરાતી (Gujarati Voice)</option>
-              <option value="Tamil" className="bg-white dark:bg-[#13251B]">தமிழ் (Tamil Voice)</option>
-              <option value="Telugu" className="bg-white dark:bg-[#13251B]">తెలుగు (Telugu Voice)</option>
-              <option value="Bengali" className="bg-white dark:bg-[#13251B]">বাংলা (Bengali Voice)</option>
-              <option value="Marathi" className="bg-white dark:bg-[#13251B]">मराठी (Marathi Voice)</option>
+              {supportedLanguages.map((lang) => (
+                <option key={lang.code} value={lang.code} className="bg-white dark:bg-[#13251B]">
+                  {lang.nativeName} ({lang.name} Voice)
+                </option>
+              ))}
             </select>
           </div>
         </div>
@@ -268,7 +246,7 @@ export const VoiceMentor: React.FC = () => {
               >
                 <div className="flex items-center justify-between gap-4 text-[10px] opacity-75">
                   <span className="font-semibold font-poppins">
-                    {msg.sender === 'user' ? 'You' : 'KRIVIO AI Mentor'}
+                    {msg.sender === 'user' ? t('nav.profile') : 'KRIVIO AI Mentor'}
                   </span>
                   <span className="font-mono">{msg.timestamp}</span>
                 </div>
@@ -280,17 +258,17 @@ export const VoiceMentor: React.FC = () => {
                   <div className="pt-1.5 flex items-center gap-2">
                     <button
                       onClick={() => speakText(msg.text, msg.id)}
-                      className="inline-flex items-center gap-1 text-[11px] font-semibold text-[#0F5132] dark:text-[#34D399] hover:underline"
+                      className="inline-flex items-center gap-1 text-[11px] font-semibold text-[#0F5132] dark:text-[#34D399] hover:underline cursor-pointer"
                     >
                       {speakingMessageId === msg.id ? (
                         <>
                           <Square className="w-3 h-3 text-red-500 fill-red-500" />
-                          <span>Stop Voice</span>
+                          <span>{t('mentor.stopListening')}</span>
                         </>
                       ) : (
                         <>
                           <Volume2 className="w-3.5 h-3.5 text-[#0F5132] dark:text-[#34D399]" />
-                          <span>Listen Voice Response</span>
+                          <span>{t('mentor.speakResponse')}</span>
                         </>
                       )}
                     </button>
@@ -309,7 +287,7 @@ export const VoiceMentor: React.FC = () => {
               <div className="bg-[#F8F9F5] dark:bg-[#183023] p-4 rounded-2xl rounded-tl-xs space-y-2 w-64 border border-[#0F5132]/10 dark:border-emerald-800/50">
                 <div className="flex items-center gap-2 text-xs text-[#0F5132] dark:text-emerald-400 font-semibold font-poppins">
                   <Sparkles className="w-3.5 h-3.5 text-[#D4AF37] animate-pulse" />
-                  <span>KRIVIO Mentor preparing response...</span>
+                  <span>{t('mentor.thinking')}</span>
                 </div>
                 <div className="h-2.5 bg-stone-200 dark:bg-emerald-950 rounded-full w-full animate-pulse" />
                 <div className="h-2.5 bg-stone-200 dark:bg-emerald-950 rounded-full w-3/4 animate-pulse" />
@@ -323,12 +301,12 @@ export const VoiceMentor: React.FC = () => {
         {/* Quick Suggestion Pills */}
         <div className="px-3 sm:px-6 py-2 bg-[#F8F9F5] dark:bg-[#0E2016] border-t border-[#0F5132]/10 dark:border-emerald-900/40 flex items-center gap-2 overflow-x-auto no-scrollbar text-xs">
           <HelpCircle className="w-4 h-4 text-[#0F5132] dark:text-emerald-400 shrink-0" />
-          <span className="font-semibold text-stone-500 dark:text-emerald-400/80 shrink-0 font-poppins">Quick Questions:</span>
+          <span className="font-semibold text-stone-500 dark:text-emerald-400/80 shrink-0 font-poppins">{t('mentor.suggestedTopics')}</span>
           {quickPills.map((pill, i) => (
             <button
               key={i}
               onClick={() => handleSendMessage(pill)}
-              className="px-3 py-1 bg-white dark:bg-[#183023] hover:bg-[#0F5132]/10 dark:hover:bg-emerald-900/40 text-stone-700 dark:text-emerald-200 hover:text-[#0F5132] dark:hover:text-white border border-[#0F5132]/15 dark:border-emerald-800/60 rounded-full shrink-0 font-medium transition-colors font-inter text-[11px]"
+              className="px-3 py-1 bg-white dark:bg-[#183023] hover:bg-[#0F5132]/10 dark:hover:bg-emerald-900/40 text-stone-700 dark:text-emerald-200 hover:text-[#0F5132] dark:hover:text-white border border-[#0F5132]/15 dark:border-emerald-800/60 rounded-full shrink-0 font-medium transition-colors font-inter text-[11px] cursor-pointer"
             >
               {pill}
             </button>
@@ -347,7 +325,7 @@ export const VoiceMentor: React.FC = () => {
                   ? 'bg-red-600 animate-pulse scale-105 shadow-red-500/30 ring-4 ring-red-200 dark:ring-red-950'
                   : 'bg-[#0F5132] hover:bg-[#0B3D26] shadow-[#0F5132]/25 hover:scale-105 active:scale-95'
               }`}
-              title={isListening ? 'Tap to Stop Listening' : 'Tap to Speak Question'}
+              title={isListening ? t('mentor.stopListening') : t('mentor.startListening')}
             >
               {isListening ? <MicOff className="w-5 h-5 sm:w-6 sm:h-6" /> : <Mic className="w-5 h-5 sm:w-6 sm:h-6 text-[#D4AF37]" />}
             </button>
@@ -361,8 +339,8 @@ export const VoiceMentor: React.FC = () => {
                 onKeyDown={(e) => e.key === 'Enter' && handleSendMessage()}
                 placeholder={
                   isListening
-                    ? `Listening to your ${language} voice...`
-                    : 'Tap mic or type your business question...'
+                    ? `${t('mentor.listening')} (${currentLanguageConfig.name})...`
+                    : t('mentor.inputPlaceholder')
                 }
                 className="w-full pl-3.5 pr-10 py-2.5 sm:py-3 bg-[#F8F9F5] dark:bg-[#0E2016] border border-[#0F5132]/18 dark:border-emerald-800/60 rounded-xl text-xs sm:text-sm text-stone-900 dark:text-white focus:ring-2 focus:ring-[#0F5132] outline-none font-inter"
               />
@@ -379,7 +357,7 @@ export const VoiceMentor: React.FC = () => {
           </div>
           {isListening && (
             <p className="text-[11px] text-red-500 font-semibold mt-2 text-center animate-pulse font-inter">
-              🎙️ Listening to speech in {language}... Speak clearly into your phone/laptop mic.
+              🎙️ {t('mentor.listening')} ({currentLanguageConfig.name})...
             </p>
           )}
         </div>

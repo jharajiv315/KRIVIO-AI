@@ -1,16 +1,12 @@
 import React, { useState } from 'react';
 import { GovernmentScheme } from '../types';
+import { useI18n } from '../i18n/LanguageContext';
 import {
   Landmark,
   Search,
   ExternalLink,
-  CheckCircle,
   FileText,
   Filter,
-  Sparkles,
-  ArrowRight,
-  ShieldCheck,
-  Building2,
   Award,
   CircleCheck,
 } from 'lucide-react';
@@ -85,6 +81,7 @@ const SCHEMES_DATA: GovernmentScheme[] = [
 ];
 
 export const GovernmentSchemes: React.FC = () => {
+  const { t } = useI18n();
   const [searchTerm, setSearchTerm] = useState('');
   const [categoryFilter, setCategoryFilter] = useState<string>('all');
   const [selectedScheme, setSelectedScheme] = useState<GovernmentScheme | null>(null);
@@ -108,10 +105,10 @@ export const GovernmentSchemes: React.FC = () => {
             <Landmark className="w-3.5 h-3.5" /> Direct Government Assistance
           </div>
           <h1 className="text-xl sm:text-3xl font-extrabold font-poppins">
-            Government Schemes & Grants for Rural Entrepreneurs
+            {t('schemes.title')}
           </h1>
           <p className="text-xs sm:text-sm text-emerald-100/90 leading-relaxed font-inter">
-            Explore verified government financial schemes, toolkit subsidies, PM Vishwakarma loans, MUDRA micro-credits, and SHG bank linkage programs tailored for Indian artisans and small business owners.
+            {t('schemes.subtitle')}
           </p>
         </div>
       </div>
@@ -122,7 +119,7 @@ export const GovernmentSchemes: React.FC = () => {
           <Search className="w-4 h-4 text-stone-400 dark:text-emerald-400/60 absolute left-3.5 top-3.5" />
           <input
             type="text"
-            placeholder="Search schemes (e.g. Vishwakarma, Mudra)..."
+            placeholder={t('common.searchPlaceholder')}
             value={searchTerm}
             onChange={(e) => setSearchTerm(e.target.value)}
             className="w-full pl-10 pr-4 py-2.5 bg-[#F8F9F5] dark:bg-[#0E2016] border border-[#0F5132]/20 dark:border-emerald-800/60 rounded-xl text-xs text-stone-900 dark:text-white focus:ring-2 focus:ring-[#0F5132] outline-none font-inter"
@@ -132,7 +129,7 @@ export const GovernmentSchemes: React.FC = () => {
         <div className="flex items-center gap-2 w-full sm:w-auto overflow-x-auto pb-1 sm:pb-0 no-scrollbar">
           <Filter className="w-4 h-4 text-stone-400 dark:text-emerald-400/60 shrink-0" />
           {[
-            { id: 'all', label: 'All Categories' },
+            { id: 'all', label: t('common.all') },
             { id: 'loan', label: 'Micro Loans' },
             { id: 'grant', label: 'Subsidies & Grants' },
             { id: 'equipment', label: 'Toolkits & Equipment' },
@@ -203,7 +200,7 @@ export const GovernmentSchemes: React.FC = () => {
                 rel="noopener noreferrer"
                 className="px-4 py-2.5 bg-[#0F5132] hover:bg-[#0B3D26] text-white font-bold text-xs rounded-xl flex items-center gap-1 shadow-xs transition-all font-poppins cursor-pointer active:scale-98"
               >
-                <span>Apply</span>
+                <span>{t('schemes.applyNow')}</span>
                 <ExternalLink className="w-3.5 h-3.5" />
               </a>
             </div>
@@ -227,7 +224,7 @@ export const GovernmentSchemes: React.FC = () => {
               </div>
               <button
                 onClick={() => setSelectedScheme(null)}
-                aria-label="Close modal"
+                aria-label={t('common.close')}
                 className="text-stone-400 hover:text-stone-600 dark:hover:text-white text-lg font-bold p-1 cursor-pointer"
               >
                 ✕
@@ -241,7 +238,7 @@ export const GovernmentSchemes: React.FC = () => {
               </div>
 
               <div>
-                <h4 className="font-bold text-stone-900 dark:text-white mb-1 font-poppins">Eligibility Criteria</h4>
+                <h4 className="font-bold text-stone-900 dark:text-white mb-1 font-poppins">{t('schemes.eligibility')}</h4>
                 <p className="p-3 bg-[#D4AF37]/10 dark:bg-[#183023]/70 border border-[#D4AF37]/30 dark:border-amber-700/50 rounded-xl text-stone-800 dark:text-emerald-100 leading-relaxed font-medium">
                   {selectedScheme.eligibility}
                 </p>
@@ -249,7 +246,7 @@ export const GovernmentSchemes: React.FC = () => {
 
               <div>
                 <h4 className="font-bold text-stone-900 dark:text-white mb-1.5 flex items-center gap-1.5 font-poppins">
-                  <FileText className="w-4 h-4 text-[#0F5132] dark:text-emerald-400" /> Required Application Documents
+                  <FileText className="w-4 h-4 text-[#0F5132] dark:text-emerald-400" /> {t('schemes.documents')}
                 </h4>
                 <ul className="space-y-2">
                   {selectedScheme.documentsNeeded.map((doc, idx) => (
@@ -267,7 +264,7 @@ export const GovernmentSchemes: React.FC = () => {
                 onClick={() => setSelectedScheme(null)}
                 className="px-5 py-2.5 bg-stone-100 dark:bg-[#183023] text-stone-700 dark:text-emerald-200 text-xs font-bold rounded-xl font-poppins cursor-pointer"
               >
-                Close
+                {t('common.close')}
               </button>
               <a
                 href={selectedScheme.officialUrl}

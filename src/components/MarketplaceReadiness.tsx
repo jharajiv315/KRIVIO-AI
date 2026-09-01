@@ -1,25 +1,18 @@
 import React, { useEffect, useState } from 'react';
 import { marketplaceApi, productsApi, businessProfileApi } from '../services/api';
 import { ChannelRecommendation, Product, BusinessProfile } from '../types';
+import { useI18n } from '../i18n/LanguageContext';
 import {
-  Store,
   CheckCircle2,
   AlertCircle,
-  ExternalLink,
   ShieldCheck,
-  Building2,
-  Sparkles,
   ArrowRight,
-  FileText,
   Download,
-  Check,
-  XCircle,
-  HelpCircle,
   Layers,
-  FileSpreadsheet,
 } from 'lucide-react';
 
 export const MarketplaceReadiness: React.FC = () => {
+  const { t, formatNumber } = useI18n();
   const [channels, setChannels] = useState<ChannelRecommendation[]>([]);
   const [products, setProducts] = useState<Product[]>([]);
   const [businessProfile, setBusinessProfile] = useState<BusinessProfile | null>(null);
@@ -249,14 +242,14 @@ export const MarketplaceReadiness: React.FC = () => {
         <div className="space-y-1">
           <div className="flex flex-wrap items-center gap-2">
             <h1 className="text-lg sm:text-2xl font-bold text-stone-900 dark:text-white font-poppins">
-              Marketplace Readiness & Multi-Platform Syndication
+              {t('marketplace.title')}
             </h1>
             <span className="px-2.5 py-0.5 text-[10px] font-bold bg-[#0F5132]/10 text-[#0F5132] dark:bg-emerald-950 dark:text-emerald-300 rounded-full border border-[#0F5132]/20 dark:border-emerald-800 font-poppins">
               ONDC & E-Commerce
             </span>
           </div>
           <p className="text-xs text-stone-500 dark:text-emerald-300/70 max-w-2xl font-inter">
-            Evaluate your product catalog compliance across ONDC, Amazon Karigar, Flipkart Samarth, Meesho, and Etsy. Validate barcodes/SKUs, dimensions, and download export-ready data.
+            {t('marketplace.subtitle')}
           </p>
         </div>
 
@@ -266,14 +259,14 @@ export const MarketplaceReadiness: React.FC = () => {
           className="inline-flex items-center justify-center gap-2 px-5 py-2.5 bg-[#0F5132] hover:bg-[#0B3D26] text-white font-semibold text-xs rounded-xl shadow-md transition-all shrink-0 disabled:opacity-50 font-poppins cursor-pointer active:scale-98"
         >
           <Download className="w-4 h-4 text-[#D4AF37]" />
-          <span>Export Catalog (JSON)</span>
+          <span>{t('marketplace.exportCatalog')}</span>
         </button>
       </div>
 
       {exportSuccess && (
         <div className="p-4 bg-[#0F5132]/10 dark:bg-emerald-950/60 border border-[#0F5132]/20 dark:border-emerald-800 rounded-2xl flex items-center gap-3 text-xs text-[#0F5132] dark:text-emerald-300 font-medium font-inter">
           <CheckCircle2 className="w-4 h-4 text-[#0F5132] dark:text-[#34D399] shrink-0" />
-          <span>Catalog data exported successfully for {currentPlatform.name}! Ready for bulk upload.</span>
+          <span>{t('common.success')}! Catalog data exported successfully for {currentPlatform.name}.</span>
         </div>
       )}
 
@@ -283,11 +276,11 @@ export const MarketplaceReadiness: React.FC = () => {
           <div className="flex items-center gap-2">
             <Layers className="w-5 h-5 text-[#0F5132] dark:text-emerald-400" />
             <h2 className="text-xs sm:text-sm font-bold uppercase tracking-wider text-stone-900 dark:text-white font-poppins">
-              Multi-Platform Compliance Scorecard
+              {t('marketplace.title')}
             </h2>
           </div>
           <span className="text-xs text-stone-500 dark:text-emerald-400/80 font-mono">
-            {products.length} Products
+            {formatNumber(products.length)} {t('dashboard.products')}
           </span>
         </div>
 
@@ -328,13 +321,13 @@ export const MarketplaceReadiness: React.FC = () => {
                 </span>
               </div>
               <p className="text-xs text-stone-500 dark:text-emerald-300/70 mt-1">
-                Evaluation based on your active products, barcode/SKUs, dimensions, and business registration.
+                {t('marketplace.subtitle')}
               </p>
             </div>
 
             <div className="flex items-center gap-3">
               <div className="text-right">
-                <span className="text-[10px] uppercase font-bold text-stone-400 dark:text-emerald-400/60 block font-poppins">Readiness Score</span>
+                <span className="text-[10px] uppercase font-bold text-stone-400 dark:text-emerald-400/60 block font-poppins">{t('marketplace.readinessScore')}</span>
                 <span className="text-2xl font-black text-[#0F5132] dark:text-[#34D399] font-poppins">
                   {platformScore}%
                 </span>
@@ -374,7 +367,7 @@ export const MarketplaceReadiness: React.FC = () => {
                         : 'bg-[#D4AF37]/15 text-[#8B6E10] dark:bg-amber-950 dark:text-amber-300'
                     }`}
                   >
-                    {rule.check ? 'Compliant' : 'Action Needed'}
+                    {rule.check ? t('marketplace.checklist') : 'Action Needed'}
                   </span>
                 </div>
                 <p className="text-[11px] text-stone-600 dark:text-emerald-200/80 leading-relaxed pl-6 font-inter">
@@ -439,7 +432,7 @@ export const MarketplaceReadiness: React.FC = () => {
       {/* Selling Channels Grid */}
       <div className="space-y-4">
         <h2 className="text-xs sm:text-sm font-bold text-stone-900 dark:text-white uppercase tracking-wider font-poppins">
-          Recommended Selling Channels & Gateways
+          {t('marketplace.channelsTitle')}
         </h2>
 
         {loading ? (
@@ -478,7 +471,7 @@ export const MarketplaceReadiness: React.FC = () => {
                       </div>
 
                       <div className="text-right shrink-0">
-                        <span className="text-[10px] font-bold uppercase text-stone-400 dark:text-emerald-400/60 block font-poppins">Fit Score</span>
+                        <span className="text-[10px] font-bold uppercase text-stone-400 dark:text-emerald-400/60 block font-poppins">{t('marketplace.fitScore')}</span>
                         <span className="text-base font-black text-[#0F5132] dark:text-[#34D399] font-poppins">
                           {cScore}%
                         </span>
@@ -503,7 +496,7 @@ export const MarketplaceReadiness: React.FC = () => {
                     {/* Requirements */}
                     <div className="p-2.5 bg-[#F8F9F5] dark:bg-[#183023]/60 rounded-xl border border-[#0F5132]/15 dark:border-emerald-800/60 text-[11px] space-y-1">
                       <span className="font-bold text-stone-800 dark:text-emerald-100 block text-[10px] font-poppins">
-                        Requirements:
+                        {t('marketplace.requirements')}:
                       </span>
                       <p className="text-stone-600 dark:text-emerald-200/80 line-clamp-2 font-inter">
                         {cReqs.join(' • ')}
@@ -529,7 +522,7 @@ export const MarketplaceReadiness: React.FC = () => {
                       onClick={() => alert(`Starting application process for ${cName}. Link generated in your notifications.`)}
                       className="py-2 px-4 bg-[#0F5132] hover:bg-[#0B3D26] text-white font-semibold text-xs rounded-xl shadow-xs transition-colors inline-flex items-center gap-1.5 font-poppins cursor-pointer active:scale-98"
                     >
-                      <span>Onboard</span>
+                      <span>{t('marketplace.applyNow')}</span>
                       <ArrowRight className="w-3.5 h-3.5" />
                     </button>
                   </div>

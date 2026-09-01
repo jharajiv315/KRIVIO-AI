@@ -1,6 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { productsApi } from '../services/api';
 import { Product } from '../types';
+import { useI18n } from '../i18n/LanguageContext';
 import {
   Package,
   Plus,
@@ -8,22 +9,16 @@ import {
   Edit2,
   Trash2,
   CheckCircle2,
-  Tag,
   AlertCircle,
   X,
   Search,
-  IndianRupee,
   Copy,
   Archive,
-  Image as ImageIcon,
   Upload,
-  Layers,
-  Filter,
-  ArrowUpDown,
-  FileCheck,
 } from 'lucide-react';
 
 export const ProductStudio: React.FC = () => {
+  const { t, formatCurrency, currentLanguageConfig } = useI18n();
   const [products, setProducts] = useState<Product[]>([]);
   const [loading, setLoading] = useState(true);
   const [modalOpen, setModalOpen] = useState(false);
@@ -131,6 +126,7 @@ export const ProductStudio: React.FC = () => {
         craftType,
         materials,
         targetPrice: price,
+        language: currentLanguageConfig.name,
       });
 
       const data = res.data;
@@ -183,15 +179,15 @@ export const ProductStudio: React.FC = () => {
   const handleSaveProduct = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!title.trim()) {
-      setFormError('Product Title is required.');
+      setFormError(t('validation.required'));
       return;
     }
     if (price < 0) {
-      setFormError('Price cannot be negative.');
+      setFormError(t('validation.positiveNumber'));
       return;
     }
     if (stock < 0) {
-      setFormError('Stock cannot be negative.');
+      setFormError(t('validation.positiveNumber'));
       return;
     }
 
@@ -272,14 +268,14 @@ export const ProductStudio: React.FC = () => {
         <div className="space-y-1">
           <div className="flex items-center gap-2">
             <h1 className="text-lg sm:text-xl font-bold text-stone-900 dark:text-white font-poppins">
-              Product Catalog Management
+              {t('product.title')}
             </h1>
             <span className="px-2 py-0.5 text-[10px] font-bold bg-[#0F5132]/10 text-[#0F5132] dark:bg-emerald-950 dark:text-emerald-300 rounded-full border border-[#0F5132]/20 dark:border-emerald-800 font-poppins">
-              AI Assisted
+              {t('product.aiGeneratedBadge')}
             </span>
           </div>
           <p className="text-xs text-stone-500 dark:text-emerald-300/70">
-            Organize craft products, manage stock levels, auto-fill stories with AI, and prepare listings for multi-channel sales.
+            {t('product.subtitle')}
           </p>
         </div>
 
@@ -289,7 +285,7 @@ export const ProductStudio: React.FC = () => {
           className="inline-flex items-center justify-center gap-2 px-5 py-3 bg-[#0F5132] hover:bg-[#0B3D26] text-white font-semibold text-xs rounded-xl shadow-md transition-all shrink-0 active:scale-98 font-poppins cursor-pointer"
         >
           <Plus className="w-4 h-4" />
-          <span>Add New Product</span>
+          <span>{t('product.addProduct')}</span>
         </button>
       </div>
 
@@ -314,7 +310,7 @@ export const ProductStudio: React.FC = () => {
             type="text"
             value={searchTerm}
             onChange={(e) => setSearchTerm(e.target.value)}
-            placeholder="Search products..."
+            placeholder={t('common.searchPlaceholder')}
             className="w-full pl-9 pr-3 py-2 bg-[#F8F9F5] dark:bg-[#0E2016] border border-[#0F5132]/15 dark:border-emerald-900/40 rounded-xl text-xs text-stone-900 dark:text-white outline-none focus:ring-2 focus:ring-[#0F5132]"
           />
         </div>
@@ -324,10 +320,10 @@ export const ProductStudio: React.FC = () => {
           <select
             value={categoryFilter}
             onChange={(e) => setCategoryFilter(e.target.value)}
-            aria-label="Filter by craft category"
+            aria-label={t('common.filter')}
             className="w-full px-3 py-2 bg-[#F8F9F5] dark:bg-[#0E2016] border border-[#0F5132]/15 dark:border-emerald-900/40 rounded-xl text-xs text-stone-900 dark:text-white outline-none focus:ring-2 focus:ring-[#0F5132] cursor-pointer"
           >
-            <option value="">All Categories</option>
+            <option value="">{t('common.all')}</option>
             <option value="Handicrafts & Art">Handicrafts & Art</option>
             <option value="Pottery & Home Decor">Pottery & Home Decor</option>
             <option value="Textiles & Handlooms">Textiles & Handlooms</option>
@@ -341,11 +337,11 @@ export const ProductStudio: React.FC = () => {
           <select
             value={statusFilter}
             onChange={(e) => setStatusFilter(e.target.value)}
-            aria-label="Filter by status"
+            aria-label={t('common.status')}
             className="w-full px-3 py-2 bg-[#F8F9F5] dark:bg-[#0E2016] border border-[#0F5132]/15 dark:border-emerald-900/40 rounded-xl text-xs text-stone-900 dark:text-white outline-none focus:ring-2 focus:ring-[#0F5132] cursor-pointer"
           >
-            <option value="">All Statuses</option>
-            <option value="published">Published</option>
+            <option value="">{t('common.all')}</option>
+            <option value="published">{t('subscription.active')}</option>
             <option value="draft">Draft</option>
             <option value="archived">Archived</option>
           </select>
@@ -382,10 +378,10 @@ export const ProductStudio: React.FC = () => {
           </div>
           <div className="space-y-1">
             <h3 className="text-base font-bold text-stone-900 dark:text-white font-poppins">
-              You haven't added any products yet.
+              {t('product.emptyStateTitle')}
             </h3>
             <p className="text-xs text-stone-500 dark:text-emerald-300/70 max-w-sm mx-auto font-inter">
-              Start building your rural business catalog. Add your handcrafted creations or let AI draft your titles and stories.
+              {t('product.emptyStateSubtitle')}
             </p>
           </div>
           <button
@@ -393,7 +389,7 @@ export const ProductStudio: React.FC = () => {
             className="px-6 py-2.5 bg-[#0F5132] hover:bg-[#0B3D26] text-white font-bold text-xs rounded-xl shadow-md transition-all inline-flex items-center gap-2 font-poppins cursor-pointer active:scale-98"
           >
             <Plus className="w-4 h-4" />
-            <span>Create Your First Product</span>
+            <span>{t('product.addProduct')}</span>
           </button>
         </div>
       ) : (
@@ -414,7 +410,7 @@ export const ProductStudio: React.FC = () => {
                 ) : (
                   <div className="flex flex-col items-center justify-center text-stone-400 dark:text-emerald-400/50 space-y-1.5 p-4 text-center">
                     <Package className="w-10 h-10 stroke-1" />
-                    <span className="text-[11px] font-medium font-inter">No Photo Uploaded</span>
+                    <span className="text-[11px] font-medium font-inter">{t('imageStudio.dropzone')}</span>
                   </div>
                 )}
                 <div className="absolute top-3 left-3 bg-white/90 dark:bg-[#13251B]/90 backdrop-blur-xs px-2.5 py-1 rounded-full text-[10px] font-bold text-stone-800 dark:text-emerald-200 border border-[#0F5132]/15 dark:border-emerald-900/40 font-poppins">
@@ -441,7 +437,7 @@ export const ProductStudio: React.FC = () => {
                 <div className="space-y-2">
                   <div className="flex items-center justify-between text-[11px] text-stone-400 dark:text-emerald-400/60 font-mono">
                     <span>{p.sku || 'SKU-NONE'}</span>
-                    <span>Stock: {p.stock}</span>
+                    <span>{t('product.tableStock')}: {p.stock}</span>
                   </div>
                   <h3 className="font-bold text-sm text-stone-900 dark:text-white line-clamp-1 font-poppins">
                     {p.title}
@@ -466,9 +462,9 @@ export const ProductStudio: React.FC = () => {
                 {/* Footer / Actions */}
                 <div className="pt-3 border-t border-stone-100 dark:border-emerald-900/40 flex items-center justify-between">
                   <div>
-                    <span className="text-[10px] text-stone-400 dark:text-emerald-400/60 block font-medium">Selling Price</span>
+                    <span className="text-[10px] text-stone-400 dark:text-emerald-400/60 block font-medium">{t('product.tablePrice')}</span>
                     <span className="text-base font-extrabold text-stone-900 dark:text-white font-poppins">
-                      ₹{p.price.toLocaleString('en-IN')}
+                      {formatCurrency(p.price)}
                     </span>
                   </div>
 
@@ -499,8 +495,8 @@ export const ProductStudio: React.FC = () => {
                     </button>
                     <button
                       onClick={() => handleDeleteProduct(p.id)}
-                      title="Delete Product"
-                      aria-label="Delete Product"
+                      title={t('common.delete')}
+                      aria-label={t('common.delete')}
                       className="p-2 text-stone-400 hover:text-red-500 hover:bg-red-50 dark:hover:bg-red-950 rounded-lg transition-colors cursor-pointer"
                     >
                       <Trash2 className="w-4 h-4" />
@@ -519,7 +515,7 @@ export const ProductStudio: React.FC = () => {
           <div className="bg-white dark:bg-[#13251B] rounded-3xl max-w-3xl w-full p-5 sm:p-8 shadow-2xl border border-[#0F5132]/15 dark:border-emerald-800/60 relative max-h-[92vh] overflow-y-auto space-y-6">
             <button
               onClick={() => setModalOpen(false)}
-              aria-label="Close dialog"
+              aria-label={t('common.close')}
               className="absolute top-5 right-5 p-2 text-stone-400 hover:text-stone-600 dark:hover:text-stone-200 hover:bg-stone-100 dark:hover:bg-emerald-900/40 rounded-lg transition-colors cursor-pointer"
             >
               <X className="w-5 h-5" />
@@ -527,10 +523,10 @@ export const ProductStudio: React.FC = () => {
 
             <div>
               <h2 className="text-lg sm:text-xl font-bold text-stone-900 dark:text-white font-poppins">
-                {editingId ? 'Edit Product Listing' : 'Add New Artisan Craft'}
+                {editingId ? t('product.editProduct') : t('product.addProduct')}
               </h2>
               <p className="text-xs text-stone-500 dark:text-emerald-300/70">
-                Type basic words about your item and let AI auto-fill e-commerce stories and keywords.
+                {t('product.subtitle')}
               </p>
             </div>
 
@@ -546,11 +542,11 @@ export const ProductStudio: React.FC = () => {
               <div className="flex items-center justify-between">
                 <span className="text-xs font-bold text-stone-900 dark:text-white font-poppins flex items-center gap-1.5">
                   <Sparkles className="w-4 h-4 text-[#D4AF37]" />
-                  AI Story & Listing Generator
+                  {t('product.aiGeneratedBadge')}
                 </span>
                 {aiGeneratedSuccess && (
                   <span className="text-[11px] font-bold text-[#0F5132] dark:text-emerald-400 flex items-center gap-1 font-poppins">
-                    <CheckCircle2 className="w-3.5 h-3.5" /> Details Auto-Filled!
+                    <CheckCircle2 className="w-3.5 h-3.5" /> {t('common.success')}!
                   </span>
                 )}
               </div>
@@ -560,7 +556,7 @@ export const ProductStudio: React.FC = () => {
                   type="text"
                   value={rawCraftInput}
                   onChange={(e) => setRawCraftInput(e.target.value)}
-                  placeholder="Raw Name e.g. Madhubani silk painting"
+                  placeholder={t('product.namePlaceholder')}
                   className="px-3.5 py-2 bg-white dark:bg-[#0E2016] border border-[#0F5132]/20 dark:border-emerald-800/60 rounded-xl text-xs text-stone-900 dark:text-white outline-none focus:ring-2 focus:ring-[#0F5132]"
                 />
                 <input
@@ -580,7 +576,7 @@ export const ProductStudio: React.FC = () => {
                 className="w-full py-2.5 bg-[#0F5132] hover:bg-[#0B3D26] text-white font-semibold text-xs rounded-xl shadow-xs transition-all flex items-center justify-center gap-2 disabled:opacity-50 font-poppins cursor-pointer"
               >
                 <Sparkles className="w-4 h-4 text-[#D4AF37]" />
-                <span>{generatingAI ? 'Craft AI is creating listing...' : 'Auto-Generate Title, Story & Keywords'}</span>
+                <span>{generatingAI ? t('product.aiGenerating') : t('product.aiGeneratedBadge')}</span>
               </button>
             </div>
 
@@ -589,13 +585,13 @@ export const ProductStudio: React.FC = () => {
               <div className="grid grid-cols-1 md:grid-cols-2 gap-3.5 sm:gap-4">
                 <div className="md:col-span-2">
                   <label className="block text-xs font-semibold text-stone-700 dark:text-emerald-200 mb-1 font-poppins">
-                    Product Title <span className="text-red-500">*</span>
+                    {t('product.name')} <span className="text-red-500">*</span>
                   </label>
                   <input
                     type="text"
                     value={title}
                     onChange={(e) => setTitle(e.target.value)}
-                    placeholder="e.g. Authentic Handmade Madhubani Painting on Raw Silk"
+                    placeholder={t('product.namePlaceholder')}
                     required
                     className="w-full px-3.5 py-2.5 bg-[#F8F9F5] dark:bg-[#0E2016] border border-[#0F5132]/20 dark:border-emerald-800/60 rounded-xl text-xs text-stone-900 dark:text-white focus:ring-2 focus:ring-[#0F5132] outline-none font-semibold font-inter"
                   />
@@ -603,7 +599,7 @@ export const ProductStudio: React.FC = () => {
 
                 <div>
                   <label className="block text-xs font-semibold text-stone-700 dark:text-emerald-200 mb-1 font-poppins">
-                    Craft Category
+                    {t('product.category')}
                   </label>
                   <select
                     value={craftType}
@@ -620,14 +616,14 @@ export const ProductStudio: React.FC = () => {
 
                 <div>
                   <label className="block text-xs font-semibold text-stone-700 dark:text-emerald-200 mb-1 font-poppins">
-                    Status
+                    {t('common.status')}
                   </label>
                   <select
                     value={status}
                     onChange={(e) => setStatus(e.target.value as any)}
                     className="w-full px-3.5 py-2.5 bg-[#F8F9F5] dark:bg-[#0E2016] border border-[#0F5132]/20 dark:border-emerald-800/60 rounded-xl text-xs text-stone-900 dark:text-white focus:ring-2 focus:ring-[#0F5132] outline-none cursor-pointer"
                   >
-                    <option value="published">Published</option>
+                    <option value="published">{t('subscription.active')}</option>
                     <option value="draft">Draft</option>
                     <option value="archived">Archived</option>
                   </select>
@@ -635,7 +631,7 @@ export const ProductStudio: React.FC = () => {
 
                 <div>
                   <label className="block text-xs font-semibold text-stone-700 dark:text-emerald-200 mb-1 font-poppins">
-                    Price (INR ₹)
+                    {t('product.price')} (₹)
                   </label>
                   <input
                     type="number"
@@ -649,7 +645,7 @@ export const ProductStudio: React.FC = () => {
 
                 <div>
                   <label className="block text-xs font-semibold text-stone-700 dark:text-emerald-200 mb-1 font-poppins">
-                    Stock Quantity
+                    {t('product.stock')}
                   </label>
                   <input
                     type="number"
@@ -663,7 +659,7 @@ export const ProductStudio: React.FC = () => {
 
                 <div>
                   <label className="block text-xs font-semibold text-stone-700 dark:text-emerald-200 mb-1 font-poppins">
-                    SKU Code
+                    {t('product.sku')}
                   </label>
                   <input
                     type="text"
@@ -699,13 +695,13 @@ export const ProductStudio: React.FC = () => {
 
               <div>
                 <label className="block text-xs font-semibold text-stone-700 dark:text-emerald-200 mb-1 font-poppins">
-                  Product Story & Narrative Description
+                  {t('product.description')}
                 </label>
                 <textarea
                   value={description}
                   onChange={(e) => setDescription(e.target.value)}
                   rows={3}
-                  placeholder="Describe the artisan heritage, eco-friendly materials, and unique craft tradition..."
+                  placeholder={t('product.descriptionPlaceholder')}
                   className="w-full px-3.5 py-2.5 bg-[#F8F9F5] dark:bg-[#0E2016] border border-[#0F5132]/20 dark:border-emerald-800/60 rounded-xl text-xs text-stone-900 dark:text-white focus:ring-2 focus:ring-[#0F5132] outline-none leading-relaxed font-inter"
                 />
               </div>
@@ -713,7 +709,7 @@ export const ProductStudio: React.FC = () => {
               {/* Product Gallery & Upload */}
               <div className="space-y-3">
                 <label className="block text-xs font-semibold text-stone-700 dark:text-emerald-200 font-poppins">
-                  Product Images
+                  {t('product.images')}
                 </label>
 
                 {/* Thumbnail list */}
@@ -734,7 +730,7 @@ export const ProductStudio: React.FC = () => {
 
                   <label className="w-20 h-20 rounded-xl border-2 border-dashed border-[#0F5132]/30 dark:border-emerald-800/60 flex flex-col items-center justify-center cursor-pointer hover:border-[#0F5132] transition-colors bg-[#F8F9F5] dark:bg-[#0E2016]">
                     <Upload className="w-4 h-4 text-[#0F5132] dark:text-emerald-400 mb-1" />
-                    <span className="text-[9px] text-stone-500 dark:text-emerald-300/70 font-medium font-poppins">Upload File</span>
+                    <span className="text-[9px] text-stone-500 dark:text-emerald-300/70 font-medium font-poppins">{t('imageStudio.dropzone')}</span>
                     <input type="file" accept="image/*" onChange={handleFileUpload} className="hidden" />
                   </label>
                 </div>
@@ -752,7 +748,7 @@ export const ProductStudio: React.FC = () => {
                     onClick={handleAddImageUrl}
                     className="px-4 py-2 bg-stone-200 dark:bg-[#183023] hover:bg-stone-300 dark:hover:bg-emerald-900/40 text-xs font-semibold rounded-xl text-stone-800 dark:text-emerald-200 font-poppins cursor-pointer"
                   >
-                    Add URL
+                    {t('common.save')} URL
                   </button>
                 </div>
               </div>
@@ -763,14 +759,14 @@ export const ProductStudio: React.FC = () => {
                   onClick={() => setModalOpen(false)}
                   className="px-5 py-2.5 bg-stone-100 hover:bg-stone-200 dark:bg-[#183023] dark:hover:bg-emerald-900/40 text-stone-700 dark:text-emerald-200 font-semibold text-xs rounded-xl transition-colors font-poppins cursor-pointer"
                 >
-                  Cancel
+                  {t('common.cancel')}
                 </button>
                 <button
                   type="submit"
                   disabled={saving}
                   className="px-6 py-2.5 bg-[#0F5132] hover:bg-[#0B3D26] text-white font-semibold text-xs rounded-xl shadow-md transition-colors font-poppins cursor-pointer"
                 >
-                  {saving ? 'Saving...' : 'Save Product Listing'}
+                  {saving ? t('product.saving') : t('product.saveProduct')}
                 </button>
               </div>
             </form>
