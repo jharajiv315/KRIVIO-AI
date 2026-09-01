@@ -96,7 +96,7 @@ export const NotificationsPopover: React.FC<NotificationsPopoverProps> = ({ onSe
             onClick={() => setIsOpen(false)}
           />
 
-          <div className="absolute right-0 mt-2 w-[calc(100vw-2rem)] sm:w-96 max-w-sm bg-white dark:bg-[#13251B] rounded-2xl shadow-2xl border border-[#0F5132]/15 dark:border-emerald-800/60 z-50 p-4 space-y-3 font-inter text-xs animate-in fade-in slide-in-from-top-2 duration-150">
+          <div className="fixed left-4 right-4 top-20 sm:absolute sm:top-auto sm:left-auto sm:right-0 sm:mt-2 sm:w-96 max-w-sm mx-auto sm:mx-0 bg-white dark:bg-[#13251B] rounded-2xl shadow-2xl border border-[#0F5132]/15 dark:border-emerald-800/60 z-50 p-4 space-y-3 font-inter text-xs animate-in fade-in slide-in-from-top-2 duration-150">
             <div className="flex items-center justify-between border-b border-stone-100 dark:border-emerald-900/40 pb-3">
               <div className="flex items-center gap-2">
                 <Bell className="w-4 h-4 text-[#0F5132] dark:text-emerald-400" />
