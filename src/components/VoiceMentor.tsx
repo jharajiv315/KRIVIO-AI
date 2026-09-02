@@ -197,7 +197,7 @@ export const VoiceMentor: React.FC = () => {
 
           {/* Regional Voice Selector */}
           <div className="flex items-center gap-2 bg-[#F8F9F5] dark:bg-[#0E2016] p-1.5 rounded-2xl border border-[#0F5132]/15 dark:border-emerald-900/40 w-full sm:w-auto">
-            <span className="text-base ml-1.5 shrink-0">{currentLanguageConfig.flag}</span>
+            <span className="text-base ml-1.5 shrink-0">{currentLanguageConfig.flagEmoji}</span>
             <select
               value={language}
               onChange={(e) => setLanguage(e.target.value as any)}

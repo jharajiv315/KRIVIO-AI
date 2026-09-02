@@ -101,7 +101,7 @@ export const ProductIdentityWizard: React.FC<ProductIdentityWizardProps> = ({
   onSaved,
 }) => {
   const { user, openAuthModal } = useAuth();
-  const { t, formatCurrency, currentLanguageConfig, supportedLanguages } = useI18n();
+  const { t, formatCurrency, currentLanguageConfig, languages: supportedLanguages } = useI18n();
   const [step, setStep] = useState<WizardStep>(initialImage ? 2 : 1);
 
   // Step 1

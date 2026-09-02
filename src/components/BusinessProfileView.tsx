@@ -13,7 +13,7 @@ import {
 } from 'lucide-react';
 
 export const BusinessProfileView: React.FC = () => {
-  const { t, supportedLanguages, setLanguage } = useI18n();
+  const { t, languages: supportedLanguages, setLanguage } = useI18n();
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [successMsg, setSuccessMsg] = useState('');
