@@ -16,12 +16,13 @@ import {
   Wand2,
 } from 'lucide-react';
 import { ProductIdentityWizard } from './ProductIdentityWizard';
+import { StudioWorkspace } from './image-studio/StudioWorkspace';
 
-type StudioMode = 'diagnosis' | 'create';
+type StudioMode = 'studio' | 'diagnosis' | 'create';
 
 export const ImageStudio: React.FC = () => {
   const { t } = useI18n();
-  const [mode, setMode] = useState<StudioMode>('diagnosis');
+  const [mode, setMode] = useState<StudioMode>('studio');
 
   // Photo Diagnosis state
   const [selectedImage, setSelectedImage] = useState<string | null>(null);
@@ -63,18 +64,30 @@ export const ImageStudio: React.FC = () => {
               <h1 className="text-lg sm:text-xl font-bold text-stone-900 dark:text-white font-poppins">
                 {t('imageStudio.title')}
               </h1>
-              <span className="px-2 py-0.5 text-[10px] font-bold bg-[#0F5132]/10 text-[#0F5132] dark:bg-emerald-950 dark:text-emerald-300 rounded-full border border-[#0F5132]/20 dark:border-emerald-800 font-poppins">
-                Smart Photo Tools
+              <span className="px-2 py-0.5 text-[10px] font-bold bg-[#D4AF37] text-[#1A1A1A] rounded-full font-poppins">
+                AI Marketing & Branding Studio
               </span>
             </div>
             <p className="text-xs text-stone-500 dark:text-emerald-300/70">
-              {t('imageStudio.subtitle')}
+              Transform your real craft photos into clean studio shots, marketing visuals, and marketplace-ready assets.
             </p>
           </div>
         </div>
 
         {/* Mode Toggle */}
-        <div className="flex gap-2 p-1 bg-stone-100 dark:bg-[#0E2016] rounded-2xl w-fit border border-[#0F5132]/10 dark:border-emerald-900/40">
+        <div className="flex flex-wrap gap-2 p-1 bg-stone-100 dark:bg-[#0E2016] rounded-2xl w-fit border border-[#0F5132]/10 dark:border-emerald-900/40">
+          <button
+            id="mode-tab-studio"
+            onClick={() => setMode('studio')}
+            className={`px-4 py-2 rounded-xl text-xs font-bold flex items-center gap-1.5 transition-all font-poppins cursor-pointer ${
+              mode === 'studio'
+                ? 'bg-[#0F5132] text-white shadow-xs'
+                : 'text-stone-600 dark:text-emerald-300/80 hover:text-stone-900 dark:hover:text-white'
+            }`}
+          >
+            <Sparkles className="w-3.5 h-3.5 text-[#D4AF37]" />
+            <span>Studio & Marketing</span>
+          </button>
           <button
             id="mode-tab-diagnosis"
             onClick={() => setMode('diagnosis')}
@@ -85,7 +98,7 @@ export const ImageStudio: React.FC = () => {
             }`}
           >
             <Camera className="w-3.5 h-3.5" />
-            Photo Diagnosis
+            <span>Photo Diagnosis</span>
           </button>
           <button
             id="mode-tab-create"
@@ -97,10 +110,21 @@ export const ImageStudio: React.FC = () => {
             }`}
           >
             <Wand2 className="w-3.5 h-3.5 text-[#D4AF37]" />
-            {t('product.addProduct')}
+            <span>{t('product.addProduct')}</span>
           </button>
         </div>
       </div>
+
+      {/* Flagship Intelligent Studio Mode */}
+      {mode === 'studio' && (
+        <StudioWorkspace
+          initialImage={selectedImage}
+          onNavigateToWizard={(img) => {
+            setSelectedImage(img);
+            setMode('create');
+          }}
+        />
+      )}
 
       {/* Photo Diagnosis Mode */}
       {mode === 'diagnosis' && (
@@ -249,14 +273,21 @@ export const ImageStudio: React.FC = () => {
                   </div>
                 </div>
 
-                {/* CTA to create product */}
-                <div className="pt-2 border-t border-stone-100 dark:border-emerald-900/40">
+                {/* CTA to enhance in AI Studio or create product */}
+                <div className="pt-3 border-t border-stone-100 dark:border-emerald-900/40 grid grid-cols-1 sm:grid-cols-2 gap-3">
+                  <button
+                    onClick={() => setMode('studio')}
+                    className="w-full py-3 bg-[#0F5132] hover:bg-[#0B3D26] text-white font-bold text-xs rounded-xl shadow-md transition-all flex items-center justify-center gap-2 font-poppins cursor-pointer"
+                  >
+                    <Sparkles className="w-4 h-4 text-[#D4AF37]" />
+                    <span>Enhance in AI Studio</span>
+                  </button>
                   <button
                     onClick={() => setMode('create')}
-                    className="w-full py-3 bg-[#0F5132] hover:bg-[#0B3D26] text-white font-semibold text-xs rounded-xl shadow-md transition-all flex items-center justify-center gap-2 font-poppins cursor-pointer"
+                    className="w-full py-3 bg-stone-100 hover:bg-stone-200 dark:bg-[#0E2016] text-stone-800 dark:text-emerald-100 font-bold text-xs rounded-xl border border-stone-200 dark:border-emerald-900/40 transition-all flex items-center justify-center gap-2 font-poppins cursor-pointer"
                   >
                     <Wand2 className="w-4 h-4 text-[#D4AF37]" />
-                    {t('imageStudio.generateAI')}
+                    <span>{t('imageStudio.generateAI')}</span>
                   </button>
                 </div>
               </div>

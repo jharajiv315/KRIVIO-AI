@@ -482,6 +482,110 @@ Return JSON with:
   },
 };
 
+export interface ImageStudioOperationItem {
+  id: string;
+  category: string;
+  humanCategory: string;
+  label: string;
+  description: string;
+  aspectRatioRules: string;
+  badge?: string;
+}
+
+export interface ImageStudioCategoryItem {
+  id: string;
+  title: string;
+  description: string;
+  badge?: string;
+}
+
+export interface ImageStudioGeneratedAsset {
+  assetId: string;
+  operationId: string;
+  originalImage: string;
+  generatedImage: string;
+  aspectRatio: string;
+  operationLabel: string;
+  summaryNote: string;
+  modelUsed: string;
+  suggestedFollowUps: string[];
+  createdAt: string;
+}
+
+export interface ImageStudioHistoryItem {
+  id: string;
+  productId?: string;
+  operationId: string;
+  category: string;
+  originalAsset: string;
+  generatedAsset: string;
+  selectedAsset?: string;
+  aspectRatio: string;
+  userInstruction?: string;
+  promptSummary?: string;
+  modelUsed: string;
+  metadata: Record<string, any>;
+  createdAt: string;
+}
+
+export const imageStudioApi = {
+  getOperations: async (): Promise<{ operations: ImageStudioOperationItem[]; categories: ImageStudioCategoryItem[] }> => {
+    return await fetchWithAuth('/api/image-studio/operations');
+  },
+
+  generate: async (payload: {
+    productId?: string;
+    operationId?: string;
+    userInstruction?: string;
+    originalImage: string;
+    referenceImages?: Array<{ url: string; role: 'product' | 'logo' | 'style' | 'packaging' }>;
+    aspectRatio?: string;
+    language?: string;
+    brandContext?: any;
+    festivalOrOccasion?: string;
+    marketingText?: { headline?: string; subheadline?: string; cta?: string; price?: number };
+  }): Promise<{ success: boolean; asset: ImageStudioGeneratedAsset }> => {
+    return await fetchWithAuth('/api/image-studio/generate', {
+      method: 'POST',
+      body: JSON.stringify(payload),
+    });
+  },
+
+  edit: async (payload: {
+    previousAssetId?: string;
+    userInstruction: string;
+    currentImage: string;
+    originalImage?: string;
+    aspectRatio?: string;
+  }): Promise<{ success: boolean; asset: ImageStudioGeneratedAsset }> => {
+    return await fetchWithAuth('/api/image-studio/edit', {
+      method: 'POST',
+      body: JSON.stringify(payload),
+    });
+  },
+
+  getHistory: async (): Promise<{ assets: ImageStudioHistoryItem[] }> => {
+    return await fetchWithAuth('/api/image-studio/history');
+  },
+
+  saveToProduct: async (payload: {
+    assetId?: string;
+    productId: string;
+    imageUrl: string;
+  }): Promise<{ success: boolean; message: string; product: Product }> => {
+    return await fetchWithAuth('/api/image-studio/save-to-product', {
+      method: 'POST',
+      body: JSON.stringify(payload),
+    });
+  },
+
+  deleteHistoryItem: async (id: string): Promise<{ success: boolean }> => {
+    return await fetchWithAuth(`/api/image-studio/history/${id}`, {
+      method: 'DELETE',
+    });
+  },
+};
+
 export const marketplaceApi = {
   getRecommendations: async (): Promise<{ channels: ChannelRecommendation[] }> => {
     return await fetchWithAuth('/api/marketplace/recommendations');

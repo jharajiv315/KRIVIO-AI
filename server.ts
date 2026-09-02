@@ -5,8 +5,11 @@ import { GoogleGenAI } from '@google/genai';
 import { Pool } from 'pg';
 import bcrypt from 'bcryptjs';
 import dotenv from 'dotenv';
+import { GenerationService, IMAGE_OPERATIONS, OPERATION_CATEGORIES } from './src/server/image_operations';
 
 dotenv.config();
+
+const imageGenService = new GenerationService();
 
 const pgPool = new Pool({
   connectionString: process.env.DATABASE_URL || 'postgresql://postgres:postgres@localhost:5432/krivio_db',
@@ -1793,6 +1796,285 @@ Return JSON with:
   }
 });
 
+// --- INTELLIGENT IMAGE STUDIO ENDPOINTS ---
+
+// 1. Get all available operations & categories
+app.get('/api/image-studio/operations', (req: Request, res: Response) => {
+  res.json({
+    operations: Object.values(IMAGE_OPERATIONS),
+    categories: OPERATION_CATEGORIES,
+  });
+});
+
+// 2. Generate an intelligent studio asset
+app.post('/api/image-studio/generate', authenticateToken, async (req: AuthenticatedRequest, res: Response) => {
+  try {
+    const userId = req.user!.id;
+    const {
+      productId,
+      operationId,
+      userInstruction,
+      originalImage,
+      referenceImages,
+      aspectRatio,
+      language,
+      brandContext,
+      festivalOrOccasion,
+      marketingText,
+    } = req.body;
+
+    if (!originalImage) {
+      res.status(400).json({ error: 'An original product image is required.' });
+      return;
+    }
+
+    // Auto-enrich brand context from user business profile if not passed
+    let effectiveBrand = brandContext;
+    if (!effectiveBrand) {
+      const profRes = await queryPg('SELECT * FROM business_profiles WHERE user_id = $1 LIMIT 1', [userId]).catch(() => ({ rows: [] }));
+      const prof = profRes.rows[0];
+      if (prof) {
+        effectiveBrand = {
+          brandName: prof.business_name,
+          tagline: prof.story,
+          craftType: prof.craft_type,
+          region: prof.state || prof.district,
+        };
+      }
+    }
+
+    // Call modular generation engine
+    const result = await imageGenService.generate({
+      productId,
+      operationId,
+      userInstruction,
+      originalImage,
+      referenceImages,
+      aspectRatio,
+      language,
+      brandContext: effectiveBrand,
+      festivalOrOccasion,
+      marketingText,
+    });
+
+    // Save record in PostgreSQL scoped to authenticated user
+    await queryPg(
+      `INSERT INTO image_studio_assets (
+        id, user_id, product_id, operation_id, category, original_asset, generated_asset,
+        aspect_ratio, user_instruction, prompt_summary, model_used, metadata, created_at, updated_at
+      ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, NOW(), NOW())`,
+      [
+        result.assetId,
+        userId,
+        productId || null,
+        result.operationId,
+        IMAGE_OPERATIONS[result.operationId]?.category || 'photo_cleanup',
+        result.originalImage,
+        result.generatedImage,
+        result.aspectRatio,
+        userInstruction || '',
+        result.summaryNote,
+        result.modelUsed,
+        JSON.stringify({
+          operationLabel: result.operationLabel,
+          brandUsed: Boolean(effectiveBrand?.brandName),
+          festival: festivalOrOccasion || null,
+        }),
+      ]
+    ).catch((dbErr) => {
+      console.warn('DB asset tracking note:', dbErr.message);
+    });
+
+    // Log Activity
+    await queryPg(
+      `INSERT INTO activities (id, user_id, title, description, event_type, created_at)
+       VALUES ($1, $2, $3, $4, $5, NOW())`,
+      [
+        `act_${Date.now()}`,
+        userId,
+        `Enhanced product image: ${result.operationLabel}`,
+        `Generated ${result.operationLabel} asset using AI Image Studio.`,
+        'image_generated',
+      ]
+    ).catch(() => {});
+
+    res.json({
+      success: true,
+      asset: result,
+    });
+  } catch (err: any) {
+    console.error('Image Studio generation error:', err.message || err);
+    res.status(500).json({
+      error: 'The enhancement could not be completed right now. Your original image is still safe.',
+    });
+  }
+});
+
+// 3. Iterative Conversational Editing
+app.post('/api/image-studio/edit', authenticateToken, async (req: AuthenticatedRequest, res: Response) => {
+  try {
+    const userId = req.user!.id;
+    const { previousAssetId, userInstruction, currentImage, originalImage, aspectRatio } = req.body;
+
+    if (!userInstruction || !userInstruction.trim()) {
+      res.status(400).json({ error: 'Please provide an instruction for how to edit the image.' });
+      return;
+    }
+
+    const baseImage = currentImage || originalImage;
+    if (!baseImage) {
+      res.status(400).json({ error: 'Image source is missing for editing.' });
+      return;
+    }
+
+    // Call generation engine with user modification
+    const result = await imageGenService.generate({
+      originalImage: baseImage,
+      userInstruction,
+      aspectRatio,
+      operationId: 'ADVANCED_EDITING',
+    });
+
+    // Save record in PostgreSQL
+    await queryPg(
+      `INSERT INTO image_studio_assets (
+        id, user_id, operation_id, category, original_asset, generated_asset,
+        aspect_ratio, user_instruction, prompt_summary, model_used, metadata, created_at, updated_at
+      ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, NOW(), NOW())`,
+      [
+        result.assetId,
+        userId,
+        'ADVANCED_EDITING',
+        'advanced_editing',
+        originalImage || baseImage,
+        result.generatedImage,
+        result.aspectRatio,
+        userInstruction,
+        `Iterative edit: ${userInstruction}`,
+        result.modelUsed,
+        JSON.stringify({ previousAssetId }),
+      ]
+    ).catch(() => {});
+
+    res.json({
+      success: true,
+      asset: result,
+    });
+  } catch (err: any) {
+    console.error('Image Studio edit error:', err.message || err);
+    res.status(500).json({
+      error: 'Could not apply your edit right now. Your previous image is still preserved.',
+    });
+  }
+});
+
+// 4. History of Generated Assets for Authenticated User
+app.get('/api/image-studio/history', authenticateToken, async (req: AuthenticatedRequest, res: Response) => {
+  try {
+    const userId = req.user!.id;
+    const historyRes = await queryPg(
+      `SELECT * FROM image_studio_assets WHERE user_id = $1 ORDER BY created_at DESC LIMIT 40`,
+      [userId]
+    );
+
+    const assets = historyRes.rows.map((row) => ({
+      id: row.id,
+      productId: row.product_id,
+      operationId: row.operation_id,
+      category: row.category,
+      originalAsset: row.original_asset,
+      generatedAsset: row.generated_asset,
+      selectedAsset: row.selected_asset,
+      aspectRatio: row.aspect_ratio,
+      userInstruction: row.user_instruction,
+      promptSummary: row.prompt_summary,
+      modelUsed: row.model_used,
+      metadata: row.metadata || {},
+      createdAt: row.created_at,
+    }));
+
+    res.json({ assets });
+  } catch (err: any) {
+    res.status(500).json({ error: 'Failed to retrieve image studio history.' });
+  }
+});
+
+// 5. Save generated asset to a real product in user catalog
+app.post('/api/image-studio/save-to-product', authenticateToken, async (req: AuthenticatedRequest, res: Response) => {
+  try {
+    const userId = req.user!.id;
+    const { assetId, productId, imageUrl } = req.body;
+
+    if (!productId || !imageUrl) {
+      res.status(400).json({ error: 'productId and imageUrl are required.' });
+      return;
+    }
+
+    // Verify ownership of product
+    const prodRes = await queryPg('SELECT * FROM products WHERE id = $1 AND user_id = $2', [productId, userId]);
+    if (prodRes.rows.length === 0) {
+      res.status(404).json({ error: 'Product not found or unauthorized.' });
+      return;
+    }
+
+    const currentImages = Array.isArray(prodRes.rows[0].image_urls) ? prodRes.rows[0].image_urls : [];
+    // Prepend new image so it becomes primary display photo
+    const updatedImages = [imageUrl, ...currentImages.filter((u: string) => u !== imageUrl)];
+
+    const updateRes = await queryPg(
+      `UPDATE products SET image_urls = $1, is_marketplace_ready = true, updated_at = NOW() WHERE id = $2 AND user_id = $3 RETURNING *`,
+      [JSON.stringify(updatedImages), productId, userId]
+    );
+
+    if (assetId) {
+      await queryPg(
+        `UPDATE image_studio_assets SET product_id = $1, selected_asset = $2, updated_at = NOW() WHERE id = $3 AND user_id = $4`,
+        [productId, imageUrl, assetId, userId]
+      ).catch(() => {});
+    }
+
+    // Log Activity
+    await queryPg(
+      `INSERT INTO activities (id, user_id, title, description, event_type, created_at)
+       VALUES ($1, $2, $3, $4, $5, NOW())`,
+      [
+        `act_${Date.now()}`,
+        userId,
+        `Updated Product Photo for ${prodRes.rows[0].title}`,
+        'Saved AI-enhanced professional image to product catalog.',
+        'product_updated',
+      ]
+    ).catch(() => {});
+
+    res.json({
+      success: true,
+      message: 'Image saved to your product successfully!',
+      product: updateRes.rows[0],
+    });
+  } catch (err: any) {
+    console.error('Save to product error:', err);
+    res.status(500).json({ error: 'Failed to attach image to product.' });
+  }
+});
+
+// 6. Delete a historical asset
+app.delete('/api/image-studio/history/:id', authenticateToken, async (req: AuthenticatedRequest, res: Response) => {
+  try {
+    const userId = req.user!.id;
+    const { id } = req.params;
+
+    const delRes = await queryPg('DELETE FROM image_studio_assets WHERE id = $1 AND user_id = $2 RETURNING id', [id, userId]);
+    if (delRes.rows.length === 0) {
+      res.status(404).json({ error: 'Asset not found or unauthorized.' });
+      return;
+    }
+
+    res.json({ success: true, message: 'Asset removed from studio history.' });
+  } catch (err) {
+    res.status(500).json({ error: 'Failed to delete asset from history.' });
+  }
+});
+
 // Database Auto-Initialization
 async function initPgDatabase() {
   try {
@@ -1898,6 +2180,24 @@ async function initPgDatabase() {
         image_url TEXT NOT NULL,
         storage_id VARCHAR(255),
         created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
+      );
+
+      CREATE TABLE IF NOT EXISTS image_studio_assets (
+        id VARCHAR(255) PRIMARY KEY,
+        user_id VARCHAR(255) NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+        product_id VARCHAR(255) REFERENCES products(id) ON DELETE SET NULL,
+        operation_id VARCHAR(100) NOT NULL,
+        category VARCHAR(100) NOT NULL,
+        original_asset TEXT NOT NULL,
+        generated_asset TEXT NOT NULL,
+        selected_asset TEXT,
+        aspect_ratio VARCHAR(20) DEFAULT '1:1',
+        user_instruction TEXT,
+        prompt_summary TEXT,
+        model_used VARCHAR(100),
+        metadata JSONB DEFAULT '{}'::jsonb,
+        created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
+        updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
       );
     `;
     await pgPool.query(createTablesQuery);

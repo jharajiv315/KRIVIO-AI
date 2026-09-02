@@ -392,7 +392,7 @@ export const ProductIdentityWizard: React.FC<ProductIdentityWizardProps> = ({
                 {supportedLanguages.map((lang) => (
                   <button key={lang.code} onClick={() => setLanguage(lang.name)}
                     className={`px-3 py-1.5 rounded-xl text-xs font-semibold border transition-all font-poppins cursor-pointer ${language === lang.name ? 'bg-[#0F5132] text-white border-[#0F5132]' : 'bg-[#F8F9F5] dark:bg-[#0E2016] text-stone-600 dark:text-emerald-300/80 border-[#0F5132]/15 dark:border-emerald-900/40 hover:border-[#0F5132]'}`}>
-                    {lang.flag} {lang.nativeName}
+                    {lang.flagEmoji || '🇮🇳'} {lang.nativeName}
                   </button>
                 ))}
               </div>
@@ -525,7 +525,7 @@ export const ProductIdentityWizard: React.FC<ProductIdentityWizardProps> = ({
                 {supportedLanguages.map((lang) => (
                   <button key={lang.code} onClick={() => { setLanguage(lang.name); if (identity) handleGenerateIdentity(undefined, lang.name); }} disabled={loadingIdentity}
                     className={`px-2.5 py-1.5 rounded-xl text-[11px] font-bold transition-all font-poppins cursor-pointer ${language === lang.name ? 'bg-[#0F5132] text-white' : 'bg-stone-100 dark:bg-[#0E2016] text-stone-600 dark:text-emerald-300/80 hover:bg-stone-200'}`}>
-                    {lang.flag} {lang.nativeName}
+                    {lang.flagEmoji || '🇮🇳'} {lang.nativeName}
                   </button>
                 ))}
               </div>

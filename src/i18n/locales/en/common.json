@@ -283,7 +283,12 @@
     "marketplaceTipsTitle": "Essential Smartphone Photo Rules",
     "tip1": "Shoot in natural morning daylight near a window to reveal genuine colors.",
     "tip2": "Place a plain white chart paper or cotton cloth underneath for clean contrast.",
-    "tip3": "Take at least 1 close-up shot showing fine texture, weave, or brushwork."
+    "tip3": "Take at least 1 close-up shot showing fine texture, weave, or brushwork.",
+    "dropzone": "Drag and drop your craft image here, or click to browse files",
+    "uploadButton": "Upload Craft Photo",
+    "tipsTitle": "Actionable Photography Tips",
+    "generateAI": "Create Product Listing with AI",
+    "generating": "AI is analyzing photo quality..."
   },
   "marketplace": {
     "title": "Marketplace Readiness & Channels",
