@@ -15,7 +15,7 @@ import {
 } from 'lucide-react';
 
 export const VoiceMentor: React.FC = () => {
-  const { t, language, setLanguage, currentLanguageConfig, supportedLanguages } = useI18n();
+  const { t, language, setLanguage, currentLanguageConfig, languages: supportedLanguages } = useI18n();
 
   const [messages, setMessages] = useState<MentorMessage[]>([
     {
