@@ -7,6 +7,7 @@ interface LanguageContextType {
   language: SupportedLanguage;
   currentLanguageConfig: LanguageOption;
   languages: LanguageOption[];
+  supportedLanguages: LanguageOption[];
   setLanguage: (lang: SupportedLanguage) => Promise<void>;
   t: (key: string, params?: Record<string, string | number>) => string;
   formatNumber: (value: number) => string;
@@ -171,6 +172,7 @@ export const LanguageProvider: React.FC<{ children: React.ReactNode }> = ({ chil
       language,
       currentLanguageConfig,
       languages: SUPPORTED_LANGUAGES,
+      supportedLanguages: SUPPORTED_LANGUAGES,
       setLanguage,
       t,
       formatNumber,

@@ -91,15 +91,19 @@ const MainContent: React.FC = () => {
   );
 };
 
+import { ErrorBoundary } from './components/ErrorBoundary';
+
 export default function App() {
   return (
-    <LanguageProvider>
-      <ThemeProvider>
-        <AuthProvider>
-          <MainContent />
-        </AuthProvider>
-      </ThemeProvider>
-    </LanguageProvider>
+    <ErrorBoundary>
+      <LanguageProvider>
+        <ThemeProvider>
+          <AuthProvider>
+            <MainContent />
+          </AuthProvider>
+        </ThemeProvider>
+      </LanguageProvider>
+    </ErrorBoundary>
   );
 }
 

@@ -23,7 +23,7 @@ export const VoiceMentor: React.FC = () => {
       sender: 'assistant',
       text: t('mentor.welcomeGreeting'),
       timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
-      language: currentLanguageConfig.name,
+      language: currentLanguageConfig?.name || 'English',
     },
   ]);
 
@@ -197,14 +197,14 @@ export const VoiceMentor: React.FC = () => {
 
           {/* Regional Voice Selector */}
           <div className="flex items-center gap-2 bg-[#F8F9F5] dark:bg-[#0E2016] p-1.5 rounded-2xl border border-[#0F5132]/15 dark:border-emerald-900/40 w-full sm:w-auto">
-            <span className="text-base ml-1.5 shrink-0">{currentLanguageConfig.flagEmoji}</span>
+            <span className="text-base ml-1.5 shrink-0">{currentLanguageConfig?.flagEmoji || '🇮🇳'}</span>
             <select
               value={language}
               onChange={(e) => setLanguage(e.target.value as any)}
               aria-label={t('common.language')}
               className="bg-transparent text-xs font-semibold text-stone-700 dark:text-emerald-100 pr-2 py-1 outline-none cursor-pointer w-full font-poppins"
             >
-              {supportedLanguages.map((lang) => (
+              {(supportedLanguages || []).map((lang) => (
                 <option key={lang.code} value={lang.code} className="bg-white dark:bg-[#13251B]">
                   {lang.nativeName} ({lang.name} Voice)
                 </option>
