@@ -188,7 +188,12 @@
     "prompt2": "What documents do I need to register for the PM Vishwakarma ₹15,000 toolkit scheme?",
     "prompt3": "How can I start selling my handcrafted pottery on ONDC via Paytm or Mystore?",
     "prompt4": "What lighting setup should I use with my smartphone for clean craft photos?",
-    "welcomeMessage": "Namaste! I am KRIVIO AI, your business mentor. Speak or type in your preferred language. How can I help you grow your enterprise today?"
+    "welcomeMessage": "Namaste! I am KRIVIO AI, your business mentor. Speak or type in your preferred language. How can I help you grow your enterprise today?",
+    "pill1": "Pricing Help",
+    "pill2": "Govt Schemes",
+    "pill3": "ONDC Listing",
+    "pill4": "Photo Tips",
+    "pill5": "Marketing"
   },
   "product": {
     "title": "Product Studio",
