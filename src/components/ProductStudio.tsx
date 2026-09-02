@@ -282,7 +282,7 @@ export const ProductStudio: React.FC = () => {
         <button
           id="btn-add-product"
           onClick={openNewProductModal}
-          className="inline-flex items-center justify-center gap-2 px-5 py-3 bg-[#0F5132] hover:bg-[#0B3D26] text-white font-semibold text-xs rounded-xl shadow-md transition-all shrink-0 active:scale-98 font-poppins cursor-pointer"
+          className="w-full sm:w-auto inline-flex items-center justify-center gap-2 px-5 py-3 min-h-[44px] bg-[#0F5132] hover:bg-[#0B3D26] text-white font-semibold text-xs rounded-xl shadow-md transition-all shrink-0 active:scale-98 font-poppins cursor-pointer"
         >
           <Plus className="w-4 h-4" />
           <span>{t('product.addProduct')}</span>

@@ -252,20 +252,21 @@ export const PublicStorefront: React.FC<PublicStorefrontProps> = ({
             </div>
           </div>
 
-          <div className="flex items-center gap-3">
+          <div className="flex items-center gap-1.5 sm:gap-3">
             <LanguageSelector variant="compact" />
             <button
               onClick={handleShareStore}
-              className="inline-flex items-center gap-1.5 px-3.5 py-2 text-xs font-bold text-stone-700 bg-stone-100 hover:bg-stone-200 rounded-xl transition-all font-poppins cursor-pointer"
+              className="inline-flex items-center gap-1.5 px-2.5 sm:px-3.5 py-2 min-h-[38px] text-xs font-bold text-stone-700 bg-stone-100 hover:bg-stone-200 rounded-xl transition-all font-poppins cursor-pointer"
+              title={copiedLink ? 'Link Copied!' : 'Share Store'}
             >
               {copiedLink ? <Check className="w-3.5 h-3.5 text-[#0F5132]" /> : <Share2 className="w-3.5 h-3.5 text-stone-700" />}
-              <span>{copiedLink ? 'Link Copied!' : 'Share Store'}</span>
+              <span className="hidden sm:inline">{copiedLink ? 'Link Copied!' : 'Share Store'}</span>
             </button>
 
             {onOpenAuth && (
               <button
                 onClick={onOpenAuth}
-                className="inline-flex items-center gap-1 px-4 py-2 text-xs font-bold text-white bg-[#0F5132] hover:bg-[#0B3D26] rounded-xl shadow-xs transition-all font-poppins cursor-pointer"
+                className="inline-flex items-center gap-1 px-3 sm:px-4 py-2 min-h-[38px] text-xs font-bold text-white bg-[#0F5132] hover:bg-[#0B3D26] rounded-xl shadow-xs transition-all font-poppins cursor-pointer"
               >
                 <span>{t('auth.login')}</span>
                 <ChevronRight className="w-3.5 h-3.5" />

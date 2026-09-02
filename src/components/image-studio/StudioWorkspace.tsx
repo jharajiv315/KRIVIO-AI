@@ -618,10 +618,10 @@ export const StudioWorkspace: React.FC<StudioWorkspaceProps> = ({
 
               {/* Before / After Toggle Buttons */}
               {currentAsset && (
-                <div className="flex bg-stone-100 dark:bg-[#0E2016] p-1 rounded-xl">
+                <div className="flex bg-stone-100 dark:bg-[#0E2016] p-1 rounded-xl w-full sm:w-auto justify-center">
                   <button
                     onClick={() => setViewMode('split')}
-                    className={`px-2.5 py-1 text-[11px] font-bold rounded-lg cursor-pointer font-poppins ${
+                    className={`flex-1 sm:flex-initial px-3 py-1.5 min-h-[36px] text-xs font-bold rounded-lg cursor-pointer font-poppins transition-colors ${
                       viewMode === 'split' ? 'bg-[#0F5132] text-white' : 'text-stone-600 dark:text-emerald-300'
                     }`}
                   >
@@ -629,7 +629,7 @@ export const StudioWorkspace: React.FC<StudioWorkspaceProps> = ({
                   </button>
                   <button
                     onClick={() => setViewMode('enhanced')}
-                    className={`px-2.5 py-1 text-[11px] font-bold rounded-lg cursor-pointer font-poppins ${
+                    className={`flex-1 sm:flex-initial px-3 py-1.5 min-h-[36px] text-xs font-bold rounded-lg cursor-pointer font-poppins transition-colors ${
                       viewMode === 'enhanced' ? 'bg-[#0F5132] text-white' : 'text-stone-600 dark:text-emerald-300'
                     }`}
                   >
@@ -637,7 +637,7 @@ export const StudioWorkspace: React.FC<StudioWorkspaceProps> = ({
                   </button>
                   <button
                     onClick={() => setViewMode('original')}
-                    className={`px-2.5 py-1 text-[11px] font-bold rounded-lg cursor-pointer font-poppins ${
+                    className={`flex-1 sm:flex-initial px-3 py-1.5 min-h-[36px] text-xs font-bold rounded-lg cursor-pointer font-poppins transition-colors ${
                       viewMode === 'original' ? 'bg-[#0F5132] text-white' : 'text-stone-600 dark:text-emerald-300'
                     }`}
                   >
@@ -723,43 +723,45 @@ export const StudioWorkspace: React.FC<StudioWorkspaceProps> = ({
 
             {/* Action Buttons Bar when an asset is available */}
             {currentAsset && (
-              <div className="pt-2 flex flex-wrap items-center justify-between gap-3">
-                <div className="flex flex-wrap items-center gap-2">
+              <div className="pt-2 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+                <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2 w-full sm:w-auto">
                   {/* Save to Product Catalog Button */}
                   <button
                     onClick={() => setSaveModalOpen(true)}
-                    className="px-4 py-2.5 bg-[#0F5132] hover:bg-[#0B3D26] text-white text-xs font-bold rounded-xl shadow-xs flex items-center gap-1.5 transition-all cursor-pointer font-poppins"
+                    className="w-full sm:w-auto px-4 py-2.5 min-h-[44px] bg-[#0F5132] hover:bg-[#0B3D26] text-white text-xs font-bold rounded-xl shadow-xs flex items-center justify-center gap-2 transition-all cursor-pointer font-poppins active:scale-98"
                   >
-                    <Package className="w-3.5 h-3.5 text-[#D4AF37]" />
+                    <Package className="w-4 h-4 text-[#D4AF37]" />
                     <span>Save to Product</span>
                   </button>
 
-                  {/* Download Button */}
-                  <a
-                    href={currentAsset.generatedImage}
-                    download={`krivio-craft-${Date.now()}.png`}
-                    className="px-3.5 py-2.5 bg-stone-100 hover:bg-stone-200 dark:bg-[#0E2016] dark:hover:bg-emerald-950 text-stone-800 dark:text-emerald-100 text-xs font-semibold rounded-xl flex items-center gap-1.5 transition-all font-poppins"
-                  >
-                    <Download className="w-3.5 h-3.5 text-[#0F5132] dark:text-emerald-400" />
-                    <span>Download</span>
-                  </a>
+                  <div className="flex items-center gap-2 w-full sm:w-auto">
+                    {/* Download Button */}
+                    <a
+                      href={currentAsset.generatedImage}
+                      download={`krivio-craft-${Date.now()}.png`}
+                      className="flex-1 sm:flex-initial px-3.5 py-2.5 min-h-[44px] bg-stone-100 hover:bg-stone-200 dark:bg-[#0E2016] dark:hover:bg-emerald-950 text-stone-800 dark:text-emerald-100 text-xs font-semibold rounded-xl flex items-center justify-center gap-1.5 transition-all font-poppins active:scale-98"
+                    >
+                      <Download className="w-4 h-4 text-[#0F5132] dark:text-emerald-400" />
+                      <span>Download</span>
+                    </a>
 
-                  {/* Regenerate */}
-                  <button
-                    onClick={() => handleGenerate()}
-                    disabled={isGenerating}
-                    className="px-3.5 py-2.5 bg-stone-100 hover:bg-stone-200 dark:bg-[#0E2016] dark:hover:bg-emerald-950 text-stone-800 dark:text-emerald-100 text-xs font-semibold rounded-xl flex items-center gap-1.5 transition-all cursor-pointer font-poppins"
-                  >
-                    <RefreshCw className="w-3.5 h-3.5 text-[#D4AF37]" />
-                    <span>Regenerate</span>
-                  </button>
+                    {/* Regenerate */}
+                    <button
+                      onClick={() => handleGenerate()}
+                      disabled={isGenerating}
+                      className="flex-1 sm:flex-initial px-3.5 py-2.5 min-h-[44px] bg-stone-100 hover:bg-stone-200 dark:bg-[#0E2016] dark:hover:bg-emerald-950 text-stone-800 dark:text-emerald-100 text-xs font-semibold rounded-xl flex items-center justify-center gap-1.5 transition-all cursor-pointer font-poppins active:scale-98"
+                    >
+                      <RefreshCw className="w-4 h-4 text-[#D4AF37]" />
+                      <span>Regenerate</span>
+                    </button>
+                  </div>
                 </div>
 
                 {/* Create full listing wizard link */}
                 {onNavigateToWizard && (
                   <button
                     onClick={() => onNavigateToWizard(currentAsset.generatedImage)}
-                    className="text-xs font-bold text-[#0F5132] dark:text-emerald-400 hover:underline flex items-center gap-1 font-poppins cursor-pointer"
+                    className="text-xs font-bold text-[#0F5132] dark:text-emerald-400 hover:underline flex items-center justify-center sm:justify-start gap-1 font-poppins cursor-pointer py-1"
                   >
                     <span>Create Full Listing with this Photo</span>
                     <ChevronRight className="w-3.5 h-3.5" />
@@ -798,21 +800,21 @@ export const StudioWorkspace: React.FC<StudioWorkspaceProps> = ({
               </div>
 
               {/* Input for custom follow-up edit */}
-              <div className="flex items-center gap-2">
+              <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2">
                 <input
                   type="text"
                   value={followUpInput}
                   onChange={(e) => setFollowUpInput(e.target.value)}
                   onKeyDown={(e) => e.key === 'Enter' && handleFollowUpEdit()}
-                  placeholder="e.g. Make the surface marble, soften the light, or zoom in slightly..."
-                  className="flex-1 p-3 bg-stone-50 dark:bg-[#0E2016] border border-stone-200 dark:border-emerald-900/40 rounded-xl text-xs text-stone-900 dark:text-white focus:ring-2 focus:ring-[#0F5132] outline-none font-inter"
+                  placeholder="e.g. Make the surface marble, soften the light..."
+                  className="flex-1 p-3 bg-stone-50 dark:bg-[#0E2016] border border-stone-200 dark:border-emerald-900/40 rounded-xl text-xs text-stone-900 dark:text-white focus:ring-2 focus:ring-[#0F5132] outline-none font-inter min-h-[44px]"
                 />
                 <button
                   onClick={() => handleFollowUpEdit()}
                   disabled={!followUpInput.trim() || isGenerating}
-                  className="px-4 py-3 bg-[#0F5132] hover:bg-[#0B3D26] text-white text-xs font-bold rounded-xl shadow-xs cursor-pointer font-poppins disabled:opacity-40"
+                  className="w-full sm:w-auto px-5 py-3 min-h-[44px] bg-[#0F5132] hover:bg-[#0B3D26] text-white text-xs font-bold rounded-xl shadow-xs cursor-pointer font-poppins disabled:opacity-40 flex items-center justify-center gap-1.5"
                 >
-                  Apply Edit
+                  <span>Apply Edit</span>
                 </button>
               </div>
             </div>
@@ -879,8 +881,8 @@ export const StudioWorkspace: React.FC<StudioWorkspaceProps> = ({
 
       {/* Modal: Save to Product in Catalog */}
       {saveModalOpen && (
-        <div className="fixed inset-0 z-50 bg-black/50 backdrop-blur-xs flex items-center justify-center p-4">
-          <div className="bg-white dark:bg-[#13251B] p-6 rounded-3xl border border-[#0F5132]/20 max-w-md w-full space-y-5 shadow-2xl animate-in fade-in zoom-in-95">
+        <div className="fixed inset-0 z-50 bg-black/50 backdrop-blur-xs flex items-center justify-center p-3 sm:p-4">
+          <div className="bg-white dark:bg-[#13251B] p-5 sm:p-6 rounded-3xl border border-[#0F5132]/20 max-w-md w-full space-y-5 shadow-2xl animate-in fade-in zoom-in-95 max-h-[90vh] overflow-y-auto">
             <div className="flex items-center justify-between pb-3 border-b border-stone-100 dark:border-emerald-900/40">
               <h3 className="text-base font-bold text-stone-900 dark:text-white font-poppins flex items-center gap-2">
                 <Package className="w-5 h-5 text-[#0F5132] dark:text-emerald-400" />
@@ -888,7 +890,8 @@ export const StudioWorkspace: React.FC<StudioWorkspaceProps> = ({
               </h3>
               <button
                 onClick={() => setSaveModalOpen(false)}
-                className="text-stone-400 hover:text-stone-600 text-xs font-bold cursor-pointer"
+                aria-label="Close modal"
+                className="min-w-[40px] min-h-[40px] flex items-center justify-center text-stone-400 hover:text-stone-600 dark:hover:text-stone-200 rounded-lg transition-colors cursor-pointer"
               >
                 ✕
               </button>
@@ -913,7 +916,7 @@ export const StudioWorkspace: React.FC<StudioWorkspaceProps> = ({
                 <select
                   value={selectedProductId}
                   onChange={(e) => setSelectedProductId(e.target.value)}
-                  className="w-full p-3 bg-stone-100 dark:bg-[#0E2016] border border-stone-200 dark:border-emerald-900/40 rounded-xl text-xs text-stone-900 dark:text-white font-poppins cursor-pointer"
+                  className="w-full p-3 bg-stone-100 dark:bg-[#0E2016] border border-stone-200 dark:border-emerald-900/40 rounded-xl text-xs text-stone-900 dark:text-white font-poppins cursor-pointer min-h-[44px]"
                 >
                   <option value="">-- Choose a product --</option>
                   {userProducts.map((p) => (
@@ -928,14 +931,14 @@ export const StudioWorkspace: React.FC<StudioWorkspaceProps> = ({
             <div className="flex gap-3 pt-2">
               <button
                 onClick={() => setSaveModalOpen(false)}
-                className="flex-1 py-2.5 bg-stone-100 hover:bg-stone-200 dark:bg-[#0E2016] text-stone-700 dark:text-emerald-200 text-xs font-semibold rounded-xl cursor-pointer font-poppins"
+                className="flex-1 py-3 min-h-[44px] bg-stone-100 hover:bg-stone-200 dark:bg-[#0E2016] text-stone-700 dark:text-emerald-200 text-xs font-semibold rounded-xl cursor-pointer font-poppins"
               >
                 Cancel
               </button>
               <button
                 onClick={handleSaveToProduct}
                 disabled={!selectedProductId || isSavingProduct}
-                className="flex-1 py-2.5 bg-[#0F5132] hover:bg-[#0B3D26] text-white text-xs font-bold rounded-xl shadow-md cursor-pointer font-poppins disabled:opacity-40"
+                className="flex-1 py-3 min-h-[44px] bg-[#0F5132] hover:bg-[#0B3D26] text-white text-xs font-bold rounded-xl shadow-md cursor-pointer font-poppins disabled:opacity-40"
               >
                 {isSavingProduct ? 'Saving...' : 'Confirm & Save'}
               </button>

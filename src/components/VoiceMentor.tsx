@@ -215,7 +215,7 @@ export const VoiceMentor: React.FC = () => {
       </div>
 
       {/* Main Conversation Canvas */}
-      <div className="bg-white dark:bg-[#13251B] rounded-3xl border border-[#0F5132]/15 dark:border-emerald-800/60 shadow-md flex flex-col h-[calc(100dvh-280px)] min-h-[460px] max-h-[640px] overflow-hidden">
+      <div className="bg-white dark:bg-[#13251B] rounded-3xl border border-[#0F5132]/15 dark:border-emerald-800/60 shadow-md flex flex-col h-[calc(100dvh-240px)] min-h-[380px] sm:min-h-[460px] max-h-[640px] overflow-hidden">
         {/* Messages List */}
         <div className="flex-1 p-4 sm:p-6 overflow-y-auto space-y-4">
           {messages.map((msg) => (

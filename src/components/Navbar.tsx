@@ -277,7 +277,7 @@ export const Navbar: React.FC<NavbarProps> = ({ currentTab, setCurrentTab, openP
                   onClick={logout}
                   title={t('common.logout')}
                   aria-label={t('common.logout')}
-                  className="p-1.5 rounded-xl text-stone-400 hover:text-red-600 hover:bg-red-50 dark:hover:bg-red-950/30 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-red-500 cursor-pointer"
+                  className="hidden sm:inline-flex p-1.5 rounded-xl text-stone-400 hover:text-red-600 hover:bg-red-50 dark:hover:bg-red-950/30 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-red-500 cursor-pointer"
                 >
                   <LogOut className="w-4 h-4" />
                 </button>
@@ -293,7 +293,7 @@ export const Navbar: React.FC<NavbarProps> = ({ currentTab, setCurrentTab, openP
               </button>
             )}
 
-            {/* Mobile Hamburger Toggle */}
+            {/* Mobile Hamburger Toggle (44px touch target) */}
             <button
               ref={toggleBtnRef}
               id="btn-mobile-menu"
@@ -301,7 +301,7 @@ export const Navbar: React.FC<NavbarProps> = ({ currentTab, setCurrentTab, openP
               aria-expanded={mobileMenuOpen}
               aria-controls="mobile-navigation"
               aria-label={mobileMenuOpen ? 'Close main navigation menu' : 'Open main navigation menu'}
-              className={`md:hidden p-2 rounded-xl transition-all duration-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#0F5132] dark:focus-visible:ring-emerald-400 ${
+              className={`md:hidden min-w-[44px] min-h-[44px] flex items-center justify-center p-2 rounded-xl transition-all duration-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#0F5132] dark:focus-visible:ring-emerald-400 cursor-pointer ${
                 mobileMenuOpen
                   ? 'bg-[#0F5132]/10 dark:bg-emerald-900/50 text-[#0F5132] dark:text-emerald-300'
                   : 'text-stone-700 dark:text-emerald-200 hover:bg-stone-200/60 dark:hover:bg-emerald-900/40'
@@ -409,6 +409,22 @@ export const Navbar: React.FC<NavbarProps> = ({ currentTab, setCurrentTab, openP
               </button>
             )}
           </div>
+
+          {/* User Sign Out on Mobile */}
+          {user && (
+            <div className="pt-2 border-t border-stone-200 dark:border-emerald-900/40">
+              <button
+                onClick={() => {
+                  logout();
+                  setMobileMenuOpen(false);
+                }}
+                className="w-full flex items-center justify-center gap-2 px-4 py-2.5 text-xs font-semibold text-red-600 dark:text-red-400 bg-red-50 dark:bg-red-950/40 hover:bg-red-100 rounded-xl transition-colors font-poppins cursor-pointer"
+              >
+                <LogOut className="w-4 h-4" />
+                <span>{t('common.logout')}</span>
+              </button>
+            </div>
+          )}
         </div>
       )}
     </header>

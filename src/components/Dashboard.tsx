@@ -257,10 +257,10 @@ export const Dashboard: React.FC<DashboardProps> = ({ currentTab, setCurrentTab,
                 </div>
               </div>
 
-              <div className="w-full md:w-auto flex flex-wrap items-center gap-2.5 shrink-0">
+              <div className="w-full md:w-auto flex flex-col sm:flex-row items-stretch sm:items-center gap-2.5 shrink-0">
                 <button
                   onClick={() => setCurrentTab('storefront')}
-                  className="flex-1 sm:flex-initial inline-flex items-center justify-center gap-1.5 px-4 py-2.5 bg-[#0F5132] hover:bg-[#0B3D26] text-white font-bold text-xs rounded-xl shadow-xs transition-all font-poppins cursor-pointer active:scale-98"
+                  className="inline-flex items-center justify-center gap-1.5 px-4 py-2.5 bg-[#0F5132] hover:bg-[#0B3D26] text-white font-bold text-xs rounded-xl shadow-xs transition-all font-poppins cursor-pointer active:scale-98 min-h-[42px]"
                 >
                   <ExternalLink className="w-3.5 h-3.5" />
                   <span>{t('dashboard.viewStorefront')}</span>
@@ -632,12 +632,12 @@ export const Dashboard: React.FC<DashboardProps> = ({ currentTab, setCurrentTab,
             {isSidebarCollapsed ? <ChevronRight className="w-5 h-5 text-[#0F5132] dark:text-emerald-400" /> : <ChevronLeft className="w-5 h-5 text-[#0F5132] dark:text-emerald-400" />}
           </button>
 
-          {/* Mobile Drawer menu button */}
+          {/* Mobile Drawer menu button (44px touch target) */}
           <button
             onClick={() => setMobileDrawerOpen(!mobileDrawerOpen)}
             aria-label={mobileDrawerOpen ? "Close Workspace Menu" : "Open Workspace Menu"}
             aria-expanded={mobileDrawerOpen}
-            className="md:hidden p-2 rounded-xl text-stone-700 dark:text-emerald-200 hover:bg-[#0F5132]/10 dark:hover:bg-emerald-900/30 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#0F5132] cursor-pointer"
+            className="md:hidden min-w-[44px] min-h-[44px] flex items-center justify-center p-2 rounded-xl text-stone-700 dark:text-emerald-200 hover:bg-[#0F5132]/10 dark:hover:bg-emerald-900/30 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#0F5132] cursor-pointer"
           >
             {mobileDrawerOpen ? <X className="w-5 h-5 text-[#0F5132] dark:text-emerald-400" /> : <Menu className="w-5 h-5 text-[#0F5132] dark:text-emerald-400" />}
           </button>
@@ -711,7 +711,7 @@ export const Dashboard: React.FC<DashboardProps> = ({ currentTab, setCurrentTab,
             onClick={logout}
             title={t('common.logout')}
             aria-label={t('common.logout')}
-            className="p-1.5 sm:p-2 rounded-xl text-stone-400 hover:text-red-600 hover:bg-red-50 dark:hover:bg-red-950/30 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-red-500 cursor-pointer"
+            className="hidden sm:inline-flex p-1.5 sm:p-2 rounded-xl text-stone-400 hover:text-red-600 hover:bg-red-50 dark:hover:bg-red-950/30 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-red-500 cursor-pointer"
           >
             <LogOut className="w-4 h-4 sm:w-5 sm:h-5" />
           </button>
@@ -839,9 +839,23 @@ export const Dashboard: React.FC<DashboardProps> = ({ currentTab, setCurrentTab,
                   setMobileDrawerOpen(false);
                   openPricingModal();
                 }}
-                className="w-full py-2 bg-[#D4AF37] hover:bg-[#C29F2B] text-[#1A1A1A] font-bold text-xs rounded-xl shadow-xs transition-all font-poppins cursor-pointer"
+                className="w-full py-2.5 bg-[#D4AF37] hover:bg-[#C29F2B] text-[#1A1A1A] font-bold text-xs rounded-xl shadow-xs transition-all font-poppins cursor-pointer"
               >
                 {t('pricing.upgradeBtn')} (₹299/mo)
+              </button>
+            )}
+
+            {/* Mobile Drawer Logout Button */}
+            {user && (
+              <button
+                onClick={() => {
+                  setMobileDrawerOpen(false);
+                  logout();
+                }}
+                className="w-full py-2.5 bg-red-50 hover:bg-red-100 dark:bg-red-950/40 text-red-600 dark:text-red-400 font-semibold text-xs rounded-xl transition-all font-poppins cursor-pointer flex items-center justify-center gap-2 mt-2"
+              >
+                <LogOut className="w-3.5 h-3.5" />
+                <span>{t('common.logout')}</span>
               </button>
             )}
           </div>
@@ -950,16 +964,16 @@ export const Dashboard: React.FC<DashboardProps> = ({ currentTab, setCurrentTab,
           )}
         </aside>
 
-        {/* Main Workspace Content Area */}
-        <main className="flex-1 min-w-0 overflow-x-hidden overflow-y-auto p-3 sm:p-6 lg:p-8 pb-24 md:pb-8">
+        {/* Main Workspace Content Area (With safe-area padding for mobile bottom bar) */}
+        <main className="flex-1 min-w-0 overflow-x-hidden overflow-y-auto p-3 sm:p-6 lg:p-8 pb-[calc(env(safe-area-inset-bottom)+6.5rem)] md:pb-8">
           {renderActiveView()}
         </main>
       </div>
 
-      {/* Mobile Bottom Navigation Bar (Strictly 5 Destinations) */}
+      {/* Mobile Bottom Navigation Bar (Strictly 5 Destinations, Safe-Area Aware) */}
       <nav
         aria-label="Mobile Quick Navigation"
-        className="md:hidden fixed bottom-0 left-0 right-0 z-40 bg-white/95 dark:bg-[#13251B]/95 backdrop-blur-md border-t border-[#0F5132]/15 dark:border-emerald-900/40 px-2 py-1.5 flex items-center justify-around shadow-lg"
+        className="md:hidden fixed bottom-0 left-0 right-0 z-40 bg-white/95 dark:bg-[#13251B]/95 backdrop-blur-md border-t border-[#0F5132]/15 dark:border-emerald-900/40 px-2 py-1.5 pb-[calc(env(safe-area-inset-bottom)+0.375rem)] flex items-center justify-around shadow-lg"
       >
         {directPrimaryNavItems.map((item) => {
           const Icon = item.icon;
@@ -969,7 +983,7 @@ export const Dashboard: React.FC<DashboardProps> = ({ currentTab, setCurrentTab,
               key={item.id}
               onClick={() => setCurrentTab(item.id)}
               aria-current={isActive ? 'page' : undefined}
-              className={`flex flex-col items-center justify-center p-1.5 rounded-xl transition-all cursor-pointer ${
+              className={`flex flex-col items-center justify-center p-1.5 min-w-[56px] min-h-[48px] rounded-xl transition-all cursor-pointer ${
                 isActive
                   ? 'text-[#0F5132] dark:text-[#34D399] font-bold'
                   : 'text-stone-500 dark:text-emerald-300/70 hover:text-[#0F5132]'
@@ -996,7 +1010,7 @@ export const Dashboard: React.FC<DashboardProps> = ({ currentTab, setCurrentTab,
           onClick={() => setMobileDrawerOpen(true)}
           aria-expanded={mobileDrawerOpen}
           aria-label="Open More Menu"
-          className={`flex flex-col items-center justify-center p-1.5 rounded-xl transition-all cursor-pointer relative ${
+          className={`flex flex-col items-center justify-center p-1.5 min-w-[56px] min-h-[48px] rounded-xl transition-all cursor-pointer relative ${
             isCurrentTabSecondary
               ? 'text-[#0F5132] dark:text-[#34D399] font-bold'
               : 'text-stone-500 dark:text-emerald-300/70 hover:text-[#0F5132]'
