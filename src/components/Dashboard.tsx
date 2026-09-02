@@ -55,6 +55,11 @@ import {
   Check,
 } from 'lucide-react';
 import { Logo } from './Logo';
+import {
+  PRIMARY_NAV_ITEMS,
+  SECONDARY_NAV_GROUPS,
+  isSecondaryTab,
+} from '../config/navigation';
 
 interface DashboardProps {
   currentTab: string;
@@ -150,28 +155,8 @@ export const Dashboard: React.FC<DashboardProps> = ({ currentTab, setCurrentTab,
     );
   }
 
-  const navMenuItems = [
-    { id: 'dashboard', label: t('nav.dashboard'), icon: LayoutDashboard },
-    { id: 'storefront', label: t('nav.publicStore'), icon: Store, badge: 'Live' },
-    { id: 'business-profile', label: t('nav.businessProfile'), icon: Building2 },
-    { id: 'products', label: t('nav.productStudio'), icon: Package },
-    { id: 'mentor', label: t('nav.voiceMentor'), icon: Mic, badge: t('nav.voiceAiBadge') },
-    { id: 'images', label: t('nav.imageStudio'), icon: Camera, badge: 'Vision' },
-    { id: 'marketplace', label: t('nav.marketplace'), icon: Store },
-    { id: 'schemes', label: t('nav.schemes'), icon: Landmark },
-    { id: 'subscriptions', label: t('nav.subscription'), icon: Crown },
-    { id: 'profile', label: t('nav.profile'), icon: UserIcon },
-    { id: 'settings', label: t('nav.settings'), icon: Settings },
-  ];
-
-  // Primary mobile destinations for bottom navigation bar
-  const mobileBottomNavItems = [
-    { id: 'dashboard', label: t('nav.home'), icon: LayoutDashboard },
-    { id: 'mentor', label: t('nav.voiceMentor'), icon: Mic, isSpecial: true },
-    { id: 'products', label: t('nav.productStudio'), icon: Package },
-    { id: 'storefront', label: t('nav.publicStore'), icon: Store },
-    { id: 'schemes', label: t('nav.schemes'), icon: Landmark },
-  ];
+  const directPrimaryNavItems = PRIMARY_NAV_ITEMS.filter((item) => item.id !== 'more');
+  const isCurrentTabSecondary = isSecondaryTab(currentTab);
 
   // Search Filter logic for dashboard workspace search
   const filteredTasks = tasks.filter((t) =>
@@ -766,36 +751,79 @@ export const Dashboard: React.FC<DashboardProps> = ({ currentTab, setCurrentTab,
             <LanguageSelector variant="inline" />
           </div>
 
-          <nav aria-label="Mobile Workspace Links" className="p-3 space-y-1 overflow-y-auto flex-1">
-            {navMenuItems.map((item) => {
-              const Icon = item.icon;
-              const isActive = currentTab === item.id;
-              return (
-                <button
-                  key={item.id}
-                  onClick={() => {
-                    setCurrentTab(item.id);
-                    setMobileDrawerOpen(false);
-                  }}
-                  aria-current={isActive ? 'page' : undefined}
-                  className={`w-full flex items-center justify-between px-3.5 py-3 rounded-xl text-xs font-semibold transition-all cursor-pointer ${
-                    isActive
-                      ? 'bg-[#0F5132] text-white shadow-xs font-bold font-poppins'
-                      : 'text-stone-700 dark:text-emerald-100 hover:bg-[#0F5132]/10 dark:hover:bg-emerald-900/30'
-                  }`}
-                >
-                  <div className="flex items-center gap-3">
-                    <Icon className={`w-4 h-4 ${isActive ? 'text-[#D4AF37]' : 'text-stone-400 dark:text-emerald-400/60'}`} />
-                    <span className="font-poppins">{item.label}</span>
-                  </div>
-                  {item.badge && (
-                    <span className="px-1.5 py-0.2 text-[9px] font-bold bg-[#D4AF37] text-[#1A1A1A] rounded uppercase font-poppins">
-                      {item.badge}
-                    </span>
-                  )}
-                </button>
-              );
-            })}
+          <nav aria-label="Mobile Workspace Links" className="p-3 space-y-4 overflow-y-auto flex-1">
+            {/* Primary Workspace Shortcuts */}
+            <div className="space-y-1">
+              <h4 className="text-[10px] font-bold uppercase tracking-wider text-stone-400 dark:text-emerald-400/60 px-2 font-poppins">
+                Primary Workspace
+              </h4>
+              <div className="grid grid-cols-2 gap-2">
+                {directPrimaryNavItems.map((item) => {
+                  const Icon = item.icon;
+                  const isActive = currentTab === item.id;
+                  return (
+                    <button
+                      key={item.id}
+                      onClick={() => {
+                        setCurrentTab(item.id);
+                        setMobileDrawerOpen(false);
+                      }}
+                      aria-current={isActive ? 'page' : undefined}
+                      className={`flex items-center gap-2.5 p-2.5 rounded-xl text-xs font-semibold transition-all text-left cursor-pointer ${
+                        isActive
+                          ? 'bg-[#0F5132] text-white shadow-xs font-bold font-poppins'
+                          : 'bg-white dark:bg-[#13251B] border border-stone-200/70 dark:border-emerald-900/40 text-stone-700 dark:text-emerald-100 hover:bg-stone-100'
+                      }`}
+                    >
+                      <Icon className={`w-4 h-4 shrink-0 ${isActive ? 'text-[#D4AF37]' : 'text-[#0F5132] dark:text-emerald-400'}`} />
+                      <span className="font-poppins truncate">{t(item.labelKey) || item.defaultLabel}</span>
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
+
+            {/* Organized Secondary Groups */}
+            {SECONDARY_NAV_GROUPS.map((group) => (
+              <div key={group.id} className="space-y-1">
+                <h4 className="text-[10px] font-bold uppercase tracking-wider text-stone-400 dark:text-emerald-400/60 px-2 font-poppins">
+                  {t(group.titleKey) || group.defaultTitle}
+                </h4>
+                <div className="bg-white dark:bg-[#13251B] rounded-2xl border border-[#0F5132]/10 dark:border-emerald-900/40 p-1.5 space-y-0.5">
+                  {group.items.map((subItem) => {
+                    const SubIcon = subItem.icon;
+                    const isSubActive = currentTab === subItem.id;
+                    return (
+                      <button
+                        key={subItem.id}
+                        onClick={() => {
+                          setCurrentTab(subItem.id);
+                          setMobileDrawerOpen(false);
+                        }}
+                        aria-current={isSubActive ? 'page' : undefined}
+                        className={`w-full flex items-center justify-between p-2 rounded-xl text-left transition-all cursor-pointer ${
+                          isSubActive
+                            ? 'bg-[#0F5132]/10 dark:bg-emerald-950/80 text-[#0F5132] dark:text-emerald-300 font-bold'
+                            : 'text-stone-700 dark:text-emerald-100 hover:bg-stone-100/70 dark:hover:bg-emerald-900/30'
+                        }`}
+                      >
+                        <div className="flex items-center gap-2.5 min-w-0">
+                          <SubIcon className="w-4 h-4 text-[#0F5132] dark:text-emerald-400 shrink-0" />
+                          <span className="text-xs font-semibold font-poppins truncate">
+                            {t(subItem.labelKey) || subItem.defaultLabel}
+                          </span>
+                        </div>
+                        {subItem.badge && (
+                          <span className="px-1.5 py-0.2 text-[9px] font-bold bg-[#D4AF37] text-[#1A1A1A] rounded uppercase font-poppins shrink-0">
+                            {subItem.badge}
+                          </span>
+                        )}
+                      </button>
+                    );
+                  })}
+                </div>
+              </div>
+            ))}
           </nav>
 
           <div className="p-4 border-t border-[#0F5132]/10 dark:border-emerald-900/40 text-[11px] space-y-2">
@@ -826,35 +854,84 @@ export const Dashboard: React.FC<DashboardProps> = ({ currentTab, setCurrentTab,
             isSidebarCollapsed ? 'w-16' : 'w-64'
           }`}
         >
-          <nav aria-label="Workspace Sections" className="p-3 space-y-1 overflow-y-auto">
-            {navMenuItems.map((item) => {
-              const Icon = item.icon;
-              const isActive = currentTab === item.id;
-              return (
-                <button
-                  key={item.id}
-                  onClick={() => setCurrentTab(item.id)}
-                  aria-current={isActive ? 'page' : undefined}
-                  aria-label={item.label}
-                  title={isSidebarCollapsed ? item.label : undefined}
-                  className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-xl text-xs transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#0F5132] cursor-pointer ${
-                    isActive
-                      ? 'bg-[#0F5132] text-white shadow-xs font-bold font-poppins'
-                      : 'text-stone-700 dark:text-emerald-100 hover:bg-[#0F5132]/10 dark:hover:bg-emerald-900/30'
-                  }`}
-                >
-                  <Icon className={`w-5 h-5 shrink-0 ${isActive ? 'text-[#D4AF37]' : 'text-stone-400 dark:text-emerald-400/60'}`} />
-                  {!isSidebarCollapsed && (
-                    <span className="font-poppins truncate flex-1 text-left">{item.label}</span>
-                  )}
-                  {!isSidebarCollapsed && item.badge && (
-                    <span className="px-1.5 py-0.2 text-[9px] font-bold bg-[#D4AF37] text-[#1A1A1A] rounded uppercase font-poppins">
-                      {item.badge}
-                    </span>
-                  )}
-                </button>
-              );
-            })}
+          <nav aria-label="Workspace Sections" className="p-2.5 space-y-3 overflow-y-auto">
+            {/* Primary Destinations */}
+            <div className="space-y-0.5">
+              {!isSidebarCollapsed && (
+                <div className="text-[10px] font-bold uppercase tracking-wider text-stone-400 dark:text-emerald-400/60 px-3 py-1 font-poppins">
+                  Core Workspace
+                </div>
+              )}
+              {directPrimaryNavItems.map((item) => {
+                const Icon = item.icon;
+                const isActive = currentTab === item.id;
+                const label = t(item.labelKey) || item.defaultLabel;
+                return (
+                  <button
+                    key={item.id}
+                    onClick={() => setCurrentTab(item.id)}
+                    aria-current={isActive ? 'page' : undefined}
+                    aria-label={label}
+                    title={isSidebarCollapsed ? label : undefined}
+                    className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-xl text-xs transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#0F5132] cursor-pointer ${
+                      isActive
+                        ? 'bg-[#0F5132] text-white shadow-xs font-bold font-poppins'
+                        : 'text-stone-700 dark:text-emerald-100 hover:bg-[#0F5132]/10 dark:hover:bg-emerald-900/30'
+                    }`}
+                  >
+                    <Icon className={`w-4 h-4 shrink-0 ${isActive ? 'text-[#D4AF37]' : 'text-stone-400 dark:text-emerald-400/70'}`} />
+                    {!isSidebarCollapsed && (
+                      <span className="font-poppins truncate flex-1 text-left">{label}</span>
+                    )}
+                    {!isSidebarCollapsed && item.badge && (
+                      <span className="px-1.5 py-0.2 text-[9px] font-bold bg-[#D4AF37] text-[#1A1A1A] rounded uppercase font-poppins">
+                        {item.badge}
+                      </span>
+                    )}
+                  </button>
+                );
+              })}
+            </div>
+
+            {/* Organized Secondary Sections */}
+            {SECONDARY_NAV_GROUPS.map((group) => (
+              <div key={group.id} className="pt-2 border-t border-stone-100 dark:border-emerald-900/40 space-y-0.5">
+                {!isSidebarCollapsed && (
+                  <div className="text-[10px] font-bold uppercase tracking-wider text-stone-400 dark:text-emerald-400/60 px-3 py-1 font-poppins">
+                    {t(group.titleKey) || group.defaultTitle}
+                  </div>
+                )}
+                {group.items.map((subItem) => {
+                  const SubIcon = subItem.icon;
+                  const isSubActive = currentTab === subItem.id;
+                  const subLabel = t(subItem.labelKey) || subItem.defaultLabel;
+                  return (
+                    <button
+                      key={subItem.id}
+                      onClick={() => setCurrentTab(subItem.id)}
+                      aria-current={isSubActive ? 'page' : undefined}
+                      aria-label={subLabel}
+                      title={isSidebarCollapsed ? subLabel : undefined}
+                      className={`w-full flex items-center gap-3 px-3 py-2 rounded-xl text-xs transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#0F5132] cursor-pointer ${
+                        isSubActive
+                          ? 'bg-[#0F5132] text-white shadow-xs font-bold font-poppins'
+                          : 'text-stone-600 dark:text-emerald-200/80 hover:bg-[#0F5132]/10 dark:hover:bg-emerald-900/30'
+                      }`}
+                    >
+                      <SubIcon className={`w-4 h-4 shrink-0 ${isSubActive ? 'text-[#D4AF37]' : 'text-stone-400 dark:text-emerald-400/60'}`} />
+                      {!isSidebarCollapsed && (
+                        <span className="font-poppins truncate flex-1 text-left">{subLabel}</span>
+                      )}
+                      {!isSidebarCollapsed && subItem.badge && (
+                        <span className="px-1.5 py-0.2 text-[9px] font-bold bg-[#D4AF37] text-[#1A1A1A] rounded uppercase font-poppins">
+                          {subItem.badge}
+                        </span>
+                      )}
+                    </button>
+                  );
+                })}
+              </div>
+            ))}
           </nav>
 
           {/* Desktop Sidebar Footer */}
@@ -879,12 +956,12 @@ export const Dashboard: React.FC<DashboardProps> = ({ currentTab, setCurrentTab,
         </main>
       </div>
 
-      {/* Mobile Bottom Navigation Bar (Hidden on Desktop) */}
+      {/* Mobile Bottom Navigation Bar (Strictly 5 Destinations) */}
       <nav
         aria-label="Mobile Quick Navigation"
         className="md:hidden fixed bottom-0 left-0 right-0 z-40 bg-white/95 dark:bg-[#13251B]/95 backdrop-blur-md border-t border-[#0F5132]/15 dark:border-emerald-900/40 px-2 py-1.5 flex items-center justify-around shadow-lg"
       >
-        {mobileBottomNavItems.map((item) => {
+        {directPrimaryNavItems.map((item) => {
           const Icon = item.icon;
           const isActive = currentTab === item.id;
           return (
@@ -909,20 +986,31 @@ export const Dashboard: React.FC<DashboardProps> = ({ currentTab, setCurrentTab,
               >
                 <Icon className={`w-4 h-4 ${item.isSpecial && !isActive ? 'text-[#D4AF37]' : ''}`} />
               </div>
-              <span className="text-[10px] font-poppins mt-0.5 leading-none">{item.label}</span>
+              <span className="text-[10px] font-poppins mt-0.5 leading-none">{t(item.labelKey) || item.defaultLabel}</span>
             </button>
           );
         })}
 
-        {/* More Menu Drawer Trigger */}
+        {/* 5th Mobile Item: More Drawer Trigger */}
         <button
           onClick={() => setMobileDrawerOpen(true)}
-          className="flex flex-col items-center justify-center p-1.5 rounded-xl text-stone-500 dark:text-emerald-300/70 hover:text-[#0F5132] cursor-pointer"
+          aria-expanded={mobileDrawerOpen}
+          aria-label="Open More Menu"
+          className={`flex flex-col items-center justify-center p-1.5 rounded-xl transition-all cursor-pointer relative ${
+            isCurrentTabSecondary
+              ? 'text-[#0F5132] dark:text-[#34D399] font-bold'
+              : 'text-stone-500 dark:text-emerald-300/70 hover:text-[#0F5132]'
+          }`}
         >
-          <div className="w-8 h-8 rounded-xl flex items-center justify-center hover:bg-[#0F5132]/10">
+          <div className={`w-8 h-8 rounded-xl flex items-center justify-center ${
+            isCurrentTabSecondary ? 'bg-[#0F5132]/10 dark:bg-emerald-950' : 'hover:bg-[#0F5132]/10'
+          }`}>
             <Menu className="w-4 h-4" />
           </div>
           <span className="text-[10px] font-poppins mt-0.5 leading-none">{t('common.more')}</span>
+          {isCurrentTabSecondary && (
+            <span className="absolute top-1.5 right-2.5 w-1.5 h-1.5 rounded-full bg-[#D4AF37]" />
+          )}
         </button>
       </nav>
     </div>

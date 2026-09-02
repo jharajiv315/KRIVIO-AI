@@ -67,7 +67,17 @@
     "subscription": "Subscription",
     "publicStore": "Public Storefront",
     "notifications": "Notifications",
-    "voiceAiBadge": "Voice AI"
+    "voiceAiBadge": "Voice AI",
+    "groupBusiness": "Business & Store",
+    "groupGrowth": "Growth & Opportunities",
+    "groupAccount": "Account & Preferences",
+    "businessProfileDesc": "Artisan heritage, craft technique & story",
+    "publicStoreDesc": "Public catalog with direct WhatsApp orders",
+    "marketplaceDesc": "ONDC, Amazon Saheli & Meesho readiness",
+    "schemesDesc": "PM Vishwakarma, PMEGP & Mudra subsidies",
+    "profileDesc": "Personal verification & contact details",
+    "subscriptionDesc": "Upgrade to Pro or manage your plan",
+    "settingsDesc": "Language preferences & display"
   },
   "landing": {
     "heroBadge": "India's First Voice AI Business Accelerator",

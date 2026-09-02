@@ -101,7 +101,7 @@ export const PricingModal: React.FC<PricingModalProps> = ({ isOpen, onClose }) =
         setPaymentStep('Processing transaction of ₹299.00...');
         await new Promise((r) => setTimeout(r, 600));
 
-        setPaymentStep('Activating Pro Subscription in PostgreSQL...');
+        setPaymentStep('Activating your Pro Mentor plan...');
         const verifyRes = await paymentsApi.verifyPayment({
           razorpayPaymentId: `pay_upi_${Date.now()}_${Math.random().toString(36).slice(2, 6)}`,
           razorpayOrderId: orderData.orderId,
