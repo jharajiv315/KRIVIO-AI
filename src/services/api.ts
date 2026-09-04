@@ -11,6 +11,13 @@ import {
   ChannelRecommendation,
   PaymentOrder,
   PublicStorefrontData,
+  MarketplaceDestination,
+  DestinationMetadata,
+  ValidationResult,
+  ExportReport,
+  Quotation,
+  QuotationBuyerInput,
+  QuotationItemInput,
 } from '../types';
 
 const TOKEN_KEY = 'krivio_auth_token';
@@ -606,7 +613,158 @@ export const imageStudioApi = {
 
 export const marketplaceApi = {
   getRecommendations: async (): Promise<{ channels: ChannelRecommendation[] }> => {
-    return await fetchWithAuth('/api/marketplace/recommendations');
+    return await fetchWithAuth('/api/marketplace/recommendations').catch(() => ({ channels: [] }));
+  },
+
+  getDestinations: async (): Promise<{ destinations: DestinationMetadata[] }> => {
+    return await fetchWithAuth('/api/marketplace/destinations');
+  },
+
+  checkReadiness: async (
+    destination: MarketplaceDestination,
+    productIds?: string[]
+  ): Promise<{
+    destination: MarketplaceDestination;
+    totalProducts: number;
+    readyProductsCount: number;
+    unreadyProductsCount: number;
+    results: { productId: string; productTitle: string; validation: ValidationResult }[];
+  }> => {
+    return await fetchWithAuth('/api/marketplace/readiness', {
+      method: 'POST',
+      body: JSON.stringify({ destination, productIds }),
+    });
+  },
+
+  exportCatalog: async (
+    destination: MarketplaceDestination,
+    productIds?: string[],
+    allowPartial: boolean = false
+  ): Promise<{ success: boolean; filename: string; report?: ExportReport }> => {
+    const token = getStoredToken();
+    const targetUrl = `${API_BASE}/api/marketplace/export`;
+
+    const res = await fetch(targetUrl, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        ...(token ? { Authorization: `Bearer ${token}` } : {}),
+      },
+      body: JSON.stringify({ destination, productIds, allowPartial }),
+    });
+
+    if (!res.ok) {
+      let errText = 'Failed to generate export file';
+      try {
+        const json = await res.json();
+        errText = json.error || errText;
+      } catch {}
+      throw new Error(errText);
+    }
+
+    // Extract filename from Content-Disposition header
+    const disposition = res.headers.get('Content-Disposition') || '';
+    let filename = `krivio_${destination}_export_${Date.now()}`;
+    const filenameMatch = disposition.match(/filename="?([^";]+)"?/i);
+    if (filenameMatch && filenameMatch[1]) {
+      filename = filenameMatch[1].trim();
+    }
+
+    // Extract report header if present
+    let report: ExportReport | undefined;
+    const reportHeader = res.headers.get('X-Krivio-Export-Report');
+    if (reportHeader) {
+      try {
+        report = JSON.parse(decodeURIComponent(reportHeader));
+      } catch {}
+    }
+
+    const blob = await res.blob();
+    const blobUrl = URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.href = blobUrl;
+    link.download = filename;
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    URL.revokeObjectURL(blobUrl);
+
+    return { success: true, filename, report };
+  },
+
+  getExports: async (): Promise<{ exports: any[] }> => {
+    return await fetchWithAuth('/api/marketplace/exports');
+  },
+};
+
+export const quotationsApi = {
+  create: async (data: {
+    buyer: QuotationBuyerInput;
+    items: QuotationItemInput[];
+    validDays?: number;
+    commercialNotes?: string;
+    shippingTerms?: string;
+    paymentTerms?: string;
+    currency?: string;
+    taxRatePercent?: number;
+  }): Promise<{ quotation: Quotation }> => {
+    return await fetchWithAuth('/api/quotations', {
+      method: 'POST',
+      body: JSON.stringify(data),
+    });
+  },
+
+  getAll: async (): Promise<{ quotations: Quotation[] }> => {
+    return await fetchWithAuth('/api/quotations');
+  },
+
+  getById: async (id: string): Promise<{ quotation: Quotation }> => {
+    return await fetchWithAuth(`/api/quotations/${id}`);
+  },
+
+  delete: async (id: string): Promise<{ success: boolean }> => {
+    return await fetchWithAuth(`/api/quotations/${id}`, {
+      method: 'DELETE',
+    });
+  },
+
+  downloadPdf: async (id: string, quotationNumber?: string): Promise<{ success: boolean; filename: string }> => {
+    const token = getStoredToken();
+    const targetUrl = `${API_BASE}/api/quotations/${id}/pdf`;
+
+    const res = await fetch(targetUrl, {
+      headers: {
+        ...(token ? { Authorization: `Bearer ${token}` } : {}),
+      },
+    });
+
+    if (!res.ok) {
+      let err = 'Failed to generate PDF';
+      try {
+        const j = await res.json();
+        err = j.error || err;
+      } catch {}
+      throw new Error(err);
+    }
+
+    const disposition = res.headers.get('Content-Disposition') || '';
+    let filename = `krivio_quotation_${quotationNumber || id}.pdf`;
+    const filenameMatch = disposition.match(/filename="?([^";]+)"?/i);
+    if (filenameMatch && filenameMatch[1]) {
+      filename = filenameMatch[1].trim();
+    }
+
+    const blob = await res.blob();
+    const blobUrl = URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.href = blobUrl;
+    link.download = filename;
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    URL.revokeObjectURL(blobUrl);
+
+    return { success: true, filename };
   },
 };
 

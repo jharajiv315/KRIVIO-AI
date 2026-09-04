@@ -7,6 +7,7 @@ from backend.models.government_scheme import GovernmentScheme
 from backend.models.activity import Activity
 from backend.models.image import ProductImage
 from backend.models.voice import VoiceAsset
+from backend.models.quotation import Quotation
 
 __all__ = [
     "User",
@@ -17,5 +18,6 @@ __all__ = [
     "GovernmentScheme",
     "Activity",
     "ProductImage",
-    "VoiceAsset"
+    "VoiceAsset",
+    "Quotation"
 ]

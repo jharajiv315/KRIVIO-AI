@@ -9,6 +9,7 @@ import { NotificationsPopover } from './NotificationsPopover';
 import { ProductStudio } from './ProductStudio';
 import { VoiceMentor } from './VoiceMentor';
 import { MarketplaceReadiness } from './MarketplaceReadiness';
+import { SellExportWorkspace } from './SellExport/SellExportWorkspace';
 import { GovernmentSchemes } from './GovernmentSchemes';
 import { SubscriptionView } from './SubscriptionView';
 import { ProfileView } from './ProfileView';
@@ -178,7 +179,8 @@ export const Dashboard: React.FC<DashboardProps> = ({ currentTab, setCurrentTab,
       case 'image-studio':
         return <ImageStudio />;
       case 'marketplace':
-        return <MarketplaceReadiness />;
+      case 'sell-export':
+        return <SellExportWorkspace onNavigateToProducts={() => setCurrentTab('products')} />;
       case 'schemes':
         return <GovernmentSchemes />;
       case 'subscriptions':

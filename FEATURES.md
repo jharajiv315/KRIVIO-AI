@@ -98,27 +98,84 @@ Provides a centralized inventory management system tailored for micro-producers.
 
 ---
 
-## 6. Marketplace Readiness Engine
+## 6. Sell & Export: Real Marketplace & Catalog Tools
+
+> **Tagline:** *"From Local Hands to Global Markets."*
 
 ### Purpose
-Audits product listings against strict e-commerce compliance guidelines before publishing, preventing listing rejections on major platforms.
+Empowers rural artisans and grassroots micro-enterprises to maintain **ONE trusted canonical product record** and prepare it for multiple e-commerce marketplaces and wholesale B2B buyer channels without repetitive data entry.
 
-### Evaluation Criteria
+### Architecture: Canonical Product → Multi-Channel Output
 ```
-Overall Readiness Score (0–100%)
-├── Image Compliance (Resolution >= 1000px, Clean Background, Multi-angle)
-├── Title & Description Quality (Keywords, Material disclosure, Craft origin)
-├── Pricing & Tax Transparency (Fair pricing, GST/HSN applicability)
-└── Specification Completeness (Dimensions, Weight, Return policy, Stock)
+KRIVIO Canonical Product (Normalized Record)
+  ├── Content (Title, Long Desc, Craft Story, Material, Color, Bullet Points)
+  ├── Commercial (Selling Price, MRP, Wholesale Price, MOQ, Lead Time, Tax/HSN)
+  ├── Physical (Weight kg, Package Dimensions L×W×H cm)
+  └── Media (Primary Photo, Angle Photos, Public CDN URLs)
+        ↓
+Listing Readiness & Validation Engine (Destination Rules: ERROR, WARNING, INFO)
+        ↓
+Destination Adapters:
+  ├── AmazonAdapter       → Amazon-Style Inventory Flat-File (XLSX)
+  ├── MeeshoAdapter       → Meesho Micro-Seller Bulk Catalog (CSV)
+  ├── FlipkartAdapter     → Flipkart Listing Flat File (CSV)
+  ├── GenericCsvAdapter   → Universal Clean CSV (RFC-4180, UTF-8 BOM, Formula Safe)
+  ├── GenericXlsxAdapter  → Presentation-Ready Excel Workbook (Styled XLSX)
+  ├── OndcAdapter         → ONDC-Ready Beckn Retail Protocol (JSON)
+  └── QuotationService    → B2B Wholesale Craft Quotation (PDF)
 ```
 
-### Supported Marketplace Profiles
-- **ONDC (Open Network for Digital Commerce):** Audits schema compliance for Beckn protocol integration.
-- **Amazon Saheli / Karigar:** Validates authenticity disclosures, white-background requirements, and brand registry readiness.
-- **Meesho:** Optimizes keywords and price points for high-volume rural/semi-urban consumer bases.
-- **Etsy:** Emphasizes heritage craft storytelling, artisan bio, and international shipping dimensions.
+### Destination Specifications & Output Formats
+1. **Amazon-Style Inventory Listing (`.xlsx`):**
+   - **Schema Version:** `amazon-flatfile-handmade-2026.1`
+   - **Structure:** Multi-row headers conforming to Amazon Seller Central flat-file inventory loader specifications (`feed_product_type`, `item_sku`, `brand_name`, `standard_price`, `quantity`, `bullet_point1`, `bullet_point2`, `package_dimensions`, etc.).
+   - **Scope:** Prepared for manual flat-file upload via Amazon Seller Central. Does not provide or imply direct automated API publishing.
+
+2. **Meesho Micro-Seller Bulk Catalog (`.csv`):**
+   - **Schema Version:** `meesho-catalog-v2026.2`
+   - **Structure:** Conforms to Meesho Supplier Panel bulk upload requirements (`Catalog ID / SKU`, `Meesho Price (Incl. GST)`, `Wrong/Defective Return Price`, `Weight (Grams)`, `HSN Code`, `GST %`).
+   - **Security:** Serialized with UTF-8 BOM and formula injection defenses.
+
+3. **Flipkart Listing Flat File (`.csv`):**
+   - **Schema Version:** `flipkart-flatfile-v2026.1`
+   - **Structure:** Conforms to Flipkart Seller Hub listing feed specifications (`Seller SKU ID`, `Listing Status`, `MRP`, `Selling Price`, `Procurement SLA`, `Shipping Provider`, `Package Dimensions`, `Package Weight`).
+
+4. **Universal Clean CSV Catalog (`.csv`):**
+   - **Standard:** RFC-4180 compliant with UTF-8 BOM.
+   - **Multi-Script Support:** Verified native rendering for Indian regional scripts (Hindi, Marathi, Tamil, Bengali, Assamese, Gujarati).
+   - **Formula Injection Defense:** Cell values starting with `=`, `+`, `-`, `@`, `\t`, or `\r` are safely escaped with a single quote prefix to prevent spreadsheet command execution.
+
+5. **Professional Excel Workbook (`.xlsx`):**
+   - **Engine:** ExcelJS.
+   - **Design:** KRIVIO Emerald (`#0F5132`) header fill with Gold (`#D4AF37`) accent border, frozen header rows, zebra-striped alternating rows, auto-calculated column widths, and native currency formatting (`₹#,##0.00`).
+
+6. **ONDC-Ready Beckn Retail Protocol (`.json`):**
+   - **Schema Version:** `ondc-beckn-retail-v1.2.0`
+   - **Structure:** Standardized Beckn protocol retail catalog payload (`bpp_provider`, `categories`, `items` with descriptor, price, quantity, tags, and fulfillment terms).
+   - **Scope & Transparency:** Labeled strictly as "ONDC-Ready Structured Data". Exporting prepares data for onboarding via an authorized Seller Network Participant (SNP); it does not falsely claim direct network syndication without an SNP agreement.
+
+### Listing Readiness & Validation Engine
+- **Configurable Rules:** Evaluates title length, SKU uniqueness, non-negative pricing, public image URLs, package weight, dimensions, and HSN codes.
+- **Strict Severity Tiers:**
+  - `ERROR`: Blocks export until resolved (e.g., missing price, missing SKU, missing primary image).
+  - `WARNING`: Highlights potential marketplace friction (e.g., missing HSN code on Meesho, title >200 characters on Amazon).
+  - `INFO`: Advisory tips for optimal buyer conversion (e.g., recommending a second lifestyle photo).
+- **Batch Readiness:** Supports filtering and exporting only the validated "Ready Items" when bulk catalogs contain incomplete drafts.
+
+### B2B Craft Wholesale Quotation Generator & PDF Engine
+- **Purpose:** Helps artisans present formal, high-trust wholesale proposals to boutiques, retail stores, gift shops, and corporate buyers. (Explicitly positioned as a quotation, not a tax invoice).
+- **Capabilities:**
+  - **Artisan Branding Snapshot:** Business name, brand name, owner contact, location, GSTIN, and monogram logo fallback.
+  - **Buyer Information:** Contact person, company, email, phone, shipping address, buyer GSTIN.
+  - **Line Items & Commercial Terms:** Product code, quantity, Minimum Order Quantity (MOQ), unit wholesale price, production lead time.
+  - **Tiered Wholesale Pricing:** Configurable volume-based discounts (e.g., 25–49 units: ₹500; 50+ units: ₹450) with non-overlapping range validation.
+  - **Decimal-Safe Monetary Arithmetic:** Exact precision without floating-point rounding errors.
+  - **Immutable Snapshots:** Preserves historical quotation line items and pricing even if catalog prices change later.
+  - **PDF Generation:** Server-side PDFKit rendering styled with KRIVIO palette, craft storytelling section, commercial terms, and multi-page pagination with clean headers/footers.
+  - **Quotation Numbering:** Collision-resistant numbering format: `KRV-QT-YYYY-XXXXXX`.
 
 - **Status:** ✅ Implemented
+- **Audit Logging:** Every export and quotation generation event is recorded in PostgreSQL (`marketplace_exports`, `quotations`, `activities`) with strict user isolation.
 
 ---
 

@@ -117,10 +117,11 @@ export const SECONDARY_NAV_GROUPS: SecondaryNavGroup[] = [
       {
         id: 'marketplace',
         labelKey: 'nav.marketplace',
-        defaultLabel: 'Marketplaces',
+        defaultLabel: 'Sell & Export',
         descriptionKey: 'nav.marketplaceDesc',
-        defaultDesc: 'ONDC, Amazon Saheli & Meesho readiness',
+        defaultDesc: 'Amazon, Meesho, Flipkart, ONDC & B2B Quotes',
         icon: Store,
+        badge: 'Export',
       },
       {
         id: 'schemes',

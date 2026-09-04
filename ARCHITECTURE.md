@@ -147,9 +147,11 @@ erDiagram
     USERS ||--o{ PRODUCTS : "owns"
     USERS ||--o{ PRODUCT_IMAGES : "uploads"
     USERS ||--o{ CONVERSATIONS : "conducts"
-    USERS ||--o| SUBSCRIPTIONS : "maintains"
+    USERS ||--o{ SUBSCRIPTIONS : "maintains"
     USERS ||--o{ ACTIVITIES : "generates"
     USERS ||--o{ VOICE_ASSETS : "records"
+    USERS ||--o{ QUOTATIONS : "issues"
+    USERS ||--o{ MARKETPLACE_EXPORTS : "generates"
     PRODUCTS ||--o{ PRODUCT_IMAGES : "contains"
 
     USERS {
@@ -180,11 +182,41 @@ erDiagram
         string user_id FK
         string title
         float price
+        float wholesale_price
+        float mrp
         int stock
+        int moq
+        string lead_time
+        string material
+        string hsn_code
         string status
         json keywords
         json image_urls
         int readiness_score
+    }
+
+    QUOTATIONS {
+        string id PK
+        string user_id FK
+        string quotation_number UK
+        string buyer_name
+        string buyer_company
+        numeric grand_total
+        date valid_until
+        json items_snapshot
+        json seller_snapshot
+        datetime created_at
+    }
+
+    MARKETPLACE_EXPORTS {
+        string id PK
+        string user_id FK
+        string destination
+        string format
+        string schema_version
+        int product_count
+        json summary
+        datetime created_at
     }
 
     VOICE_ASSETS {
@@ -212,7 +244,9 @@ erDiagram
 ### 6.1 Entity Overview
 - **`users`:** Primary account record mapped directly to Supabase authentication IDs or internal credentials.
 - **`business_profiles`:** Entrepreneur's enterprise identity (craft category, artisan story, location, social links, GST number).
-- **`products`:** Individual catalog items containing pricing, dimensions, stock counts, marketplace readiness metrics, and metadata.
+- **`products`:** Canonical catalog items containing retail and wholesale pricing, dimensions, packaging weight, MOQs, materials, HSN codes, and images.
+- **`quotations`:** Formal wholesale B2B quotations with immutable seller/product snapshots, calculated totals, and terms.
+- **`marketplace_exports`:** Audit log of multi-channel listing files generated for Amazon, Meesho, Flipkart, ONDC, and generic CSV/XLSX.
 - **`product_images`:** Image asset references linked to parent products.
 - **`conversations`:** Persistent AI mentor discussion threads stored with timestamped message JSON arrays.
 - **`voice_assets`:** Audit log of all spoken interactions, audio metadata, intent classifications, extracted entities, and synthesized replies.

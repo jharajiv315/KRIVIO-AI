@@ -6,6 +6,15 @@ import { Pool } from 'pg';
 import bcrypt from 'bcryptjs';
 import dotenv from 'dotenv';
 import { GenerationService, IMAGE_OPERATIONS, OPERATION_CATEGORIES } from './src/server/image_operations';
+import {
+  MARKETPLACE_DESTINATIONS,
+  toCanonicalProduct,
+  validateForDestination,
+  validateBatch,
+  executeMarketplaceExport,
+  RawDbProduct,
+} from './src/server/marketplace';
+import { QuotationService } from './src/server/quotation/quotation_service';
 
 dotenv.config();
 
@@ -15,6 +24,8 @@ const pgPool = new Pool({
   connectionString: process.env.DATABASE_URL || 'postgresql://postgres:postgres@localhost:5432/krivio_db',
   ssl: process.env.DATABASE_URL && process.env.DATABASE_URL.includes('sslmode=require') ? { rejectUnauthorized: false } : false
 });
+
+const quotationService = new QuotationService(pgPool);
 
 const app = express();
 const PORT = process.env.PORT ? parseInt(process.env.PORT, 10) : 3000;
@@ -521,6 +532,17 @@ app.get('/api/products', authenticateToken, async (req: AuthenticatedRequest, re
       sku: row.sku || '',
       weight: row.weight || '',
       dimensions: row.dimensions || '',
+      material: row.material || '',
+      shortDescription: row.short_description || '',
+      craftStory: row.craft_story || '',
+      hsnCode: row.hsn_code || '',
+      wholesalePrice: row.wholesale_price !== null && row.wholesale_price !== undefined ? parseFloat(row.wholesale_price) : undefined,
+      mrp: row.mrp !== null && row.mrp !== undefined ? parseFloat(row.mrp) : undefined,
+      moq: row.moq !== null && row.moq !== undefined ? row.moq : 1,
+      leadTime: row.lead_time || '3-5 business days',
+      brand: row.brand || '',
+      color: row.color || '',
+      originState: row.origin_state || '',
       status: row.status || 'published',
       keywords: Array.isArray(row.keywords) ? row.keywords : (typeof row.keywords === 'string' ? JSON.parse(row.keywords) : []),
       imageUrls: Array.isArray(row.image_urls) ? row.image_urls : (typeof row.image_urls === 'string' ? JSON.parse(row.image_urls) : []),
@@ -754,6 +776,17 @@ app.get('/api/products/:id', authenticateToken, async (req: AuthenticatedRequest
         sku: row.sku || '',
         weight: row.weight || '',
         dimensions: row.dimensions || '',
+        material: row.material || '',
+        shortDescription: row.short_description || '',
+        craftStory: row.craft_story || '',
+        hsnCode: row.hsn_code || '',
+        wholesalePrice: row.wholesale_price !== null && row.wholesale_price !== undefined ? parseFloat(row.wholesale_price) : undefined,
+        mrp: row.mrp !== null && row.mrp !== undefined ? parseFloat(row.mrp) : undefined,
+        moq: row.moq !== null && row.moq !== undefined ? row.moq : 1,
+        leadTime: row.lead_time || '3-5 business days',
+        brand: row.brand || '',
+        color: row.color || '',
+        originState: row.origin_state || '',
         status: row.status || 'published',
         keywords: Array.isArray(row.keywords) ? row.keywords : [],
         imageUrls: Array.isArray(row.image_urls) ? row.image_urls : [],
@@ -775,13 +808,30 @@ app.post('/api/products', authenticateToken, async (req: AuthenticatedRequest, r
     const {
       title,
       description,
+      shortDescription,
+      short_description,
+      craftStory,
+      craft_story,
       category,
       price,
+      mrp,
+      wholesalePrice,
+      wholesale_price,
       currency,
       stock,
+      moq,
+      leadTime,
+      lead_time,
       sku,
       weight,
       dimensions,
+      material,
+      color,
+      brand,
+      hsnCode,
+      hsn_code,
+      originState,
+      origin_state,
       status,
       keywords,
       imageUrls,
@@ -796,14 +846,28 @@ app.post('/api/products', authenticateToken, async (req: AuthenticatedRequest, r
     }
 
     const prodId = `prod_${Date.now()}_${Math.random().toString(36).slice(2, 7)}`;
-    const now = new Date().toISOString();
+
+    const effectiveShortDesc = shortDescription || short_description || '';
+    const effectiveCraftStory = craftStory || craft_story || '';
+    const effectiveHsn = hsnCode || hsn_code || '';
+    const effectiveWholesale = wholesalePrice !== undefined ? parseFloat(wholesalePrice) : (wholesale_price !== undefined ? parseFloat(wholesale_price) : null);
+    const effectiveMrp = mrp !== undefined ? parseFloat(mrp) : null;
+    const effectiveMoq = moq !== undefined ? parseInt(moq, 10) : 1;
+    const effectiveLeadTime = leadTime || lead_time || '3-5 business days';
+    const effectiveBrand = brand || '';
+    const effectiveColor = color || '';
+    const effectiveMaterial = material || '';
+    const effectiveOriginState = originState || origin_state || 'India';
 
     const insertRes = await queryPg(
       `INSERT INTO products (
         id, user_id, title, description, category, price, currency, stock, sku, weight, dimensions,
-        status, keywords, image_urls, is_marketplace_ready, readiness_score, marketplaces, created_at, updated_at
+        status, keywords, image_urls, is_marketplace_ready, readiness_score, marketplaces,
+        material, short_description, craft_story, hsn_code, wholesale_price, mrp, moq, lead_time,
+        brand, color, origin_state, created_at, updated_at
       ) VALUES (
-        $1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, NOW(), NOW()
+        $1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17,
+        $18, $19, $20, $21, $22, $23, $24, $25, $26, $27, $28, NOW(), NOW()
       ) RETURNING *`,
       [
         prodId,
@@ -822,7 +886,18 @@ app.post('/api/products', authenticateToken, async (req: AuthenticatedRequest, r
         JSON.stringify(imageUrls || []),
         isMarketplaceReady ?? true,
         readinessScore || 85,
-        JSON.stringify(marketplaces || ['ONDC'])
+        JSON.stringify(marketplaces || ['ONDC']),
+        effectiveMaterial,
+        effectiveShortDesc,
+        effectiveCraftStory,
+        effectiveHsn,
+        effectiveWholesale,
+        effectiveMrp,
+        effectiveMoq,
+        effectiveLeadTime,
+        effectiveBrand,
+        effectiveColor,
+        effectiveOriginState,
       ]
     );
 
@@ -880,13 +955,30 @@ app.put('/api/products/:id', authenticateToken, async (req: AuthenticatedRequest
     const {
       title,
       description,
+      shortDescription,
+      short_description,
+      craftStory,
+      craft_story,
       category,
       price,
+      mrp,
+      wholesalePrice,
+      wholesale_price,
       currency,
       stock,
+      moq,
+      leadTime,
+      lead_time,
       sku,
       weight,
       dimensions,
+      material,
+      color,
+      brand,
+      hsnCode,
+      hsn_code,
+      originState,
+      origin_state,
       status,
       keywords,
       imageUrls,
@@ -894,6 +986,15 @@ app.put('/api/products/:id', authenticateToken, async (req: AuthenticatedRequest
       readinessScore,
       marketplaces
     } = req.body;
+
+    const effectiveShortDesc = shortDescription !== undefined ? shortDescription : short_description;
+    const effectiveCraftStory = craftStory !== undefined ? craftStory : craft_story;
+    const effectiveHsn = hsnCode !== undefined ? hsnCode : hsn_code;
+    const effectiveWholesale = wholesalePrice !== undefined ? parseFloat(wholesalePrice) : (wholesale_price !== undefined ? parseFloat(wholesale_price) : null);
+    const effectiveMrp = mrp !== undefined ? parseFloat(mrp) : null;
+    const effectiveMoq = moq !== undefined ? parseInt(moq, 10) : null;
+    const effectiveLeadTime = leadTime !== undefined ? leadTime : lead_time;
+    const effectiveOriginState = originState !== undefined ? originState : origin_state;
 
     const updateRes = await queryPg(
       `UPDATE products SET
@@ -912,8 +1013,19 @@ app.put('/api/products/:id', authenticateToken, async (req: AuthenticatedRequest
         is_marketplace_ready = COALESCE($13, is_marketplace_ready),
         readiness_score = COALESCE($14, readiness_score),
         marketplaces = COALESCE($15, marketplaces),
+        material = COALESCE($16, material),
+        short_description = COALESCE($17, short_description),
+        craft_story = COALESCE($18, craft_story),
+        hsn_code = COALESCE($19, hsn_code),
+        wholesale_price = COALESCE($20, wholesale_price),
+        mrp = COALESCE($21, mrp),
+        moq = COALESCE($22, moq),
+        lead_time = COALESCE($23, lead_time),
+        brand = COALESCE($24, brand),
+        color = COALESCE($25, color),
+        origin_state = COALESCE($26, origin_state),
         updated_at = NOW()
-       WHERE id = $16 AND user_id = $17
+       WHERE id = $27 AND user_id = $28
        RETURNING *`,
       [
         title,
@@ -931,6 +1043,17 @@ app.put('/api/products/:id', authenticateToken, async (req: AuthenticatedRequest
         isMarketplaceReady,
         readinessScore,
         marketplaces ? JSON.stringify(marketplaces) : null,
+        material,
+        effectiveShortDesc,
+        effectiveCraftStory,
+        effectiveHsn,
+        effectiveWholesale,
+        effectiveMrp,
+        effectiveMoq,
+        effectiveLeadTime,
+        brand,
+        color,
+        effectiveOriginState,
         id,
         userId
       ]
@@ -951,6 +1074,17 @@ app.put('/api/products/:id', authenticateToken, async (req: AuthenticatedRequest
         sku: row.sku,
         weight: row.weight,
         dimensions: row.dimensions,
+        material: row.material || '',
+        shortDescription: row.short_description || '',
+        craftStory: row.craft_story || '',
+        hsnCode: row.hsn_code || '',
+        wholesalePrice: row.wholesale_price !== null && row.wholesale_price !== undefined ? parseFloat(row.wholesale_price) : undefined,
+        mrp: row.mrp !== null && row.mrp !== undefined ? parseFloat(row.mrp) : undefined,
+        moq: row.moq !== null && row.moq !== undefined ? row.moq : 1,
+        leadTime: row.lead_time || '3-5 business days',
+        brand: row.brand || '',
+        color: row.color || '',
+        originState: row.origin_state || '',
         status: row.status,
         keywords: Array.isArray(row.keywords) ? row.keywords : [],
         imageUrls: Array.isArray(row.image_urls) ? row.image_urls : [],
@@ -1065,6 +1199,252 @@ app.post('/api/products/:id/archive', authenticateToken, async (req: Authenticat
     res.json({ success: true, message: `Product status updated to ${newStatus}` });
   } catch (err) {
     res.status(500).json({ error: 'Failed to archive product' });
+  }
+});
+
+// --- MARKETPLACE & CATALOG EXPORT ROUTES (STRICT USER ISOLATION) ---
+
+app.get('/api/marketplace/destinations', (req: Request, res: Response) => {
+  res.json({
+    destinations: Object.values(MARKETPLACE_DESTINATIONS)
+  });
+});
+
+app.post('/api/marketplace/readiness', authenticateToken, async (req: AuthenticatedRequest, res: Response) => {
+  try {
+    const userId = req.user!.id;
+    const { destination, productIds } = req.body;
+
+    if (!destination || !MARKETPLACE_DESTINATIONS[destination]) {
+      res.status(400).json({ error: `Unsupported or missing destination: ${destination}` });
+      return;
+    }
+
+    let query = `SELECT * FROM products WHERE user_id = $1`;
+    const params: any[] = [userId];
+
+    if (Array.isArray(productIds) && productIds.length > 0) {
+      params.push(productIds);
+      query += ` AND id = ANY($2)`;
+    }
+    query += ` ORDER BY created_at DESC`;
+
+    const [prodResult, profileResult] = await Promise.all([
+      queryPg(query, params),
+      queryPg(`SELECT * FROM business_profiles WHERE user_id = $1 LIMIT 1`, [userId]),
+    ]);
+
+    const profile = profileResult.rows[0];
+    const rawProducts: RawDbProduct[] = prodResult.rows;
+
+    const canonicalProducts = rawProducts.map((p) =>
+      toCanonicalProduct(p, {
+        brandName: profile?.brand_name,
+        businessName: profile?.business_name,
+        state: profile?.state,
+        district: profile?.district,
+      })
+    );
+
+    const batchResult = validateBatch(canonicalProducts, destination);
+
+    res.json(batchResult);
+  } catch (err: any) {
+    console.error('Marketplace readiness check error:', err);
+    res.status(500).json({ error: 'Failed to run marketplace readiness validation' });
+  }
+});
+
+app.post('/api/marketplace/export', authenticateToken, async (req: AuthenticatedRequest, res: Response) => {
+  try {
+    const userId = req.user!.id;
+    const { destination, productIds, allowPartial } = req.body;
+
+    if (!destination || !MARKETPLACE_DESTINATIONS[destination]) {
+      res.status(400).json({ error: `Unsupported destination: ${destination}` });
+      return;
+    }
+
+    let query = `SELECT * FROM products WHERE user_id = $1`;
+    const params: any[] = [userId];
+
+    if (Array.isArray(productIds) && productIds.length > 0) {
+      params.push(productIds);
+      query += ` AND id = ANY($2)`;
+    }
+    query += ` ORDER BY created_at DESC`;
+
+    const [prodResult, profileResult] = await Promise.all([
+      queryPg(query, params),
+      queryPg(`SELECT * FROM business_profiles WHERE user_id = $1 LIMIT 1`, [userId]),
+    ]);
+
+    if (prodResult.rows.length === 0) {
+      res.status(400).json({ error: 'No products available for export.' });
+      return;
+    }
+
+    const profile = profileResult.rows[0];
+    const rawProducts: RawDbProduct[] = prodResult.rows;
+
+    const canonicalProducts = rawProducts.map((p) =>
+      toCanonicalProduct(p, {
+        brandName: profile?.brand_name,
+        businessName: profile?.business_name,
+        state: profile?.state,
+        district: profile?.district,
+      })
+    );
+
+    const exportResult = await executeMarketplaceExport(canonicalProducts, destination, {
+      allowPartial: Boolean(allowPartial),
+      providerInfo: {
+        providerId: profile?.id || userId,
+        providerName: profile?.brand_name || profile?.business_name || 'Krivio Rural Artisan',
+        phone: profile?.phone_number || req.user!.phone,
+        email: req.user!.email,
+      },
+    });
+
+    // Save Export History Record
+    const exportId = `exp_${Date.now()}_${Math.random().toString(36).slice(2, 7)}`;
+    const exportedIds = canonicalProducts.map((p) => p.id);
+    await queryPg(
+      `INSERT INTO marketplace_exports (
+        id, user_id, destination, schema_version, format, product_count, product_ids, status, summary, created_at
+      ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, NOW())`,
+      [
+        exportId,
+        userId,
+        destination,
+        exportResult.report.schemaVersion,
+        exportResult.report.format,
+        exportResult.report.totalExported,
+        JSON.stringify(exportedIds),
+        exportResult.status,
+        JSON.stringify(exportResult.report),
+      ]
+    ).catch((err) => console.warn('Failed to record export history:', err));
+
+    // Log Activity
+    await queryPg(
+      `INSERT INTO activities (id, user_id, title, description, event_type, created_at)
+       VALUES ($1, $2, $3, $4, $5, NOW())`,
+      [
+        `act_${Date.now()}`,
+        userId,
+        `Exported Catalog: ${exportResult.report.destinationName}`,
+        `Prepared ${exportResult.report.totalExported} product(s) as ${exportResult.report.format.toUpperCase()}.`,
+        'marketplace_export_created',
+      ]
+    ).catch(() => {});
+
+    res.setHeader('Content-Type', exportResult.contentType);
+    res.setHeader('Content-Disposition', `attachment; filename="${exportResult.filename}"`);
+    res.setHeader('X-Krivio-Export-Report', encodeURIComponent(JSON.stringify(exportResult.report)));
+    res.setHeader('Access-Control-Expose-Headers', 'Content-Disposition, X-Krivio-Export-Report');
+
+    if (typeof exportResult.data === 'string') {
+      res.send(exportResult.data);
+    } else {
+      res.end(exportResult.data);
+    }
+  } catch (err: any) {
+    console.error('Marketplace export generation error:', err);
+    res.status(400).json({ error: err.message || 'Failed to generate marketplace export.' });
+  }
+});
+
+app.get('/api/marketplace/exports', authenticateToken, async (req: AuthenticatedRequest, res: Response) => {
+  try {
+    const userId = req.user!.id;
+    const result = await queryPg(
+      `SELECT * FROM marketplace_exports WHERE user_id = $1 ORDER BY created_at DESC LIMIT 50`,
+      [userId]
+    );
+    res.json({ exports: result.rows });
+  } catch (err) {
+    res.status(500).json({ error: 'Failed to retrieve export history' });
+  }
+});
+
+// --- B2B WHOLESALE QUOTATION ROUTES (STRICT USER ISOLATION) ---
+
+app.post('/api/quotations', authenticateToken, async (req: AuthenticatedRequest, res: Response) => {
+  try {
+    const userId = req.user!.id;
+    const quotation = await quotationService.createQuotation(userId, req.body);
+
+    // Record Activity
+    await queryPg(
+      `INSERT INTO activities (id, user_id, title, description, event_type, created_at)
+       VALUES ($1, $2, $3, $4, $5, NOW())`,
+      [
+        `act_${Date.now()}`,
+        userId,
+        `Generated Quotation: ${quotation.quotationNumber}`,
+        `Issued wholesale quotation for ${quotation.buyer.name} (${quotation.currency} ${quotation.grandTotal}).`,
+        'b2b_quotation_created',
+      ]
+    ).catch(() => {});
+
+    res.json({ quotation });
+  } catch (err: any) {
+    console.error('Quotation creation error:', err);
+    res.status(400).json({ error: err.message || 'Failed to create quotation' });
+  }
+});
+
+app.get('/api/quotations', authenticateToken, async (req: AuthenticatedRequest, res: Response) => {
+  try {
+    const userId = req.user!.id;
+    const quotations = await quotationService.getQuotations(userId);
+    res.json({ quotations });
+  } catch (err: any) {
+    res.status(500).json({ error: 'Failed to retrieve quotations' });
+  }
+});
+
+app.get('/api/quotations/:id', authenticateToken, async (req: AuthenticatedRequest, res: Response) => {
+  try {
+    const userId = req.user!.id;
+    const quotation = await quotationService.getQuotationById(userId, req.params.id);
+    if (!quotation) {
+      res.status(404).json({ error: 'Quotation not found or unauthorized' });
+      return;
+    }
+    res.json({ quotation });
+  } catch (err: any) {
+    res.status(500).json({ error: 'Failed to retrieve quotation' });
+  }
+});
+
+app.delete('/api/quotations/:id', authenticateToken, async (req: AuthenticatedRequest, res: Response) => {
+  try {
+    const userId = req.user!.id;
+    const success = await quotationService.deleteQuotation(userId, req.params.id);
+    if (!success) {
+      res.status(404).json({ error: 'Quotation not found or unauthorized' });
+      return;
+    }
+    res.json({ success: true, message: 'Quotation deleted successfully' });
+  } catch (err: any) {
+    res.status(500).json({ error: 'Failed to delete quotation' });
+  }
+});
+
+app.get('/api/quotations/:id/pdf', authenticateToken, async (req: AuthenticatedRequest, res: Response) => {
+  try {
+    const userId = req.user!.id;
+    const { buffer, filename } = await quotationService.renderPdf(userId, req.params.id);
+
+    res.setHeader('Content-Type', 'application/pdf');
+    res.setHeader('Content-Disposition', `attachment; filename="${filename}"`);
+    res.setHeader('Content-Length', buffer.length);
+    res.end(buffer);
+  } catch (err: any) {
+    console.error('Quotation PDF error:', err);
+    res.status(404).json({ error: err.message || 'Failed to generate quotation PDF' });
   }
 });
 
@@ -2700,9 +3080,61 @@ async function initPgDatabase() {
         created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
         updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
       );
+
+      CREATE TABLE IF NOT EXISTS quotations (
+        id VARCHAR(255) PRIMARY KEY,
+        user_id VARCHAR(255) NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+        quotation_number VARCHAR(100) UNIQUE NOT NULL,
+        buyer_name VARCHAR(255) NOT NULL,
+        buyer_company VARCHAR(255),
+        buyer_email VARCHAR(255),
+        buyer_phone VARCHAR(100),
+        buyer_address TEXT,
+        buyer_gst VARCHAR(100),
+        currency VARCHAR(10) DEFAULT 'INR',
+        subtotal NUMERIC(12, 2) NOT NULL DEFAULT 0.00,
+        tax_total NUMERIC(12, 2) DEFAULT 0.00,
+        grand_total NUMERIC(12, 2) NOT NULL DEFAULT 0.00,
+        valid_until DATE,
+        commercial_notes TEXT,
+        shipping_terms TEXT,
+        payment_terms TEXT,
+        status VARCHAR(50) DEFAULT 'generated',
+        items_snapshot JSONB NOT NULL DEFAULT '[]'::jsonb,
+        seller_snapshot JSONB NOT NULL DEFAULT '{}'::jsonb,
+        created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
+        updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
+      );
+
+      CREATE TABLE IF NOT EXISTS marketplace_exports (
+        id VARCHAR(255) PRIMARY KEY,
+        user_id VARCHAR(255) NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+        destination VARCHAR(50) NOT NULL,
+        schema_version VARCHAR(100) NOT NULL,
+        format VARCHAR(20) NOT NULL,
+        product_count INT NOT NULL DEFAULT 0,
+        product_ids JSONB NOT NULL DEFAULT '[]'::jsonb,
+        status VARCHAR(50) DEFAULT 'completed',
+        summary JSONB DEFAULT '{}'::jsonb,
+        created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
+      );
     `;
     await pgPool.query(createTablesQuery);
     await pgPool.query(`ALTER TABLE users ADD COLUMN IF NOT EXISTS preferred_language VARCHAR(10) DEFAULT 'en'`).catch(() => {});
+    await pgPool.query(`ALTER TABLE products ADD COLUMN IF NOT EXISTS material VARCHAR(150)`).catch(() => {});
+    await pgPool.query(`ALTER TABLE products ADD COLUMN IF NOT EXISTS short_description TEXT`).catch(() => {});
+    await pgPool.query(`ALTER TABLE products ADD COLUMN IF NOT EXISTS craft_story TEXT`).catch(() => {});
+    await pgPool.query(`ALTER TABLE products ADD COLUMN IF NOT EXISTS hsn_code VARCHAR(50)`).catch(() => {});
+    await pgPool.query(`ALTER TABLE products ADD COLUMN IF NOT EXISTS wholesale_price NUMERIC(10, 2)`).catch(() => {});
+    await pgPool.query(`ALTER TABLE products ADD COLUMN IF NOT EXISTS mrp NUMERIC(10, 2)`).catch(() => {});
+    await pgPool.query(`ALTER TABLE products ADD COLUMN IF NOT EXISTS moq INT DEFAULT 1`).catch(() => {});
+    await pgPool.query(`ALTER TABLE products ADD COLUMN IF NOT EXISTS lead_time VARCHAR(100) DEFAULT '3-5 business days'`).catch(() => {});
+    await pgPool.query(`ALTER TABLE products ADD COLUMN IF NOT EXISTS brand VARCHAR(150)`).catch(() => {});
+    await pgPool.query(`ALTER TABLE products ADD COLUMN IF NOT EXISTS color VARCHAR(100)`).catch(() => {});
+    await pgPool.query(`ALTER TABLE products ADD COLUMN IF NOT EXISTS origin_state VARCHAR(100)`).catch(() => {});
+    await pgPool.query(`CREATE INDEX IF NOT EXISTS idx_quotations_user_id ON quotations(user_id)`).catch(() => {});
+    await pgPool.query(`CREATE INDEX IF NOT EXISTS idx_quotations_quote_num ON quotations(quotation_number)`).catch(() => {});
+    await pgPool.query(`CREATE INDEX IF NOT EXISTS idx_mk_exports_user_id ON marketplace_exports(user_id)`).catch(() => {});
     await pgPool.query(`ALTER TABLE voice_assets ALTER COLUMN user_id DROP NOT NULL`).catch(() => {});
     await pgPool.query(`ALTER TABLE voice_assets ALTER COLUMN transcript DROP NOT NULL`).catch(() => {});
     await pgPool.query(`ALTER TABLE voice_assets ADD COLUMN IF NOT EXISTS whatsapp_message_id VARCHAR(255)`).catch(() => {});

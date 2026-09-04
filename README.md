@@ -41,7 +41,8 @@ graph LR
 - **🎙️ Voice-First Vernacular Mentorship:** Spoken-word interactions in 7 regional Indian languages with audio transcription, verification before query execution, and synthesized voice responses.
 - **📸 AI Image & Creative Studio:** 8 specialized visual transformations (background cleanup, model/lifestyle context staging, seasonal & festival marketing banners, packaging mockups) with automatic aspect-ratio adjustments (1:1, 4:5, 9:16, 16:9).
 - **🏷️ Product Identity Wizard:** AI extraction of materials, dimensions, heritage craft narratives, pricing suggestions, and marketplace-ready catalog tags from single product photos.
-- **📊 Marketplace Readiness Auditor:** Automated compliance and quality scoring (0–100%) against ONDC, Amazon, Meesho, and Etsy standards with actionable improvement checklists.
+- **🛒 Sell & Export Toolkit:** Multi-channel marketplace export (Amazon-style XLSX, Meesho CSV, Flipkart CSV, Universal CSV, styled XLSX, and ONDC-ready Beckn JSON) with automated readiness validation against verified schemas.
+- **📄 B2B Wholesale Craft Quotations:** Professional PDF quotation generator with artisan branding, MOQ management, tiered volume pricing, decimal-safe totals, and craft heritage storytelling.
 - **🏛️ Government Scheme Advisor:** Direct discovery and eligibility matching for rural empowerment schemes (PM Vishwakarma, PMEGP, Stand-Up India, SFURTI, Mudra).
 - **🌐 Public Digital Storefront:** Instant shareable web storefronts (`?store=usr_...`) enabling direct customer inquiries and orders via WhatsApp.
 - **🇮🇳 Full Multilingual Interface:** Native localized UI across **English, Hindi (हिंदी), Marathi (मराठी), Gujarati (ગુજરાતી), Tamil (தமிழ்), Bengali (বাংলা), and Assamese (অসমীয়া)**.

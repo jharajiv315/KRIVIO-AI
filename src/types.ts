@@ -59,21 +59,34 @@ export interface Product {
   userId: string;
   title: string;
   description: string;
+  shortDescription?: string;
+  craftStory?: string;
   category: string;
   price: number;
+  mrp?: number;
+  wholesalePrice?: number;
   currency: string;
   keywords: string[];
   imageUrls: string[];
   isMarketplaceReady: boolean;
   readinessScore: number;
   stock: number;
+  moq?: number;
+  leadTime?: string;
   sku?: string;
   weight?: string;
   dimensions?: string;
+  material?: string;
+  color?: string;
+  brand?: string;
+  hsnCode?: string;
+  originState?: string;
   status: 'draft' | 'published' | 'archived';
   createdAt: string;
   updatedAt: string;
 }
+
+export * from './types/marketplace';
 
 export interface ImageAnalysis {
   id: string;
