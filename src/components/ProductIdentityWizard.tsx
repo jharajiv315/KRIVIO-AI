@@ -214,13 +214,21 @@ export const ProductIdentityWizard: React.FC<ProductIdentityWizardProps> = ({
     try {
       const brand = hasBrand ? existingBrandName : (selectedBrand?.name || finalBrandName || '');
       const fullTitle = brand ? `${brand} — ${identity.productTitle}` : identity.productTitle;
+      const parsedPrice = typeof identity.suggestedPrice === 'number'
+        ? (isNaN(identity.suggestedPrice) ? 850 : identity.suggestedPrice)
+        : (parseFloat(String(identity.suggestedPrice || '').replace(/[^0-9.]/g, '')) || 850);
+
       await productsApi.create({
         title: fullTitle.slice(0, 150),
-        description: identity.detailedDescription,
-        category: identity.category,
-        price: identity.suggestedPrice,
+        description: identity.detailedDescription || '',
+        category: identity.category || 'Handicrafts & Art',
+        price: parsedPrice,
         stock: 10,
         sku: `SKU-PIW-${Date.now().toString().slice(-6)}`,
+        material: identity.materials || materials || '',
+        shortDescription: identity.shortDescription || '',
+        craftStory: identity.productStory || '',
+        brand: brand || '',
         keywords: [...(identity.suggestedTags || []), ...(identity.suggestedKeywords || [])].slice(0, 10),
         imageUrls: uploadedImage ? [uploadedImage] : [],
         status: 'draft',

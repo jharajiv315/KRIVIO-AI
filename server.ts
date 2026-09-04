@@ -88,6 +88,26 @@ export interface AuthenticatedRequest extends Request {
   user?: AuthenticatedUser;
 }
 
+// Database initialization promise
+let dbInitPromise: Promise<void> | null = null;
+export async function ensureDbInitialized(): Promise<void> {
+  if (!dbInitPromise) {
+    dbInitPromise = initPgDatabase().catch((err: any) => {
+      console.warn('[PostgreSQL Init Notice]:', err.message || err);
+      dbInitPromise = null;
+    });
+  }
+  return dbInitPromise;
+}
+
+// Ensure database tables and columns are initialized for all API requests
+app.use((req: Request, res: Response, next: NextFunction) => {
+  if (req.url && req.url.startsWith('/api')) {
+    ensureDbInitialized().catch(() => {});
+  }
+  next();
+});
+
 // Database helper
 async function queryPg(text: string, params: any[] = []): Promise<{ rows: any[] }> {
   try {
@@ -859,55 +879,104 @@ app.post('/api/products', authenticateToken, async (req: AuthenticatedRequest, r
     const effectiveMaterial = material || '';
     const effectiveOriginState = originState || origin_state || 'India';
 
-    const insertRes = await queryPg(
-      `INSERT INTO products (
-        id, user_id, title, description, category, price, currency, stock, sku, weight, dimensions,
-        status, keywords, image_urls, is_marketplace_ready, readiness_score, marketplaces,
-        material, short_description, craft_story, hsn_code, wholesale_price, mrp, moq, lead_time,
-        brand, color, origin_state, created_at, updated_at
-      ) VALUES (
-        $1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17,
-        $18, $19, $20, $21, $22, $23, $24, $25, $26, $27, $28, NOW(), NOW()
-      ) RETURNING *`,
-      [
-        prodId,
-        userId,
-        title,
-        description || '',
-        category || 'Handicrafts & Art',
-        parseFloat(price) || 0,
-        currency || 'INR',
-        stock !== undefined ? parseInt(stock, 10) : 1,
-        sku || `SKU-${Date.now().toString().slice(-5)}`,
-        weight || '0.5 kg',
-        dimensions || '10x10x10 cm',
-        status || 'published',
-        JSON.stringify(keywords || []),
-        JSON.stringify(imageUrls || []),
-        isMarketplaceReady ?? true,
-        readinessScore || 85,
-        JSON.stringify(marketplaces || ['ONDC']),
-        effectiveMaterial,
-        effectiveShortDesc,
-        effectiveCraftStory,
-        effectiveHsn,
-        effectiveWholesale,
-        effectiveMrp,
-        effectiveMoq,
-        effectiveLeadTime,
-        effectiveBrand,
-        effectiveColor,
-        effectiveOriginState,
-      ]
-    );
+    const sanitizedPrice = typeof price === 'number' ? (isNaN(price) ? 0 : price) : (parseFloat(String(price || 0).replace(/[^0-9.]/g, '')) || 0);
+    const sanitizedStock = typeof stock === 'number' ? (isNaN(stock) ? 1 : stock) : (parseInt(String(stock || 1).replace(/[^0-9]/g, ''), 10) || 1);
+    const safeKeywords = Array.isArray(keywords)
+      ? keywords
+      : (typeof keywords === 'string' && keywords ? (keywords.startsWith('[') ? JSON.parse(keywords) : keywords.split(',').map((k: string) => k.trim()).filter(Boolean)) : []);
+    const safeImageUrls = Array.isArray(imageUrls)
+      ? imageUrls
+      : (typeof imageUrls === 'string' && imageUrls ? (imageUrls.startsWith('[') ? JSON.parse(imageUrls) : [imageUrls]) : []);
+    const safeMarketplaces = Array.isArray(marketplaces)
+      ? marketplaces
+      : (typeof marketplaces === 'string' && marketplaces ? (marketplaces.startsWith('[') ? JSON.parse(marketplaces) : [marketplaces]) : ['ONDC']);
 
-    const row = insertRes.rows[0];
+    let row;
+    try {
+      const insertRes = await queryPg(
+        `INSERT INTO products (
+          id, user_id, title, description, category, price, currency, stock, sku, weight, dimensions,
+          status, keywords, image_urls, is_marketplace_ready, readiness_score, marketplaces,
+          material, short_description, craft_story, hsn_code, wholesale_price, mrp, moq, lead_time,
+          brand, color, origin_state, created_at, updated_at
+        ) VALUES (
+          $1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17,
+          $18, $19, $20, $21, $22, $23, $24, $25, $26, $27, $28, NOW(), NOW()
+        ) RETURNING *`,
+        [
+          prodId,
+          userId,
+          title,
+          description || '',
+          category || 'Handicrafts & Art',
+          sanitizedPrice,
+          currency || 'INR',
+          sanitizedStock,
+          sku || `SKU-${Date.now().toString().slice(-5)}`,
+          weight || '0.5 kg',
+          dimensions || '10x10x10 cm',
+          status || 'published',
+          JSON.stringify(safeKeywords),
+          JSON.stringify(safeImageUrls),
+          isMarketplaceReady ?? true,
+          readinessScore || 85,
+          JSON.stringify(safeMarketplaces),
+          effectiveMaterial,
+          effectiveShortDesc,
+          effectiveCraftStory,
+          effectiveHsn,
+          effectiveWholesale,
+          effectiveMrp,
+          effectiveMoq,
+          effectiveLeadTime,
+          effectiveBrand,
+          effectiveColor,
+          effectiveOriginState,
+        ]
+      );
+      row = insertRes.rows[0];
+    } catch (insertErr: any) {
+      if (insertErr.message && (insertErr.message.includes('column') || insertErr.message.includes('does not exist'))) {
+        console.warn('Falling back to legacy product table schema for insert:', insertErr.message);
+        const fallbackRes = await queryPg(
+          `INSERT INTO products (
+            id, user_id, title, description, category, price, currency, stock, sku, weight, dimensions,
+            status, keywords, image_urls, is_marketplace_ready, readiness_score, marketplaces,
+            created_at, updated_at
+          ) VALUES (
+            $1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, NOW(), NOW()
+          ) RETURNING *`,
+          [
+            prodId,
+            userId,
+            title,
+            description || '',
+            category || 'Handicrafts & Art',
+            sanitizedPrice,
+            currency || 'INR',
+            sanitizedStock,
+            sku || `SKU-${Date.now().toString().slice(-5)}`,
+            weight || '0.5 kg',
+            dimensions || '10x10x10 cm',
+            status || 'published',
+            JSON.stringify(safeKeywords),
+            JSON.stringify(safeImageUrls),
+            isMarketplaceReady ?? true,
+            readinessScore || 85,
+            JSON.stringify(safeMarketplaces),
+          ]
+        );
+        row = fallbackRes.rows[0];
+      } else {
+        throw insertErr;
+      }
+    }
 
     // Log Activity
     await queryPg(
       `INSERT INTO activities (id, user_id, title, description, event_type, created_at)
        VALUES ($1, $2, $3, $4, $5, NOW())`,
-      [`act_${Date.now()}`, userId, `Added product: ${title}`, `Cataloged ${title} at ₹${price}.`, 'product_created']
+      [`act_${Date.now()}`, userId, `Added product: ${title}`, `Cataloged ${title} at ₹${sanitizedPrice}.`, 'product_created']
     ).catch(() => {});
 
     res.json({
@@ -916,28 +985,39 @@ app.post('/api/products', authenticateToken, async (req: AuthenticatedRequest, r
         userId: row.user_id,
         user_id: row.user_id,
         title: row.title,
-        description: row.description,
-        category: row.category,
-        price: parseFloat(row.price),
-        currency: row.currency,
-        stock: row.stock,
-        sku: row.sku,
-        weight: row.weight,
-        dimensions: row.dimensions,
-        status: row.status,
-        keywords: Array.isArray(row.keywords) ? row.keywords : [],
-        imageUrls: Array.isArray(row.image_urls) ? row.image_urls : [],
-        isMarketplaceReady: row.is_marketplace_ready,
-        readinessScore: row.readiness_score,
-        marketplaces: Array.isArray(row.marketplaces) ? row.marketplaces : [],
+        description: row.description || '',
+        category: row.category || 'Handicrafts & Art',
+        price: parseFloat(row.price) || 0,
+        currency: row.currency || 'INR',
+        stock: row.stock !== undefined ? row.stock : 1,
+        sku: row.sku || '',
+        weight: row.weight || '',
+        dimensions: row.dimensions || '',
+        material: row.material || effectiveMaterial,
+        shortDescription: row.short_description || effectiveShortDesc,
+        craftStory: row.craft_story || effectiveCraftStory,
+        hsnCode: row.hsn_code || effectiveHsn,
+        wholesalePrice: row.wholesale_price !== null && row.wholesale_price !== undefined ? parseFloat(row.wholesale_price) : (effectiveWholesale || undefined),
+        mrp: row.mrp !== null && row.mrp !== undefined ? parseFloat(row.mrp) : (effectiveMrp || undefined),
+        moq: row.moq !== null && row.moq !== undefined ? row.moq : effectiveMoq,
+        leadTime: row.lead_time || effectiveLeadTime,
+        brand: row.brand || effectiveBrand,
+        color: row.color || effectiveColor,
+        originState: row.origin_state || effectiveOriginState,
+        status: row.status || 'published',
+        keywords: Array.isArray(row.keywords) ? row.keywords : (typeof row.keywords === 'string' ? JSON.parse(row.keywords) : []),
+        imageUrls: Array.isArray(row.image_urls) ? row.image_urls : (typeof row.image_urls === 'string' ? JSON.parse(row.image_urls) : []),
+        isMarketplaceReady: row.is_marketplace_ready ?? true,
+        readinessScore: row.readiness_score || 85,
+        marketplaces: Array.isArray(row.marketplaces) ? row.marketplaces : (typeof row.marketplaces === 'string' ? JSON.parse(row.marketplaces) : []),
         createdAt: row.created_at,
-        updatedAt: row.updated_at
+        updatedAt: row.updated_at || row.created_at
       },
       message: 'Product created successfully'
     });
   } catch (err: any) {
     console.error('Product create error:', err);
-    res.status(500).json({ error: 'Failed to create product' });
+    res.status(500).json({ error: err.message || 'Failed to create product' });
   }
 });
 
@@ -996,70 +1076,119 @@ app.put('/api/products/:id', authenticateToken, async (req: AuthenticatedRequest
     const effectiveLeadTime = leadTime !== undefined ? leadTime : lead_time;
     const effectiveOriginState = originState !== undefined ? originState : origin_state;
 
-    const updateRes = await queryPg(
-      `UPDATE products SET
-        title = COALESCE($1, title),
-        description = COALESCE($2, description),
-        category = COALESCE($3, category),
-        price = COALESCE($4, price),
-        currency = COALESCE($5, currency),
-        stock = COALESCE($6, stock),
-        sku = COALESCE($7, sku),
-        weight = COALESCE($8, weight),
-        dimensions = COALESCE($9, dimensions),
-        status = COALESCE($10, status),
-        keywords = COALESCE($11, keywords),
-        image_urls = COALESCE($12, image_urls),
-        is_marketplace_ready = COALESCE($13, is_marketplace_ready),
-        readiness_score = COALESCE($14, readiness_score),
-        marketplaces = COALESCE($15, marketplaces),
-        material = COALESCE($16, material),
-        short_description = COALESCE($17, short_description),
-        craft_story = COALESCE($18, craft_story),
-        hsn_code = COALESCE($19, hsn_code),
-        wholesale_price = COALESCE($20, wholesale_price),
-        mrp = COALESCE($21, mrp),
-        moq = COALESCE($22, moq),
-        lead_time = COALESCE($23, lead_time),
-        brand = COALESCE($24, brand),
-        color = COALESCE($25, color),
-        origin_state = COALESCE($26, origin_state),
-        updated_at = NOW()
-       WHERE id = $27 AND user_id = $28
-       RETURNING *`,
-      [
-        title,
-        description,
-        category,
-        price !== undefined ? parseFloat(price) : null,
-        currency,
-        stock !== undefined ? parseInt(stock, 10) : null,
-        sku,
-        weight,
-        dimensions,
-        status,
-        keywords ? JSON.stringify(keywords) : null,
-        imageUrls ? JSON.stringify(imageUrls) : null,
-        isMarketplaceReady,
-        readinessScore,
-        marketplaces ? JSON.stringify(marketplaces) : null,
-        material,
-        effectiveShortDesc,
-        effectiveCraftStory,
-        effectiveHsn,
-        effectiveWholesale,
-        effectiveMrp,
-        effectiveMoq,
-        effectiveLeadTime,
-        brand,
-        color,
-        effectiveOriginState,
-        id,
-        userId
-      ]
-    );
-
-    const row = updateRes.rows[0];
+    let row;
+    try {
+      const updateRes = await queryPg(
+        `UPDATE products SET
+          title = COALESCE($1, title),
+          description = COALESCE($2, description),
+          category = COALESCE($3, category),
+          price = COALESCE($4, price),
+          currency = COALESCE($5, currency),
+          stock = COALESCE($6, stock),
+          sku = COALESCE($7, sku),
+          weight = COALESCE($8, weight),
+          dimensions = COALESCE($9, dimensions),
+          status = COALESCE($10, status),
+          keywords = COALESCE($11, keywords),
+          image_urls = COALESCE($12, image_urls),
+          is_marketplace_ready = COALESCE($13, is_marketplace_ready),
+          readiness_score = COALESCE($14, readiness_score),
+          marketplaces = COALESCE($15, marketplaces),
+          material = COALESCE($16, material),
+          short_description = COALESCE($17, short_description),
+          craft_story = COALESCE($18, craft_story),
+          hsn_code = COALESCE($19, hsn_code),
+          wholesale_price = COALESCE($20, wholesale_price),
+          mrp = COALESCE($21, mrp),
+          moq = COALESCE($22, moq),
+          lead_time = COALESCE($23, lead_time),
+          brand = COALESCE($24, brand),
+          color = COALESCE($25, color),
+          origin_state = COALESCE($26, origin_state),
+          updated_at = NOW()
+         WHERE id = $27 AND user_id = $28
+         RETURNING *`,
+        [
+          title,
+          description,
+          category,
+          price !== undefined ? parseFloat(price) : null,
+          currency,
+          stock !== undefined ? parseInt(stock, 10) : null,
+          sku,
+          weight,
+          dimensions,
+          status,
+          keywords ? JSON.stringify(keywords) : null,
+          imageUrls ? JSON.stringify(imageUrls) : null,
+          isMarketplaceReady,
+          readinessScore,
+          marketplaces ? JSON.stringify(marketplaces) : null,
+          material,
+          effectiveShortDesc,
+          effectiveCraftStory,
+          effectiveHsn,
+          effectiveWholesale,
+          effectiveMrp,
+          effectiveMoq,
+          effectiveLeadTime,
+          brand,
+          color,
+          effectiveOriginState,
+          id,
+          userId
+        ]
+      );
+      row = updateRes.rows[0];
+    } catch (updateErr: any) {
+      if (updateErr.message && (updateErr.message.includes('column') || updateErr.message.includes('does not exist'))) {
+        console.warn('Falling back to legacy product table schema for update:', updateErr.message);
+        const fallbackRes = await queryPg(
+          `UPDATE products SET
+            title = COALESCE($1, title),
+            description = COALESCE($2, description),
+            category = COALESCE($3, category),
+            price = COALESCE($4, price),
+            currency = COALESCE($5, currency),
+            stock = COALESCE($6, stock),
+            sku = COALESCE($7, sku),
+            weight = COALESCE($8, weight),
+            dimensions = COALESCE($9, dimensions),
+            status = COALESCE($10, status),
+            keywords = COALESCE($11, keywords),
+            image_urls = COALESCE($12, image_urls),
+            is_marketplace_ready = COALESCE($13, is_marketplace_ready),
+            readiness_score = COALESCE($14, readiness_score),
+            marketplaces = COALESCE($15, marketplaces),
+            updated_at = NOW()
+           WHERE id = $16 AND user_id = $17
+           RETURNING *`,
+          [
+            title,
+            description,
+            category,
+            price !== undefined ? parseFloat(price) : null,
+            currency,
+            stock !== undefined ? parseInt(stock, 10) : null,
+            sku,
+            weight,
+            dimensions,
+            status,
+            keywords ? JSON.stringify(keywords) : null,
+            imageUrls ? JSON.stringify(imageUrls) : null,
+            isMarketplaceReady,
+            readinessScore,
+            marketplaces ? JSON.stringify(marketplaces) : null,
+            id,
+            userId
+          ]
+        );
+        row = fallbackRes.rows[0];
+      } else {
+        throw updateErr;
+      }
+    }
     res.json({
       product: {
         id: row.id,
@@ -2990,6 +3119,17 @@ async function initPgDatabase() {
         sku VARCHAR(100),
         weight VARCHAR(100),
         dimensions VARCHAR(100),
+        material VARCHAR(150),
+        short_description TEXT,
+        craft_story TEXT,
+        hsn_code VARCHAR(50),
+        wholesale_price NUMERIC(10, 2),
+        mrp NUMERIC(10, 2),
+        moq INT DEFAULT 1,
+        lead_time VARCHAR(100) DEFAULT '3-5 business days',
+        brand VARCHAR(150),
+        color VARCHAR(100),
+        origin_state VARCHAR(100),
         status VARCHAR(50) DEFAULT 'published',
         keywords JSONB DEFAULT '[]'::jsonb,
         image_urls JSONB DEFAULT '[]'::jsonb,

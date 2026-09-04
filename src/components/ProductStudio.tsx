@@ -145,24 +145,60 @@ export const ProductStudio: React.FC = () => {
     }
   };
 
-  const handleFileUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+  const compressImage = (file: File): Promise<string> => {
+    return new Promise((resolve, reject) => {
+      const reader = new FileReader();
+      reader.onload = (e) => {
+        const img = new Image();
+        img.onload = () => {
+          const canvas = document.createElement('canvas');
+          const maxDim = 1200;
+          let width = img.width;
+          let height = img.height;
+          if (width > maxDim || height > maxDim) {
+            if (width > height) {
+              height = Math.round((height * maxDim) / width);
+              width = maxDim;
+            } else {
+              width = Math.round((width * maxDim) / height);
+              height = maxDim;
+            }
+          }
+          canvas.width = width;
+          canvas.height = height;
+          const ctx = canvas.getContext('2d');
+          if (!ctx) {
+            resolve(e.target?.result as string);
+            return;
+          }
+          ctx.drawImage(img, 0, 0, width, height);
+          resolve(canvas.toDataURL('image/jpeg', 0.85));
+        };
+        img.onerror = reject;
+        img.src = e.target?.result as string;
+      };
+      reader.onerror = reject;
+      reader.readAsDataURL(file);
+    });
+  };
+
+  const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const files = e.target.files;
     if (!files || files.length === 0) return;
 
     const file = files[0];
-    if (file.size > 5 * 1024 * 1024) {
-      setFormError('Image size exceeds 5MB limit. Please choose a smaller file.');
+    if (file.size > 15 * 1024 * 1024) {
+      setFormError('Image size exceeds 15MB limit. Please choose a smaller file.');
       return;
     }
 
-    const reader = new FileReader();
-    reader.onload = () => {
-      if (typeof reader.result === 'string') {
-        setImageUrls([...imageUrls, reader.result]);
-        setFormError('');
-      }
-    };
-    reader.readAsDataURL(file);
+    try {
+      setFormError('');
+      const compressedDataUrl = await compressImage(file);
+      setImageUrls((prev) => [...prev, compressedDataUrl]);
+    } catch {
+      setFormError('Failed to process photo. Please try another image.');
+    }
   };
 
   const handleAddImageUrl = () => {
@@ -176,18 +212,22 @@ export const ProductStudio: React.FC = () => {
     setFormError('');
   };
 
-  const handleSaveProduct = async (e: React.FormEvent) => {
-    e.preventDefault();
+  const handleSaveProduct = async (e?: React.FormEvent) => {
+    if (e) e.preventDefault();
     if (!title.trim()) {
-      setFormError(t('validation.required'));
+      setFormError(t('validation.required') || 'Product title is required.');
       return;
     }
-    if (price < 0) {
-      setFormError(t('validation.positiveNumber'));
+
+    const numPrice = typeof price === 'number' ? (isNaN(price) ? 0 : price) : (parseFloat(String(price || 0).replace(/[^0-9.]/g, '')) || 0);
+    const numStock = typeof stock === 'number' ? (isNaN(stock) ? 1 : stock) : (parseInt(String(stock || 1).replace(/[^0-9]/g, ''), 10) || 1);
+
+    if (numPrice < 0) {
+      setFormError(t('validation.positiveNumber') || 'Price cannot be negative.');
       return;
     }
-    if (stock < 0) {
-      setFormError(t('validation.positiveNumber'));
+    if (numStock < 0) {
+      setFormError(t('validation.positiveNumber') || 'Stock cannot be negative.');
       return;
     }
 
@@ -195,34 +235,25 @@ export const ProductStudio: React.FC = () => {
     setFormError('');
 
     try {
+      const payload = {
+        title: title.trim(),
+        description: description.trim(),
+        category: craftType,
+        price: numPrice,
+        stock: numStock,
+        sku: sku.trim() || `SKU-ART-${Date.now().toString().slice(-5)}`,
+        weight: weight.trim() || '0.5 kg',
+        dimensions: dimensions.trim() || '10x10x10 cm',
+        material: materials.trim(),
+        status,
+        keywords,
+        imageUrls,
+      };
+
       if (editingId) {
-        await productsApi.update(editingId, {
-          title,
-          description,
-          category: craftType,
-          price,
-          stock,
-          sku,
-          weight,
-          dimensions,
-          status,
-          keywords,
-          imageUrls,
-        });
+        await productsApi.update(editingId, payload);
       } else {
-        const res = await productsApi.create({
-          title,
-          description,
-          category: craftType,
-          price,
-          stock,
-          sku,
-          weight,
-          dimensions,
-          status,
-          keywords,
-          imageUrls,
-        });
+        const res = await productsApi.create(payload);
         if (res.warning) {
           setWarningMsg(res.warning);
         }
@@ -271,7 +302,7 @@ export const ProductStudio: React.FC = () => {
               {t('product.title')}
             </h1>
             <span className="px-2 py-0.5 text-[10px] font-bold bg-[#0F5132]/10 text-[#0F5132] dark:bg-emerald-950 dark:text-emerald-300 rounded-full border border-[#0F5132]/20 dark:border-emerald-800 font-poppins">
-              {t('product.aiGeneratedBadge')}
+              {t('product.generateWithAi') || 'AI Assisted'}
             </span>
           </div>
           <p className="text-xs text-stone-500 dark:text-emerald-300/70">
@@ -511,87 +542,91 @@ export const ProductStudio: React.FC = () => {
 
       {/* Add / Edit Product Modal */}
       {modalOpen && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-4 bg-black/60 backdrop-blur-xs animate-in fade-in duration-200">
-          <div className="bg-white dark:bg-[#13251B] rounded-3xl max-w-3xl w-full p-5 sm:p-8 shadow-2xl border border-[#0F5132]/15 dark:border-emerald-800/60 relative max-h-[92vh] overflow-y-auto space-y-6">
-            <button
-              onClick={() => setModalOpen(false)}
-              aria-label={t('common.close')}
-              className="absolute top-5 right-5 p-2 text-stone-400 hover:text-stone-600 dark:hover:text-stone-200 hover:bg-stone-100 dark:hover:bg-emerald-900/40 rounded-lg transition-colors cursor-pointer"
-            >
-              <X className="w-5 h-5" />
-            </button>
-
-            <div>
-              <h2 className="text-lg sm:text-xl font-bold text-stone-900 dark:text-white font-poppins">
-                {editingId ? t('product.editProduct') : t('product.addProduct')}
-              </h2>
-              <p className="text-xs text-stone-500 dark:text-emerald-300/70">
-                {t('product.subtitle')}
-              </p>
-            </div>
-
-            {formError && (
-              <div className="p-3.5 bg-red-50 dark:bg-red-950/50 border border-red-200 dark:border-red-800 rounded-xl text-xs text-red-700 dark:text-red-300 flex items-center gap-2">
-                <AlertCircle className="w-4 h-4 shrink-0" />
-                <span>{formError}</span>
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-4 bg-black/70 backdrop-blur-xs animate-in fade-in duration-200">
+          <div className="bg-white dark:bg-[#13251B] rounded-3xl max-w-3xl w-full shadow-2xl border border-[#0F5132]/20 dark:border-emerald-800/60 flex flex-col max-h-[90vh] overflow-hidden">
+            {/* Sticky Header */}
+            <div className="px-5 sm:px-7 py-4 sm:py-5 border-b border-stone-200/80 dark:border-emerald-800/50 flex items-center justify-between bg-white dark:bg-[#13251B] shrink-0">
+              <div>
+                <h2 className="text-base sm:text-lg font-bold text-stone-900 dark:text-white font-poppins">
+                  {editingId ? (t('product.editProduct') || 'Edit Product') : (t('product.addProduct') || 'Add New Product')}
+                </h2>
+                <p className="text-[11px] text-stone-500 dark:text-emerald-300/70">
+                  {t('product.subtitle') || 'Catalog your inventory, generate AI marketing stories, and prepare for marketplace listing.'}
+                </p>
               </div>
-            )}
-
-            {/* AI Generator Magic Prompt Box */}
-            <div className="bg-[#0F5132]/5 dark:bg-[#183023]/70 p-4 rounded-2xl border border-[#0F5132]/20 dark:border-emerald-700/50 space-y-3">
-              <div className="flex items-center justify-between">
-                <span className="text-xs font-bold text-stone-900 dark:text-white font-poppins flex items-center gap-1.5">
-                  <Sparkles className="w-4 h-4 text-[#D4AF37]" />
-                  {t('product.aiGeneratedBadge')}
-                </span>
-                {aiGeneratedSuccess && (
-                  <span className="text-[11px] font-bold text-[#0F5132] dark:text-emerald-400 flex items-center gap-1 font-poppins">
-                    <CheckCircle2 className="w-3.5 h-3.5" /> {t('common.success')}!
-                  </span>
-                )}
-              </div>
-
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
-                <input
-                  type="text"
-                  value={rawCraftInput}
-                  onChange={(e) => setRawCraftInput(e.target.value)}
-                  placeholder={t('product.namePlaceholder')}
-                  className="px-3.5 py-2 bg-white dark:bg-[#0E2016] border border-[#0F5132]/20 dark:border-emerald-800/60 rounded-xl text-xs text-stone-900 dark:text-white outline-none focus:ring-2 focus:ring-[#0F5132]"
-                />
-                <input
-                  type="text"
-                  value={materials}
-                  onChange={(e) => setMaterials(e.target.value)}
-                  placeholder="Materials e.g. Silk cloth, organic dye"
-                  className="px-3.5 py-2 bg-white dark:bg-[#0E2016] border border-[#0F5132]/20 dark:border-emerald-800/60 rounded-xl text-xs text-stone-900 dark:text-white outline-none focus:ring-2 focus:ring-[#0F5132]"
-                />
-              </div>
-
               <button
                 type="button"
-                id="btn-generate-ai-details"
-                onClick={handleAIGenerateDetails}
-                disabled={generatingAI || !rawCraftInput.trim()}
-                className="w-full py-2.5 bg-[#0F5132] hover:bg-[#0B3D26] text-white font-semibold text-xs rounded-xl shadow-xs transition-all flex items-center justify-center gap-2 disabled:opacity-50 font-poppins cursor-pointer"
+                onClick={() => setModalOpen(false)}
+                aria-label={t('common.close') || 'Close'}
+                className="p-2 text-stone-400 hover:text-stone-600 dark:hover:text-stone-200 hover:bg-stone-100 dark:hover:bg-emerald-900/40 rounded-xl transition-colors cursor-pointer"
               >
-                <Sparkles className="w-4 h-4 text-[#D4AF37]" />
-                <span>{generatingAI ? t('product.aiGenerating') : t('product.aiGeneratedBadge')}</span>
+                <X className="w-5 h-5" />
               </button>
             </div>
 
-            {/* Standard Form */}
-            <form onSubmit={handleSaveProduct} className="space-y-4">
+            {/* Scrollable Form Body */}
+            <form id="product-form" onSubmit={handleSaveProduct} className="flex-1 overflow-y-auto px-5 sm:px-7 py-5 space-y-5">
+              {formError && (
+                <div className="p-3.5 bg-red-50 dark:bg-red-950/60 border border-red-200 dark:border-red-800 rounded-xl text-xs text-red-700 dark:text-red-300 flex items-center gap-2">
+                  <AlertCircle className="w-4 h-4 shrink-0" />
+                  <span>{formError}</span>
+                </div>
+              )}
+
+              {/* AI Generator Magic Prompt Box */}
+              <div className="bg-[#0F5132]/5 dark:bg-[#183023]/70 p-4 rounded-2xl border border-[#0F5132]/20 dark:border-emerald-700/50 space-y-3">
+                <div className="flex items-center justify-between">
+                  <span className="text-xs font-bold text-stone-900 dark:text-white font-poppins flex items-center gap-1.5">
+                    <Sparkles className="w-4 h-4 text-[#D4AF37]" />
+                    {t('product.generateWithAi') || 'AI Assistant Generator'}
+                  </span>
+                  {aiGeneratedSuccess && (
+                    <span className="text-[11px] font-bold text-[#0F5132] dark:text-emerald-400 flex items-center gap-1 font-poppins">
+                      <CheckCircle2 className="w-3.5 h-3.5" /> {t('common.success') || 'Generated!'}
+                    </span>
+                  )}
+                </div>
+
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
+                  <input
+                    type="text"
+                    value={rawCraftInput}
+                    onChange={(e) => setRawCraftInput(e.target.value)}
+                    placeholder={t('product.namePlaceholder') || 'e.g. Handcrafted Madhubani Silk Dupatta'}
+                    className="px-3.5 py-2 bg-white dark:bg-[#0E2016] border border-[#0F5132]/20 dark:border-emerald-800/60 rounded-xl text-xs text-stone-900 dark:text-white outline-none focus:ring-2 focus:ring-[#0F5132]"
+                  />
+                  <input
+                    type="text"
+                    value={materials}
+                    onChange={(e) => setMaterials(e.target.value)}
+                    placeholder={t('product.materialsPlaceholder') || 'Materials e.g. Silk cloth, organic dye'}
+                    className="px-3.5 py-2 bg-white dark:bg-[#0E2016] border border-[#0F5132]/20 dark:border-emerald-800/60 rounded-xl text-xs text-stone-900 dark:text-white outline-none focus:ring-2 focus:ring-[#0F5132]"
+                  />
+                </div>
+
+                <button
+                  type="button"
+                  id="btn-generate-ai-details"
+                  onClick={handleAIGenerateDetails}
+                  disabled={generatingAI || !rawCraftInput.trim()}
+                  className="w-full py-2.5 bg-[#0F5132] hover:bg-[#0B3D26] text-white font-semibold text-xs rounded-xl shadow-xs transition-all flex items-center justify-center gap-2 disabled:opacity-50 font-poppins cursor-pointer"
+                >
+                  <Sparkles className="w-4 h-4 text-[#D4AF37]" />
+                  <span>{generatingAI ? (t('product.generatingWithAi') || 'AI Generating Details...') : (t('product.generateWithAi') || 'Auto-Fill Details with AI')}</span>
+                </button>
+              </div>
+
+              {/* Standard Form Inputs */}
               <div className="grid grid-cols-1 md:grid-cols-2 gap-3.5 sm:gap-4">
                 <div className="md:col-span-2">
                   <label className="block text-xs font-semibold text-stone-700 dark:text-emerald-200 mb-1 font-poppins">
-                    {t('product.name')} <span className="text-red-500">*</span>
+                    {t('product.nameLabel') || 'Product Name'} <span className="text-red-500">*</span>
                   </label>
                   <input
                     type="text"
                     value={title}
                     onChange={(e) => setTitle(e.target.value)}
-                    placeholder={t('product.namePlaceholder')}
+                    placeholder={t('product.namePlaceholder') || 'e.g. Madhubani Handpainted Silk Scarf'}
                     required
                     className="w-full px-3.5 py-2.5 bg-[#F8F9F5] dark:bg-[#0E2016] border border-[#0F5132]/20 dark:border-emerald-800/60 rounded-xl text-xs text-stone-900 dark:text-white focus:ring-2 focus:ring-[#0F5132] outline-none font-semibold font-inter"
                   />
@@ -599,7 +634,7 @@ export const ProductStudio: React.FC = () => {
 
                 <div>
                   <label className="block text-xs font-semibold text-stone-700 dark:text-emerald-200 mb-1 font-poppins">
-                    {t('product.category')}
+                    {t('product.categoryLabel') || 'Category'}
                   </label>
                   <select
                     value={craftType}
@@ -616,14 +651,14 @@ export const ProductStudio: React.FC = () => {
 
                 <div>
                   <label className="block text-xs font-semibold text-stone-700 dark:text-emerald-200 mb-1 font-poppins">
-                    {t('common.status')}
+                    {t('common.status') || 'Listing Status'}
                   </label>
                   <select
                     value={status}
                     onChange={(e) => setStatus(e.target.value as any)}
                     className="w-full px-3.5 py-2.5 bg-[#F8F9F5] dark:bg-[#0E2016] border border-[#0F5132]/20 dark:border-emerald-800/60 rounded-xl text-xs text-stone-900 dark:text-white focus:ring-2 focus:ring-[#0F5132] outline-none cursor-pointer"
                   >
-                    <option value="published">{t('subscription.active')}</option>
+                    <option value="published">{t('subscription.active') || 'Published / Active'}</option>
                     <option value="draft">Draft</option>
                     <option value="archived">Archived</option>
                   </select>
@@ -631,25 +666,27 @@ export const ProductStudio: React.FC = () => {
 
                 <div>
                   <label className="block text-xs font-semibold text-stone-700 dark:text-emerald-200 mb-1 font-poppins">
-                    {t('product.price')} (₹)
+                    {t('product.priceLabel') || 'Selling Price'} (₹) <span className="text-red-500">*</span>
                   </label>
                   <input
                     type="number"
                     min="0"
+                    step="1"
                     value={price}
                     onChange={(e) => setPrice(Number(e.target.value))}
                     required
-                    className="w-full px-3.5 py-2.5 bg-[#F8F9F5] dark:bg-[#0E2016] border border-[#0F5132]/20 dark:border-emerald-800/60 rounded-xl text-xs text-stone-900 dark:text-white focus:ring-2 focus:ring-[#0F5132] outline-none"
+                    className="w-full px-3.5 py-2.5 bg-[#F8F9F5] dark:bg-[#0E2016] border border-[#0F5132]/20 dark:border-emerald-800/60 rounded-xl text-xs text-stone-900 dark:text-white focus:ring-2 focus:ring-[#0F5132] outline-none font-semibold"
                   />
                 </div>
 
                 <div>
                   <label className="block text-xs font-semibold text-stone-700 dark:text-emerald-200 mb-1 font-poppins">
-                    {t('product.stock')}
+                    {t('product.stockLabel') || 'Available Stock'}
                   </label>
                   <input
                     type="number"
                     min="0"
+                    step="1"
                     value={stock}
                     onChange={(e) => setStock(Number(e.target.value))}
                     required
@@ -659,7 +696,7 @@ export const ProductStudio: React.FC = () => {
 
                 <div>
                   <label className="block text-xs font-semibold text-stone-700 dark:text-emerald-200 mb-1 font-poppins">
-                    {t('product.sku')}
+                    {t('product.skuLabel') || 'SKU Code'}
                   </label>
                   <input
                     type="text"
@@ -672,7 +709,7 @@ export const ProductStudio: React.FC = () => {
 
                 <div>
                   <label className="block text-xs font-semibold text-stone-700 dark:text-emerald-200 mb-1 font-poppins">
-                    Weight / Dimensions
+                    {t('product.weightLabel') || 'Weight'} & {t('product.dimensionsLabel') || 'Dimensions'}
                   </label>
                   <div className="flex gap-2">
                     <input
@@ -686,7 +723,7 @@ export const ProductStudio: React.FC = () => {
                       type="text"
                       value={dimensions}
                       onChange={(e) => setDimensions(e.target.value)}
-                      placeholder="e.g. 10x10 cm"
+                      placeholder="e.g. 10x10x10 cm"
                       className="w-1/2 px-3 py-2.5 bg-[#F8F9F5] dark:bg-[#0E2016] border border-[#0F5132]/20 dark:border-emerald-800/60 rounded-xl text-xs text-stone-900 dark:text-white outline-none"
                     />
                   </div>
@@ -695,13 +732,13 @@ export const ProductStudio: React.FC = () => {
 
               <div>
                 <label className="block text-xs font-semibold text-stone-700 dark:text-emerald-200 mb-1 font-poppins">
-                  {t('product.description')}
+                  {t('product.descLabel') || 'Description & Artisan Story'}
                 </label>
                 <textarea
                   value={description}
                   onChange={(e) => setDescription(e.target.value)}
                   rows={3}
-                  placeholder={t('product.descriptionPlaceholder')}
+                  placeholder={t('product.descPlaceholder') || 'Describe the traditional technique, materials, and cultural heritage of this item...'}
                   className="w-full px-3.5 py-2.5 bg-[#F8F9F5] dark:bg-[#0E2016] border border-[#0F5132]/20 dark:border-emerald-800/60 rounded-xl text-xs text-stone-900 dark:text-white focus:ring-2 focus:ring-[#0F5132] outline-none leading-relaxed font-inter"
                 />
               </div>
@@ -709,19 +746,19 @@ export const ProductStudio: React.FC = () => {
               {/* Product Gallery & Upload */}
               <div className="space-y-3">
                 <label className="block text-xs font-semibold text-stone-700 dark:text-emerald-200 font-poppins">
-                  {t('product.images')}
+                  {t('product.imagesLabel') || 'Product Photos'}
                 </label>
 
                 {/* Thumbnail list */}
                 <div className="flex flex-wrap gap-2.5 sm:gap-3">
                   {imageUrls.map((url, idx) => (
-                    <div key={idx} className="relative w-20 h-20 rounded-xl overflow-hidden border border-[#0F5132]/20 dark:border-emerald-800/60 group">
+                    <div key={idx} className="relative w-20 h-20 rounded-xl overflow-hidden border border-[#0F5132]/20 dark:border-emerald-800/60 group shadow-xs">
                       <img src={url} alt={`Preview ${idx}`} className="w-full h-full object-cover" />
                       <button
                         type="button"
                         onClick={() => handleRemoveImage(idx)}
                         aria-label="Remove image"
-                        className="absolute top-1 right-1 p-1 bg-red-600 text-white rounded-full opacity-80 hover:opacity-100 transition-opacity cursor-pointer"
+                        className="absolute top-1 right-1 p-1 bg-red-600 text-white rounded-full opacity-90 hover:opacity-100 transition-opacity cursor-pointer shadow-sm"
                       >
                         <X className="w-3 h-3" />
                       </button>
@@ -730,7 +767,7 @@ export const ProductStudio: React.FC = () => {
 
                   <label className="w-20 h-20 rounded-xl border-2 border-dashed border-[#0F5132]/30 dark:border-emerald-800/60 flex flex-col items-center justify-center cursor-pointer hover:border-[#0F5132] transition-colors bg-[#F8F9F5] dark:bg-[#0E2016]">
                     <Upload className="w-4 h-4 text-[#0F5132] dark:text-emerald-400 mb-1" />
-                    <span className="text-[9px] text-stone-500 dark:text-emerald-300/70 font-medium font-poppins">{t('imageStudio.dropzone')}</span>
+                    <span className="text-[9px] text-stone-500 dark:text-emerald-300/70 font-medium font-poppins">{t('imageStudio.dropzone') || 'Upload'}</span>
                     <input type="file" accept="image/*" onChange={handleFileUpload} className="hidden" />
                   </label>
                 </div>
@@ -740,36 +777,45 @@ export const ProductStudio: React.FC = () => {
                     type="text"
                     value={newImageUrl}
                     onChange={(e) => setNewImageUrl(e.target.value)}
-                    placeholder="Or enter Image URL..."
+                    placeholder="Or paste direct image URL..."
                     className="flex-1 px-3 py-2 bg-[#F8F9F5] dark:bg-[#0E2016] border border-[#0F5132]/20 dark:border-emerald-800/60 rounded-xl text-xs text-stone-900 dark:text-white outline-none"
                   />
                   <button
                     type="button"
                     onClick={handleAddImageUrl}
-                    className="px-4 py-2 bg-stone-200 dark:bg-[#183023] hover:bg-stone-300 dark:hover:bg-emerald-900/40 text-xs font-semibold rounded-xl text-stone-800 dark:text-emerald-200 font-poppins cursor-pointer"
+                    className="px-4 py-2 bg-stone-100 dark:bg-[#183023] hover:bg-stone-200 dark:hover:bg-emerald-900/40 text-xs font-semibold rounded-xl text-stone-800 dark:text-emerald-200 font-poppins cursor-pointer"
                   >
-                    {t('common.save')} URL
+                    + Add URL
                   </button>
                 </div>
               </div>
-
-              <div className="pt-2 flex flex-col-reverse sm:flex-row justify-end gap-2.5 sm:gap-3">
-                <button
-                  type="button"
-                  onClick={() => setModalOpen(false)}
-                  className="px-5 py-2.5 bg-stone-100 hover:bg-stone-200 dark:bg-[#183023] dark:hover:bg-emerald-900/40 text-stone-700 dark:text-emerald-200 font-semibold text-xs rounded-xl transition-colors font-poppins cursor-pointer"
-                >
-                  {t('common.cancel')}
-                </button>
-                <button
-                  type="submit"
-                  disabled={saving}
-                  className="px-6 py-2.5 bg-[#0F5132] hover:bg-[#0B3D26] text-white font-semibold text-xs rounded-xl shadow-md transition-colors font-poppins cursor-pointer"
-                >
-                  {saving ? t('product.saving') : t('product.saveProduct')}
-                </button>
-              </div>
             </form>
+
+            {/* Sticky Action Footer */}
+            <div className="px-5 sm:px-7 py-3.5 sm:py-4 border-t border-stone-200/80 dark:border-emerald-800/50 flex items-center justify-end gap-3 bg-stone-50/95 dark:bg-[#0E2016]/95 backdrop-blur-xs shrink-0">
+              <button
+                type="button"
+                onClick={() => setModalOpen(false)}
+                className="px-5 py-2.5 bg-white dark:bg-[#183023] hover:bg-stone-100 dark:hover:bg-emerald-900/40 border border-stone-200 dark:border-emerald-800/60 text-stone-700 dark:text-emerald-200 font-semibold text-xs rounded-xl transition-colors font-poppins cursor-pointer"
+              >
+                {t('common.cancel')}
+              </button>
+              <button
+                type="submit"
+                form="product-form"
+                disabled={saving}
+                className="px-6 py-2.5 bg-[#0F5132] hover:bg-[#0B3D26] disabled:opacity-50 text-white font-semibold text-xs rounded-xl shadow-md transition-all font-poppins cursor-pointer flex items-center gap-2 active:scale-98"
+              >
+                {saving ? (
+                  <>
+                    <div className="w-3.5 h-3.5 border-2 border-white border-t-transparent rounded-full animate-spin" />
+                    <span>{t('common.saving') || 'Saving...'}</span>
+                  </>
+                ) : (
+                  <span>{editingId ? (t('common.save') || 'Save Changes') : (t('product.saveProduct') || 'Save Product')}</span>
+                )}
+              </button>
+            </div>
           </div>
         </div>
       )}
