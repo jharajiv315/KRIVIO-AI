@@ -22,6 +22,10 @@
   --color-border-dark: rgba(52, 211, 153, 0.2);
 }
 
+html {
+  scroll-behavior: smooth;
+}
+
 :root, html {
   font-family: 'Inter', 'Noto Sans', 'Noto Sans Devanagari', 'Noto Sans Gujarati', 'Noto Sans Tamil', 'Noto Sans Bengali', sans-serif;
   color-scheme: only light;
@@ -69,7 +73,6 @@ body {
   color-scheme: dark;
 }
 
-
 /* Reusable semantic utility classes */
 .krivio-card {
   background-color: #FFFFFF;
@@ -95,6 +98,45 @@ body {
   color: #E2F1E7;
 }
 
+/* Interactive Card with Smooth Lift & Glow */
+.krivio-card-interactive {
+  background-color: #FFFFFF;
+  border: 1px solid rgba(15, 81, 50, 0.12);
+  color: #1A1A1A;
+  transition: all 0.3s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.krivio-card-interactive:hover {
+  transform: translateY(-4px);
+  border-color: rgba(15, 81, 50, 0.35);
+  box-shadow: 0 14px 28px -8px rgba(15, 81, 50, 0.12), 0 4px 10px -2px rgba(15, 81, 50, 0.06);
+}
+
+.dark .krivio-card-interactive {
+  background-color: #13251B;
+  border-color: rgba(52, 211, 153, 0.18);
+  color: #E2F1E7;
+}
+
+.dark .krivio-card-interactive:hover {
+  transform: translateY(-4px);
+  border-color: rgba(52, 211, 153, 0.45);
+  box-shadow: 0 14px 28px -8px rgba(0, 0, 0, 0.5), 0 0 20px -4px rgba(52, 211, 153, 0.15);
+}
+
+/* Glassmorphism utility */
+.krivio-glass {
+  background: rgba(255, 255, 255, 0.85);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+}
+
+.dark .krivio-glass {
+  background: rgba(11, 25, 17, 0.85);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+}
+
 .krivio-input {
   background-color: #F8F9F5;
   border: 1px solid rgba(15, 81, 50, 0.18);
@@ -116,6 +158,63 @@ body {
 .dark .krivio-input:focus {
   border-color: #34D399;
   box-shadow: 0 0 0 2px rgba(52, 211, 153, 0.25);
+}
+
+/* Animations & Keyframes */
+@keyframes float {
+  0%, 100% {
+    transform: translateY(0px);
+  }
+  50% {
+    transform: translateY(-8px);
+  }
+}
+
+@keyframes float-slow {
+  0%, 100% {
+    transform: translateY(0px) rotate(0deg);
+  }
+  50% {
+    transform: translateY(-12px) rotate(1deg);
+  }
+}
+
+@keyframes glow-pulse {
+  0%, 100% {
+    opacity: 0.4;
+    transform: scale(1);
+  }
+  50% {
+    opacity: 0.75;
+    transform: scale(1.05);
+  }
+}
+
+@keyframes shimmer {
+  0% {
+    background-position: -200% 0;
+  }
+  100% {
+    background-position: 200% 0;
+  }
+}
+
+.animate-float {
+  animation: float 4s ease-in-out infinite;
+}
+
+.animate-float-slow {
+  animation: float-slow 6s ease-in-out infinite;
+}
+
+.animate-glow {
+  animation: glow-pulse 4s ease-in-out infinite;
+}
+
+.shimmer-badge {
+  background: linear-gradient(90deg, rgba(212, 175, 55, 0.15) 0%, rgba(212, 175, 55, 0.4) 50%, rgba(212, 175, 55, 0.15) 100%);
+  background-size: 200% 100%;
+  animation: shimmer 3s infinite;
 }
 
 /* Hide scrollbar for clean horizontal swipe on mobile */

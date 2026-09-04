@@ -6,6 +6,7 @@ from backend.models.subscription import Subscription
 from backend.models.government_scheme import GovernmentScheme
 from backend.models.activity import Activity
 from backend.models.image import ProductImage
+from backend.models.voice import VoiceAsset
 
 __all__ = [
     "User",
@@ -15,5 +16,6 @@ __all__ = [
     "Subscription",
     "GovernmentScheme",
     "Activity",
-    "ProductImage"
+    "ProductImage",
+    "VoiceAsset"
 ]

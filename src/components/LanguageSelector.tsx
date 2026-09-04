@@ -78,7 +78,7 @@ export const LanguageSelector: React.FC<LanguageSelectorProps> = ({
       >
         <Globe className="w-3.5 h-3.5 text-[#0F5132] dark:text-emerald-400" />
         <span className="font-poppins">{currentLang.nativeName}</span>
-        {showLabel && (
+        {showLabel && currentLang.nativeName.toLowerCase() !== currentLang.name.toLowerCase() && (
           <span className="hidden sm:inline text-[10px] text-stone-400 dark:text-emerald-400/60 font-inter">
             ({currentLang.name})
           </span>

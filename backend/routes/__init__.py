@@ -9,6 +9,8 @@ from backend.routes.dashboard import router as dashboard_router
 from backend.routes.storefront import router as storefront_router
 from backend.routes.images import router as images_router
 from backend.routes.marketplace import router as marketplace_router
+from backend.routes.voice import router as voice_router
+from backend.routes.whatsapp import router as whatsapp_router
 
 __all__ = [
     "auth_router",
@@ -22,4 +24,6 @@ __all__ = [
     "storefront_router",
     "images_router",
     "marketplace_router",
+    "voice_router",
+    "whatsapp_router",
 ]

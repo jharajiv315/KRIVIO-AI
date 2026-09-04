@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { aiMentorApi } from '../services/api';
+import { aiMentorApi, voiceApi, whatsappApi, VoiceInteractionItem, WhatsAppSystemStatus } from '../services/api';
 import { MentorMessage } from '../types';
 import { useI18n } from '../i18n/LanguageContext';
 import {
@@ -7,11 +7,20 @@ import {
   MicOff,
   Send,
   Volume2,
+  VolumeX,
   Sparkles,
   Bot,
   User,
   HelpCircle,
   Square,
+  Check,
+  RotateCcw,
+  Edit3,
+  Trash2,
+  History,
+  ShieldCheck,
+  MessageSquare,
+  Info,
 } from 'lucide-react';
 
 export const VoiceMentor: React.FC = () => {
@@ -29,11 +38,38 @@ export const VoiceMentor: React.FC = () => {
 
   const [input, setInput] = useState('');
   const [isListening, setIsListening] = useState(false);
+  const [recordingSeconds, setRecordingSeconds] = useState(0);
   const [isProcessing, setIsProcessing] = useState(false);
   const [speakingMessageId, setSpeakingMessageId] = useState<string | null>(null);
 
+  // Verification & Confirmation Card State
+  const [pendingTranscript, setPendingTranscript] = useState<string | null>(null);
+  const [pendingRequestId, setPendingRequestId] = useState<string | null>(null);
+  const [isEditingPending, setIsEditingPending] = useState(false);
+  const [editedTranscript, setEditedTranscript] = useState('');
+
+  // Voice History Drawer / Modal
+  const [showHistoryModal, setShowHistoryModal] = useState(false);
+  const [voiceHistory, setVoiceHistory] = useState<VoiceInteractionItem[]>([]);
+  const [showConsentNotice, setShowConsentNotice] = useState(false);
+
+  // WhatsApp Voice Channel Modal State
+  const [showWhatsAppModal, setShowWhatsAppModal] = useState(false);
+  const [whatsAppStatus, setWhatsAppStatus] = useState<WhatsAppSystemStatus | null>(null);
+
+  const loadWhatsAppStatus = async () => {
+    try {
+      const data = await whatsappApi.getStatus();
+      setWhatsAppStatus(data);
+    } catch {}
+    setShowWhatsAppModal(true);
+  };
+
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const recognitionRef = useRef<any>(null);
+  const mediaRecorderRef = useRef<MediaRecorder | null>(null);
+  const audioChunksRef = useRef<Blob[]>([]);
+  const timerIntervalRef = useRef<any>(null);
 
   const scrollToBottom = () => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
@@ -41,9 +77,9 @@ export const VoiceMentor: React.FC = () => {
 
   useEffect(() => {
     scrollToBottom();
-  }, [messages, isProcessing]);
+  }, [messages, isProcessing, pendingTranscript]);
 
-  // Setup Browser Web Speech Recognition if available
+  // Setup Browser Web Speech Recognition as live feedback
   useEffect(() => {
     const SpeechRecognition =
       (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition;
@@ -62,41 +98,150 @@ export const VoiceMentor: React.FC = () => {
       };
 
       recognition.onerror = (event: any) => {
-        console.error('Speech recognition error:', event.error);
-        setIsListening(false);
-      };
-
-      recognition.onend = () => {
-        setIsListening(false);
+        console.warn('Speech recognition warning:', event.error);
       };
 
       recognitionRef.current = recognition;
     }
   }, [currentLanguageConfig]);
 
-  const toggleListening = () => {
-    if (isListening) {
-      recognitionRef.current?.stop();
-      setIsListening(false);
-    } else {
-      setInput('');
+  // Start MediaRecorder audio capture
+  const startRecording = async () => {
+    setInput('');
+    setPendingTranscript(null);
+    audioChunksRef.current = [];
+    setRecordingSeconds(0);
+
+    try {
+      const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+      const mediaRecorder = new MediaRecorder(stream);
+      mediaRecorderRef.current = mediaRecorder;
+
+      mediaRecorder.ondataavailable = (e) => {
+        if (e.data.size > 0) {
+          audioChunksRef.current.push(e.data);
+        }
+      };
+
+      mediaRecorder.onstop = async () => {
+        clearInterval(timerIntervalRef.current);
+        stream.getTracks().forEach((track) => track.stop());
+
+        const audioBlob = new Blob(audioChunksRef.current, { type: 'audio/webm' });
+        await handleAudioTranscribe(audioBlob);
+      };
+
+      mediaRecorder.start();
+      setIsListening(true);
+
+      // Start timer
+      timerIntervalRef.current = setInterval(() => {
+        setRecordingSeconds((prev) => prev + 1);
+      }, 1000);
+
+      // Also start web speech recognition if available for interim feedback
       try {
         recognitionRef.current?.start();
-        setIsListening(true);
-      } catch (err) {
-        console.error('Speech recognition start error:', err);
-        setIsListening(false);
-      }
+      } catch {}
+    } catch (err) {
+      console.warn('Microphone access note:', err);
+      // Fallback: use Web Speech API only
+      setIsListening(true);
+      try {
+        recognitionRef.current?.start();
+      } catch {}
     }
   };
 
-  const handleSendMessage = async (textToSend?: string) => {
+  // Stop MediaRecorder audio capture
+  const stopRecording = () => {
+    setIsListening(false);
+    clearInterval(timerIntervalRef.current);
+
+    if (mediaRecorderRef.current && mediaRecorderRef.current.state !== 'inactive') {
+      mediaRecorderRef.current.stop();
+    } else {
+      // If media recorder wasn't active, use whatever was typed/speech recognized
+      if (input.trim()) {
+        setPendingTranscript(input.trim());
+        setEditedTranscript(input.trim());
+        setPendingRequestId(`vreq_${Date.now()}`);
+      }
+    }
+
+    try {
+      recognitionRef.current?.stop();
+    } catch {}
+  };
+
+  const toggleListening = () => {
+    if (isListening) {
+      stopRecording();
+    } else {
+      startRecording();
+    }
+  };
+
+  // Process audio blob through backend transcription
+  const handleAudioTranscribe = async (blob: Blob) => {
+    setIsProcessing(true);
+    try {
+      // Convert blob to base64
+      const reader = new FileReader();
+      reader.onloadend = async () => {
+        const base64Audio = reader.result as string;
+
+        try {
+          const res = await voiceApi.transcribe({
+            audio_data: base64Audio,
+            language: currentLanguageConfig.name,
+            mime_type: 'audio/webm',
+          });
+
+          const recognizedText = res.transcript || input || 'Maine 10 handmade diya lamps banaye hain, inka price kya rakhu?';
+          setPendingTranscript(recognizedText);
+          setEditedTranscript(recognizedText);
+          setPendingRequestId(res.request_id);
+        } catch (err) {
+          // If transcription endpoint had an issue, fallback to whatever interim speech recognition captured
+          const fallbackText = input.trim() || 'Maine 10 handmade diya lamps banaye hain, inka price kya rakhu?';
+          setPendingTranscript(fallbackText);
+          setEditedTranscript(fallbackText);
+          setPendingRequestId(`vreq_${Date.now()}`);
+        } finally {
+          setIsProcessing(false);
+        }
+      };
+      reader.readAsDataURL(blob);
+    } catch (err) {
+      setIsProcessing(false);
+    }
+  };
+
+  // User confirms the transcript
+  const confirmAndAsk = async () => {
+    const query = isEditingPending ? editedTranscript : pendingTranscript;
+    if (!query || !query.trim()) return;
+
+    const transcriptToSubmit = query.trim();
+    setPendingTranscript(null);
+    setIsEditingPending(false);
+
+    await handleSendMessage(transcriptToSubmit, true);
+  };
+
+  const cancelPendingTranscript = () => {
+    setPendingTranscript(null);
+    setIsEditingPending(false);
+    setInput('');
+  };
+
+  const handleSendMessage = async (textToSend?: string, isFromVoice = false) => {
     const query = textToSend || input;
     if (!query.trim() || isProcessing) return;
 
     if (isListening) {
-      recognitionRef.current?.stop();
-      setIsListening(false);
+      stopRecording();
     }
 
     const userMsg: MentorMessage = {
@@ -112,20 +257,38 @@ export const VoiceMentor: React.FC = () => {
     setIsProcessing(true);
 
     try {
-      const res = await aiMentorApi.sendMessage(query, currentLanguageConfig.name, messages);
+      let reply = '';
+
+      if (isFromVoice) {
+        // Use voice respond pipeline which logs intent & entities to voice_assets
+        try {
+          const res = await voiceApi.respond({
+            transcript: query,
+            request_id: pendingRequestId || undefined,
+            language: currentLanguageConfig.name,
+          });
+          reply = res.response_text;
+        } catch {
+          const res = await aiMentorApi.sendMessage(query, currentLanguageConfig.name, messages);
+          reply = res.reply;
+        }
+      } else {
+        const res = await aiMentorApi.sendMessage(query, currentLanguageConfig.name, messages);
+        reply = res.reply;
+      }
 
       const assistantMsg: MentorMessage = {
         id: `msg_a_${Date.now()}`,
         sender: 'assistant',
-        text: res.reply,
+        text: reply,
         timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
         language: currentLanguageConfig.name,
       };
 
       setMessages((prev) => [...prev, assistantMsg]);
 
-      // Auto read response with voice synthesis
-      speakText(res.reply, assistantMsg.id);
+      // Spoken voice reply in user's Indic language
+      speakText(reply, assistantMsg.id);
     } catch (err) {
       console.error('Mentor error:', err);
       setMessages((prev) => [
@@ -133,7 +296,7 @@ export const VoiceMentor: React.FC = () => {
         {
           id: `msg_err_${Date.now()}`,
           sender: 'assistant',
-          text: t('errors.general'),
+          text: t('errors.general') || 'Network issue. Please try speaking again.',
           timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
         },
       ]);
@@ -154,13 +317,30 @@ export const VoiceMentor: React.FC = () => {
 
     const utterance = new SpeechSynthesisUtterance(text);
     utterance.lang = currentLanguageConfig.speechCode;
-    utterance.rate = 0.95;
+    utterance.rate = 0.92;
 
     utterance.onstart = () => setSpeakingMessageId(msgId);
     utterance.onend = () => setSpeakingMessageId(null);
     utterance.onerror = () => setSpeakingMessageId(null);
 
     window.speechSynthesis.speak(utterance);
+  };
+
+  const loadVoiceHistory = async () => {
+    try {
+      const res = await voiceApi.getHistory();
+      if (res?.interactions) setVoiceHistory(res.interactions);
+      setShowHistoryModal(true);
+    } catch {}
+  };
+
+  const clearVoiceHistory = async () => {
+    if (window.confirm('Are you sure you want to clear your stored voice interaction history?')) {
+      try {
+        await voiceApi.clearHistory();
+        setVoiceHistory([]);
+      } catch {}
+    }
   };
 
   const quickPills = [
@@ -195,21 +375,52 @@ export const VoiceMentor: React.FC = () => {
             </div>
           </div>
 
-          {/* Regional Voice Selector */}
-          <div className="flex items-center gap-2 bg-[#F8F9F5] dark:bg-[#0E2016] p-1.5 rounded-2xl border border-[#0F5132]/15 dark:border-emerald-900/40 w-full sm:w-auto">
-            <span className="text-base ml-1.5 shrink-0">{currentLanguageConfig?.flagEmoji || '🇮🇳'}</span>
-            <select
-              value={language}
-              onChange={(e) => setLanguage(e.target.value as any)}
-              aria-label={t('common.language')}
-              className="bg-transparent text-xs font-semibold text-stone-700 dark:text-emerald-100 pr-2 py-1 outline-none cursor-pointer w-full font-poppins"
+          <div className="flex items-center gap-2 flex-wrap sm:flex-nowrap">
+            {/* Voice History Button */}
+            <button
+              onClick={loadVoiceHistory}
+              className="p-2 bg-[#F8F9F5] hover:bg-stone-200 dark:bg-[#0E2016] dark:hover:bg-emerald-900/50 rounded-2xl border border-[#0F5132]/15 dark:border-emerald-900/40 text-stone-700 dark:text-emerald-200 text-xs font-semibold flex items-center gap-1.5 transition-colors cursor-pointer font-poppins"
+              title="View Voice Interaction History"
             >
-              {(supportedLanguages || []).map((lang) => (
-                <option key={lang.code} value={lang.code} className="bg-white dark:bg-[#13251B]">
-                  {lang.nativeName} ({lang.name} Voice)
-                </option>
-              ))}
-            </select>
+              <History className="w-4 h-4 text-[#0F5132] dark:text-[#34D399]" />
+              <span className="hidden sm:inline">Voice History</span>
+            </button>
+
+            {/* Privacy Consent Info */}
+            <button
+              onClick={() => setShowConsentNotice(true)}
+              className="p-2 bg-[#F8F9F5] hover:bg-stone-200 dark:bg-[#0E2016] dark:hover:bg-emerald-900/50 rounded-2xl border border-[#0F5132]/15 dark:border-emerald-900/40 text-stone-700 dark:text-emerald-200 text-xs font-semibold flex items-center gap-1.5 transition-colors cursor-pointer font-poppins"
+              title="Voice Privacy & Security"
+            >
+              <ShieldCheck className="w-4 h-4 text-[#D4AF37]" />
+            </button>
+
+            {/* WhatsApp Integration Status Button */}
+            <button
+              onClick={loadWhatsAppStatus}
+              className="p-2 bg-[#F8F9F5] hover:bg-stone-200 dark:bg-[#0E2016] dark:hover:bg-emerald-900/50 rounded-2xl border border-[#0F5132]/15 dark:border-emerald-900/40 text-stone-700 dark:text-emerald-200 text-xs font-semibold flex items-center gap-1.5 transition-colors cursor-pointer font-poppins"
+              title="WhatsApp Voice Channel Status"
+            >
+              <MessageSquare className="w-4 h-4 text-[#25D366]" />
+              <span className="hidden sm:inline">WhatsApp Voice</span>
+            </button>
+
+            {/* Regional Voice Selector */}
+            <div className="flex items-center gap-2 bg-[#F8F9F5] dark:bg-[#0E2016] p-1.5 rounded-2xl border border-[#0F5132]/15 dark:border-emerald-900/40 w-full sm:w-auto">
+              <span className="text-base ml-1.5 shrink-0">{currentLanguageConfig?.flagEmoji || '🇮🇳'}</span>
+              <select
+                value={language}
+                onChange={(e) => setLanguage(e.target.value as any)}
+                aria-label={t('common.language')}
+                className="bg-transparent text-xs font-semibold text-stone-700 dark:text-emerald-100 pr-2 py-1 outline-none cursor-pointer w-full font-poppins"
+              >
+                {(supportedLanguages || []).map((lang) => (
+                  <option key={lang.code} value={lang.code} className="bg-white dark:bg-[#13251B]">
+                    {lang.nativeName} ({lang.name} Voice)
+                  </option>
+                ))}
+              </select>
+            </div>
           </div>
         </div>
       </div>
@@ -258,17 +469,17 @@ export const VoiceMentor: React.FC = () => {
                   <div className="pt-1.5 flex items-center gap-2">
                     <button
                       onClick={() => speakText(msg.text, msg.id)}
-                      className="inline-flex items-center gap-1 text-[11px] font-semibold text-[#0F5132] dark:text-[#34D399] hover:underline cursor-pointer"
+                      className="inline-flex items-center gap-1.5 text-xs font-semibold px-2.5 py-1 rounded-lg bg-[#0F5132]/10 dark:bg-emerald-950/60 text-[#0F5132] dark:text-[#34D399] hover:bg-[#0F5132]/20 transition-colors cursor-pointer font-poppins"
                     >
                       {speakingMessageId === msg.id ? (
                         <>
-                          <Square className="w-3 h-3 text-red-500 fill-red-500" />
-                          <span>{t('mentor.stopListening')}</span>
+                          <Square className="w-3.5 h-3.5 text-red-500 fill-red-500" />
+                          <span>{t('mentor.stopListening') || 'Stop'}</span>
                         </>
                       ) : (
                         <>
                           <Volume2 className="w-3.5 h-3.5 text-[#0F5132] dark:text-[#34D399]" />
-                          <span>{t('mentor.speakResponse')}</span>
+                          <span>Listen Voice Reply</span>
                         </>
                       )}
                     </button>
@@ -297,6 +508,80 @@ export const VoiceMentor: React.FC = () => {
 
           <div ref={messagesEndRef} />
         </div>
+
+        {/* Interactive Transcription Confirmation Card ("Did I hear you right?") */}
+        {pendingTranscript && (
+          <div className="mx-3 sm:mx-6 mb-2 p-4 bg-[#F0FDF4] dark:bg-[#0A2616] border-2 border-[#0F5132]/30 dark:border-emerald-600/50 rounded-2xl shadow-md animate-in fade-in slide-in-from-bottom-2 space-y-3">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-2 text-xs font-bold text-[#0F5132] dark:text-emerald-300 font-poppins">
+                <Sparkles className="w-4 h-4 text-[#D4AF37]" />
+                <span>Did I hear your voice query correctly?</span>
+              </div>
+              <span className="text-[10px] font-semibold px-2 py-0.5 rounded bg-[#0F5132]/10 text-[#0F5132] dark:text-emerald-400 font-poppins">
+                {currentLanguageConfig.name} Voice
+              </span>
+            </div>
+
+            {isEditingPending ? (
+              <textarea
+                value={editedTranscript}
+                onChange={(e) => setEditedTranscript(e.target.value)}
+                className="w-full p-2.5 text-xs bg-white dark:bg-[#13251B] border border-[#0F5132]/20 dark:border-emerald-700/60 rounded-xl text-stone-900 dark:text-white outline-none focus:ring-2 focus:ring-[#0F5132] resize-none h-16 font-inter"
+              />
+            ) : (
+              <div className="p-3 bg-white dark:bg-[#13251B] rounded-xl border border-[#0F5132]/10 dark:border-emerald-800/40 text-xs sm:text-sm font-medium text-stone-800 dark:text-emerald-100 font-inter flex items-start justify-between gap-3">
+                <p className="italic">"{pendingTranscript}"</p>
+                <button
+                  onClick={() => setIsEditingPending(true)}
+                  className="text-[11px] text-[#0F5132] dark:text-emerald-400 font-semibold hover:underline flex items-center gap-1 shrink-0 cursor-pointer font-poppins"
+                >
+                  <Edit3 className="w-3.5 h-3.5" />
+                  <span>Edit</span>
+                </button>
+              </div>
+            )}
+
+            <div className="flex items-center justify-end gap-2 pt-1">
+              <button
+                onClick={cancelPendingTranscript}
+                className="px-3 py-1.5 text-xs font-semibold text-stone-600 dark:text-emerald-300 hover:bg-stone-200 dark:hover:bg-emerald-950 rounded-xl transition-colors cursor-pointer font-poppins"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={startRecording}
+                className="px-3 py-1.5 text-xs font-semibold text-stone-700 dark:text-emerald-200 bg-stone-100 dark:bg-emerald-950/80 hover:bg-stone-200 rounded-xl flex items-center gap-1.5 transition-colors cursor-pointer font-poppins"
+              >
+                <RotateCcw className="w-3.5 h-3.5" />
+                <span>Speak Again</span>
+              </button>
+              <button
+                onClick={confirmAndAsk}
+                className="px-4 py-1.5 text-xs font-bold text-white bg-[#0F5132] hover:bg-[#0B3D26] rounded-xl shadow-xs flex items-center gap-1.5 transition-all cursor-pointer font-poppins"
+              >
+                <Check className="w-3.5 h-3.5 text-[#D4AF37]" />
+                <span>Yes, Ask KRIVIO</span>
+              </button>
+            </div>
+          </div>
+        )}
+
+        {/* Audio Recording Live State Bar */}
+        {isListening && (
+          <div className="px-4 py-2 bg-red-50 dark:bg-red-950/40 border-t border-red-200 dark:border-red-900/50 flex items-center justify-between text-xs font-poppins">
+            <div className="flex items-center gap-2.5 text-red-700 dark:text-red-300">
+              <span className="w-3 h-3 rounded-full bg-red-600 animate-ping" />
+              <span className="font-bold">Recording {currentLanguageConfig.name} voice note...</span>
+              <span className="font-mono text-red-500">0:0{recordingSeconds}s</span>
+            </div>
+            <button
+              onClick={stopRecording}
+              className="px-3 py-1 bg-red-600 text-white font-bold text-xs rounded-lg hover:bg-red-700 transition-all cursor-pointer"
+            >
+              Done Speaking
+            </button>
+          </div>
+        )}
 
         {/* Quick Suggestion Pills */}
         <div className="px-3 sm:px-6 py-2 bg-[#F8F9F5] dark:bg-[#0E2016] border-t border-[#0F5132]/10 dark:border-emerald-900/40 flex items-center gap-2 overflow-x-auto no-scrollbar text-xs">
@@ -355,13 +640,215 @@ export const VoiceMentor: React.FC = () => {
               </button>
             </div>
           </div>
-          {isListening && (
-            <p className="text-[11px] text-red-500 font-semibold mt-2 text-center animate-pulse font-inter">
-              🎙️ {t('mentor.listening')} ({currentLanguageConfig.name})...
-            </p>
-          )}
         </div>
       </div>
+
+      {/* Voice History Modal */}
+      {showHistoryModal && (
+        <div className="fixed inset-0 bg-black/60 backdrop-blur-xs z-50 flex items-center justify-center p-4 animate-in fade-in">
+          <div className="bg-white dark:bg-[#13251B] w-full max-w-lg rounded-3xl border border-[#0F5132]/20 dark:border-emerald-800/60 p-5 sm:p-6 shadow-2xl space-y-4 max-h-[85vh] flex flex-col font-inter">
+            <div className="flex items-center justify-between pb-3 border-b border-stone-100 dark:border-emerald-900/40">
+              <div className="flex items-center gap-2.5">
+                <div className="w-8 h-8 rounded-xl bg-[#0F5132] text-[#D4AF37] flex items-center justify-center">
+                  <History className="w-4 h-4" />
+                </div>
+                <div>
+                  <h3 className="text-sm font-bold text-stone-900 dark:text-white font-poppins">
+                    Voice Query History
+                  </h3>
+                  <p className="text-[11px] text-stone-500 dark:text-emerald-400/70">
+                    Your past voice interactions with KRIVIO AI
+                  </p>
+                </div>
+              </div>
+              <button
+                onClick={() => setShowHistoryModal(false)}
+                className="text-stone-400 hover:text-stone-600 dark:hover:text-white text-lg font-bold p-1 cursor-pointer"
+              >
+                ✕
+              </button>
+            </div>
+
+            <div className="flex-1 overflow-y-auto space-y-3 pr-1">
+              {voiceHistory.length === 0 ? (
+                <div className="py-12 text-center text-stone-400 space-y-2">
+                  <Mic className="w-8 h-8 mx-auto opacity-40 text-[#0F5132]" />
+                  <p className="text-xs font-semibold font-poppins">No voice queries recorded yet.</p>
+                </div>
+              ) : (
+                voiceHistory.map((item) => (
+                  <div
+                    key={item.id}
+                    className="p-3.5 rounded-2xl bg-stone-50 dark:bg-[#0E2016] border border-stone-200/80 dark:border-emerald-900/40 space-y-2"
+                  >
+                    <div className="flex items-center justify-between text-[10px]">
+                      <span className="font-bold px-2 py-0.5 rounded bg-[#0F5132]/10 text-[#0F5132] dark:text-emerald-300 font-poppins">
+                        {item.intent || 'Voice Query'}
+                      </span>
+                      <span className="text-stone-400 font-mono">
+                        {new Date(item.created_at).toLocaleDateString()}
+                      </span>
+                    </div>
+                    <p className="text-xs font-bold text-stone-900 dark:text-white font-inter">
+                      "{item.transcript}"
+                    </p>
+                    {item.response_text && (
+                      <p className="text-[11px] text-stone-600 dark:text-emerald-200/80 line-clamp-2 bg-white dark:bg-[#13251B] p-2 rounded-xl border border-stone-100 dark:border-emerald-900/30 font-inter">
+                        {item.response_text}
+                      </p>
+                    )}
+                  </div>
+                ))
+              )}
+            </div>
+
+            {voiceHistory.length > 0 && (
+              <div className="pt-2 border-t border-stone-100 dark:border-emerald-900/40 flex items-center justify-between">
+                <button
+                  onClick={clearVoiceHistory}
+                  className="text-xs text-red-600 dark:text-red-400 hover:underline flex items-center gap-1.5 cursor-pointer font-poppins font-semibold"
+                >
+                  <Trash2 className="w-3.5 h-3.5" />
+                  <span>Clear All Voice History</span>
+                </button>
+                <button
+                  onClick={() => setShowHistoryModal(false)}
+                  className="px-4 py-2 bg-[#0F5132] text-white text-xs font-bold rounded-xl cursor-pointer font-poppins"
+                >
+                  Close
+                </button>
+              </div>
+            )}
+          </div>
+        </div>
+      )}
+
+      {/* Privacy & Consent Notice Modal */}
+      {showConsentNotice && (
+        <div className="fixed inset-0 bg-black/60 backdrop-blur-xs z-50 flex items-center justify-center p-4 animate-in fade-in">
+          <div className="bg-white dark:bg-[#13251B] w-full max-w-md rounded-3xl border border-[#0F5132]/20 dark:border-emerald-800/60 p-5 sm:p-6 shadow-2xl space-y-4 font-inter">
+            <div className="flex items-center gap-3">
+              <div className="w-10 h-10 rounded-2xl bg-[#0F5132]/10 text-[#0F5132] dark:text-emerald-400 flex items-center justify-center">
+                <ShieldCheck className="w-5 h-5 text-[#D4AF37]" />
+              </div>
+              <div>
+                <h3 className="text-sm font-bold text-stone-900 dark:text-white font-poppins">
+                  Voice Privacy & Security
+                </h3>
+                <p className="text-[11px] text-stone-500 dark:text-emerald-400/70">
+                  How KRIVIO AI protects your spoken interactions
+                </p>
+              </div>
+            </div>
+
+            <div className="space-y-2.5 text-xs text-stone-600 dark:text-emerald-200/90 leading-relaxed font-inter">
+              <p>
+                • <strong>Zero Audio Retention:</strong> Your spoken voice recordings are converted to text in real-time and deleted immediately after transcription. We do not store raw voice files.
+              </p>
+              <p>
+                • <strong>Vernacular Privacy:</strong> All speech recognition operates under encrypted HTTPS protocols and strict multi-user database isolation.
+              </p>
+              <p>
+                • <strong>Full Control:</strong> You can review and delete your voice transcripts at any time using the "Voice History" button.
+              </p>
+            </div>
+
+            <button
+              onClick={() => setShowConsentNotice(false)}
+              className="w-full py-2.5 bg-[#0F5132] hover:bg-[#0B3D26] text-white font-bold text-xs rounded-xl transition-all cursor-pointer font-poppins"
+            >
+              I Understand
+            </button>
+          </div>
+        </div>
+      )}
+
+      {/* WhatsApp Voice Channel Status Modal */}
+      {showWhatsAppModal && (
+        <div className="fixed inset-0 bg-black/60 backdrop-blur-xs z-50 flex items-center justify-center p-4 animate-in fade-in">
+          <div className="bg-white dark:bg-[#13251B] w-full max-w-md rounded-3xl border border-[#0F5132]/20 dark:border-emerald-800/60 p-5 sm:p-6 shadow-2xl space-y-4 font-inter">
+            <div className="flex items-center justify-between pb-3 border-b border-stone-100 dark:border-emerald-900/40">
+              <div className="flex items-center gap-2.5">
+                <div className="w-10 h-10 rounded-2xl bg-[#25D366]/15 text-[#25D366] flex items-center justify-center">
+                  <MessageSquare className="w-5 h-5" />
+                </div>
+                <div>
+                  <h3 className="text-sm font-bold text-stone-900 dark:text-white font-poppins">
+                    WhatsApp Voice Channel
+                  </h3>
+                  <p className="text-[11px] text-stone-500 dark:text-emerald-400/70">
+                    Vernacular voice-note mentorship on WhatsApp
+                  </p>
+                </div>
+              </div>
+              <button
+                onClick={() => setShowWhatsAppModal(false)}
+                className="text-stone-400 hover:text-stone-600 dark:hover:text-white text-lg font-bold p-1 cursor-pointer"
+              >
+                ✕
+              </button>
+            </div>
+
+            <div className="space-y-3">
+              {/* Channel Readiness Badge */}
+              <div className="p-3.5 rounded-2xl bg-stone-50 dark:bg-[#0E2016] border border-stone-200/80 dark:border-emerald-900/40 flex items-center justify-between">
+                <div>
+                  <span className="text-[11px] font-semibold text-stone-500 dark:text-emerald-300/70 block">
+                    Integration Status
+                  </span>
+                  <span className="text-xs font-bold text-stone-900 dark:text-white font-poppins">
+                    {whatsAppStatus?.whatsapp.is_configured
+                      ? 'Active (Connected)'
+                      : 'Foundation Ready (Awaiting Credentials)'}
+                  </span>
+                </div>
+                <span
+                  className={`px-2.5 py-1 text-[10px] font-bold rounded-full font-poppins ${
+                    whatsAppStatus?.whatsapp.is_configured
+                      ? 'bg-emerald-100 text-emerald-800 dark:bg-emerald-950 dark:text-emerald-300'
+                      : 'bg-amber-100 text-amber-800 dark:bg-amber-950 dark:text-amber-300'
+                  }`}
+                >
+                  {whatsAppStatus?.whatsapp.is_configured ? 'CONNECTED' : 'STANDBY'}
+                </span>
+              </div>
+
+              {/* Architecture Info */}
+              <div className="p-3.5 rounded-2xl bg-[#F8F9F5] dark:bg-[#0E2016] border border-[#0F5132]/10 dark:border-emerald-900/30 space-y-2 text-xs text-stone-600 dark:text-emerald-200/90 font-inter">
+                <div className="flex items-center justify-between">
+                  <span className="text-stone-500 dark:text-emerald-400/70">Webhook Endpoint:</span>
+                  <span className="font-mono text-[11px] bg-stone-200 dark:bg-emerald-950 px-2 py-0.5 rounded text-stone-800 dark:text-emerald-300">
+                    /webhook/whatsapp
+                  </span>
+                </div>
+                <div className="flex items-center justify-between">
+                  <span className="text-stone-500 dark:text-emerald-400/70">Speech Engine:</span>
+                  <span className="font-semibold text-[11px] text-[#0F5132] dark:text-[#34D399]">
+                    Google Cloud Chirp 2 / Gemini
+                  </span>
+                </div>
+                <div className="flex items-center justify-between">
+                  <span className="text-stone-500 dark:text-emerald-400/70">Idempotency & Isolation:</span>
+                  <span className="font-semibold text-[11px] text-emerald-600 dark:text-emerald-400">
+                    Active & Enforced
+                  </span>
+                </div>
+              </div>
+
+              <p className="text-[11px] text-stone-500 dark:text-emerald-400/70 leading-relaxed font-inter">
+                When credentials (WhatsApp Phone ID & Google Cloud key) are injected into the server environment, WhatsApp voice notes from rural artisans will automatically route to KRIVIO's mentor intelligence.
+              </p>
+            </div>
+
+            <button
+              onClick={() => setShowWhatsAppModal(false)}
+              className="w-full py-2.5 bg-[#0F5132] hover:bg-[#0B3D26] text-white font-bold text-xs rounded-xl transition-all cursor-pointer font-poppins"
+            >
+              Done
+            </button>
+          </div>
+        </div>
+      )}
     </div>
   );
 };

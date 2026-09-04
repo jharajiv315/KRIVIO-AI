@@ -13,6 +13,8 @@ from backend.routes import (
     storefront_router,
     images_router,
     marketplace_router,
+    voice_router,
+    whatsapp_router,
 )
 
 app = FastAPI(
@@ -102,6 +104,8 @@ app.include_router(dashboard_router)
 app.include_router(storefront_router)
 app.include_router(images_router)
 app.include_router(marketplace_router)
+app.include_router(voice_router)
+app.include_router(whatsapp_router)
 
 if __name__ == "__main__":
     import uvicorn

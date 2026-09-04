@@ -27,8 +27,9 @@ export const removeStoredToken = (): void => {
   localStorage.removeItem(TOKEN_KEY);
 };
 
-const API_BASE = (import.meta.env.VITE_API_URL || '').replace(/\/$/, '');
-const GEMINI_KEY = import.meta.env.VITE_GEMINI_API_KEY || '';
+const env = (typeof import.meta !== 'undefined' && import.meta.env) ? import.meta.env : (typeof process !== 'undefined' ? (process.env as any || {}) : {});
+const API_BASE = (env.VITE_API_URL || '').replace(/\/$/, '');
+const GEMINI_KEY = env.VITE_GEMINI_API_KEY || '';
 
 let clientAI: GoogleGenAI | null = null;
 const getClientAI = () => {
@@ -49,8 +50,25 @@ const fetchWithAuth = async (url: string, options: RequestInit = {}) => {
   const targetUrl = url.startsWith('http') ? url : `${API_BASE}${url}`;
   const response = await fetch(targetUrl, { ...options, headers });
   if (!response.ok) {
-    const errorData = await response.json().catch(() => ({}));
-    throw new Error(errorData.error || errorData.detail || `HTTP error ${response.status}`);
+    let errorMessage = `HTTP error ${response.status}`;
+    try {
+      const errorData = await response.json();
+      errorMessage = errorData.error || errorData.detail || errorData.message || errorMessage;
+    } catch {
+      try {
+        const text = await response.text();
+        if (text && text.trim().length > 0 && text.length < 250 && !text.includes('<!DOCTYPE') && !text.includes('<html')) {
+          errorMessage = text.trim();
+        } else if (response.status === 504 || response.status === 408) {
+          errorMessage = 'The server took too long to respond. Please try again with a compressed photo.';
+        } else if (response.status === 413) {
+          errorMessage = 'The photo payload is too large. Please select a smaller or compressed photo.';
+        } else if (response.status >= 500) {
+          errorMessage = 'The enhancement service is temporarily busy. Your photo is safe, please try again.';
+        }
+      } catch {}
+    }
+    throw new Error(errorMessage);
   }
   return response.json();
 };
@@ -642,3 +660,124 @@ export const storefrontApi = {
     }
   },
 };
+
+export interface VoiceInteractionItem {
+  id: string;
+  user_id: string;
+  transcript: string;
+  intent?: string;
+  entities?: Record<string, any>;
+  response_text?: string;
+  response_audio?: string | null;
+  created_at: string;
+}
+
+export const voiceApi = {
+  transcribe: async (payload: {
+    audio_data?: string;
+    language?: string;
+    mime_type?: string;
+  }): Promise<{
+    success: boolean;
+    transcript: string;
+    request_id: string;
+    need_confirmation: boolean;
+    detected_language: string;
+    confidence: number;
+  }> => {
+    return await fetchWithAuth('/api/voice/transcribe', {
+      method: 'POST',
+      body: JSON.stringify(payload),
+    });
+  },
+
+  respond: async (payload: {
+    transcript: string;
+    request_id?: string;
+    language?: string;
+    context?: any;
+    need_audio?: boolean;
+  }): Promise<{
+    success: boolean;
+    asset_id: string;
+    intent: string;
+    entities: Record<string, any>;
+    response_text: string;
+    response_audio: string | null;
+    language: string;
+  }> => {
+    return await fetchWithAuth('/api/voice/respond', {
+      method: 'POST',
+      body: JSON.stringify(payload),
+    });
+  },
+
+  listen: async (payload: {
+    text: string;
+    language?: string;
+  }): Promise<{
+    success: boolean;
+    audio_data: string | null;
+    format: string;
+    text: string;
+    language: string;
+  }> => {
+    return await fetchWithAuth('/api/voice/listen', {
+      method: 'POST',
+      body: JSON.stringify(payload),
+    });
+  },
+
+  getHistory: async (): Promise<{ success: boolean; interactions: VoiceInteractionItem[] }> => {
+    return await fetchWithAuth('/api/voice/history');
+  },
+
+  clearHistory: async (): Promise<{ success: boolean; message: string }> => {
+    return await fetchWithAuth('/api/voice/history', {
+      method: 'DELETE',
+    });
+  },
+};
+
+export interface WhatsAppSystemStatus {
+  whatsapp: {
+    status: 'configured' | 'unconfigured';
+    is_configured: boolean;
+    has_access_token: boolean;
+    has_phone_number_id: boolean;
+    has_verify_token: boolean;
+    graph_api_version: string;
+  };
+  speech: {
+    active_provider: string;
+    is_configured: boolean;
+  };
+  webhook_endpoint: string;
+  ready_for_credentials: boolean;
+}
+
+export const whatsappApi = {
+  getStatus: async (): Promise<WhatsAppSystemStatus> => {
+    try {
+      return await fetchWithAuth('/api/whatsapp/status');
+    } catch {
+      return {
+        whatsapp: {
+          status: 'unconfigured',
+          is_configured: false,
+          has_access_token: false,
+          has_phone_number_id: false,
+          has_verify_token: false,
+          graph_api_version: 'v21.0',
+        },
+        speech: {
+          active_provider: 'gemini_audio',
+          is_configured: true,
+        },
+        webhook_endpoint: '/webhook/whatsapp',
+        ready_for_credentials: true,
+      };
+    }
+  },
+};
+
