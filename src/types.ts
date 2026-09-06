@@ -82,6 +82,7 @@ export interface Product {
   hsnCode?: string;
   originState?: string;
   status: 'draft' | 'published' | 'archived';
+  marketplaces?: string[];
   createdAt: string;
   updatedAt: string;
 }

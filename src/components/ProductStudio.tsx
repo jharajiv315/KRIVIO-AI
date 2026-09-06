@@ -2,6 +2,7 @@ import React, { useEffect, useState } from 'react';
 import { productsApi } from '../services/api';
 import { Product } from '../types';
 import { useI18n } from '../i18n/LanguageContext';
+import { useAuth } from '../context/AuthContext';
 import {
   Package,
   Plus,
@@ -19,6 +20,8 @@ import {
 
 export const ProductStudio: React.FC = () => {
   const { t, formatCurrency, currentLanguageConfig } = useI18n();
+  const { user, openAuthModal } = useAuth();
+  const isAuthenticated = !!user;
   const [products, setProducts] = useState<Product[]>([]);
   const [loading, setLoading] = useState(true);
   const [modalOpen, setModalOpen] = useState(false);
@@ -152,7 +155,7 @@ export const ProductStudio: React.FC = () => {
         const img = new Image();
         img.onload = () => {
           const canvas = document.createElement('canvas');
-          const maxDim = 1200;
+          const maxDim = 900;
           let width = img.width;
           let height = img.height;
           if (width > maxDim || height > maxDim) {
@@ -172,7 +175,7 @@ export const ProductStudio: React.FC = () => {
             return;
           }
           ctx.drawImage(img, 0, 0, width, height);
-          resolve(canvas.toDataURL('image/jpeg', 0.85));
+          resolve(canvas.toDataURL('image/jpeg', 0.75));
         };
         img.onerror = reject;
         img.src = e.target?.result as string;
@@ -319,6 +322,24 @@ export const ProductStudio: React.FC = () => {
           <span>{t('product.addProduct')}</span>
         </button>
       </div>
+
+      {!isAuthenticated && (
+        <div className="p-3.5 bg-emerald-50/70 dark:bg-emerald-950/40 border border-emerald-200 dark:border-emerald-800/60 rounded-2xl flex flex-col sm:flex-row sm:items-center justify-between gap-2.5 text-xs text-emerald-900 dark:text-emerald-200 font-inter">
+          <div className="flex items-center gap-2">
+            <CheckCircle2 className="w-4 h-4 text-[#0F5132] dark:text-emerald-400 shrink-0" />
+            <span>
+              <strong>Guest Mode:</strong> You can add and organize products right now. All listings are preserved in local storage.
+            </span>
+          </div>
+          <button
+            type="button"
+            onClick={openAuthModal}
+            className="px-3.5 py-1.5 bg-[#0F5132] hover:bg-[#0B3D26] text-white text-[11px] font-semibold rounded-lg shrink-0 transition-colors font-poppins cursor-pointer"
+          >
+            Sign In with Google
+          </button>
+        </div>
+      )}
 
       {warningMsg && (
         <div className="p-4 bg-amber-50 dark:bg-amber-950/50 border border-amber-200 dark:border-amber-800 rounded-2xl flex items-center justify-between text-xs text-amber-800 dark:text-amber-300">
@@ -565,7 +586,7 @@ export const ProductStudio: React.FC = () => {
             </div>
 
             {/* Scrollable Form Body */}
-            <form id="product-form" onSubmit={handleSaveProduct} className="flex-1 overflow-y-auto px-5 sm:px-7 py-5 space-y-5">
+            <form id="product-form" onSubmit={handleSaveProduct} noValidate className="flex-1 overflow-y-auto px-5 sm:px-7 py-5 space-y-5">
               {formError && (
                 <div className="p-3.5 bg-red-50 dark:bg-red-950/60 border border-red-200 dark:border-red-800 rounded-xl text-xs text-red-700 dark:text-red-300 flex items-center gap-2">
                   <AlertCircle className="w-4 h-4 shrink-0" />
@@ -671,7 +692,7 @@ export const ProductStudio: React.FC = () => {
                   <input
                     type="number"
                     min="0"
-                    step="1"
+                    step="any"
                     value={price}
                     onChange={(e) => setPrice(Number(e.target.value))}
                     required
@@ -686,7 +707,7 @@ export const ProductStudio: React.FC = () => {
                   <input
                     type="number"
                     min="0"
-                    step="1"
+                    step="any"
                     value={stock}
                     onChange={(e) => setStock(Number(e.target.value))}
                     required
@@ -792,29 +813,41 @@ export const ProductStudio: React.FC = () => {
             </form>
 
             {/* Sticky Action Footer */}
-            <div className="px-5 sm:px-7 py-3.5 sm:py-4 border-t border-stone-200/80 dark:border-emerald-800/50 flex items-center justify-end gap-3 bg-stone-50/95 dark:bg-[#0E2016]/95 backdrop-blur-xs shrink-0">
-              <button
-                type="button"
-                onClick={() => setModalOpen(false)}
-                className="px-5 py-2.5 bg-white dark:bg-[#183023] hover:bg-stone-100 dark:hover:bg-emerald-900/40 border border-stone-200 dark:border-emerald-800/60 text-stone-700 dark:text-emerald-200 font-semibold text-xs rounded-xl transition-colors font-poppins cursor-pointer"
-              >
-                {t('common.cancel')}
-              </button>
-              <button
-                type="submit"
-                form="product-form"
-                disabled={saving}
-                className="px-6 py-2.5 bg-[#0F5132] hover:bg-[#0B3D26] disabled:opacity-50 text-white font-semibold text-xs rounded-xl shadow-md transition-all font-poppins cursor-pointer flex items-center gap-2 active:scale-98"
-              >
-                {saving ? (
-                  <>
-                    <div className="w-3.5 h-3.5 border-2 border-white border-t-transparent rounded-full animate-spin" />
-                    <span>{t('common.saving') || 'Saving...'}</span>
-                  </>
-                ) : (
-                  <span>{editingId ? (t('common.save') || 'Save Changes') : (t('product.saveProduct') || 'Save Product')}</span>
-                )}
-              </button>
+            <div className="px-5 sm:px-7 py-3.5 sm:py-4 border-t border-stone-200/80 dark:border-emerald-800/50 flex flex-col gap-3 bg-stone-50/95 dark:bg-[#0E2016]/95 backdrop-blur-xs shrink-0">
+              {formError && (
+                <div className="p-2.5 bg-red-50 dark:bg-red-950/80 border border-red-200 dark:border-red-800 rounded-xl text-xs text-red-700 dark:text-red-300 flex items-center gap-2">
+                  <AlertCircle className="w-4 h-4 shrink-0" />
+                  <span>{formError}</span>
+                </div>
+              )}
+              <div className="flex items-center justify-end gap-3">
+                <button
+                  type="button"
+                  onClick={() => setModalOpen(false)}
+                  className="px-5 py-2.5 bg-white dark:bg-[#183023] hover:bg-stone-100 dark:hover:bg-emerald-900/40 border border-stone-200 dark:border-emerald-800/60 text-stone-700 dark:text-emerald-200 font-semibold text-xs rounded-xl transition-colors font-poppins cursor-pointer"
+                >
+                  {t('common.cancel')}
+                </button>
+                <button
+                  type="button"
+                  id="btn-save-product-submit"
+                  disabled={saving}
+                  onClick={(e) => {
+                    e.preventDefault();
+                    handleSaveProduct();
+                  }}
+                  className="px-6 py-2.5 bg-[#0F5132] hover:bg-[#0B3D26] disabled:opacity-50 text-white font-semibold text-xs rounded-xl shadow-md transition-all font-poppins cursor-pointer flex items-center gap-2 active:scale-98"
+                >
+                  {saving ? (
+                    <>
+                      <div className="w-3.5 h-3.5 border-2 border-white border-t-transparent rounded-full animate-spin" />
+                      <span>{t('common.saving') || 'Saving...'}</span>
+                    </>
+                  ) : (
+                    <span>{editingId ? (t('common.save') || 'Save Changes') : (t('product.saveProduct') || 'Save Product')}</span>
+                  )}
+                </button>
+              </div>
             </div>
           </div>
         </div>
