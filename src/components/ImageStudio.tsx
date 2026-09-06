@@ -14,6 +14,7 @@ import {
   Check,
   RefreshCw,
   Wand2,
+  AlertCircle,
 } from 'lucide-react';
 import { ProductIdentityWizard } from './ProductIdentityWizard';
 import { StudioWorkspace } from './image-studio/StudioWorkspace';
@@ -28,6 +29,7 @@ export const ImageStudio: React.FC = () => {
   const [selectedImage, setSelectedImage] = useState<string | null>(null);
   const [analyzing, setAnalyzing] = useState(false);
   const [analysis, setAnalysis] = useState<ImageAnalysis | null>(null);
+  const [analysisError, setAnalysisError] = useState<string | null>(null);
 
   const handleFileUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
@@ -36,6 +38,7 @@ export const ImageStudio: React.FC = () => {
       reader.onloadend = () => {
         const base64 = reader.result as string;
         setSelectedImage(base64);
+        setAnalysisError(null);
         runAIAnalysis(base64);
       };
       reader.readAsDataURL(file);
@@ -44,11 +47,13 @@ export const ImageStudio: React.FC = () => {
 
   const runAIAnalysis = async (imgBase64: string) => {
     setAnalyzing(true);
+    setAnalysisError(null);
     try {
       const res = await imagesApi.analyze(imgBase64);
       setAnalysis(res.analysis);
-    } catch (err) {
+    } catch (err: any) {
       console.error('Failed image analysis', err);
+      setAnalysisError(err.message || 'Vision AI analysis could not be completed. Please try again.');
     } finally {
       setAnalyzing(false);
     }
@@ -293,7 +298,17 @@ export const ImageStudio: React.FC = () => {
               </div>
             )}
 
-            {!analysis && !analyzing && (
+            {analysisError && (
+              <div className="bg-red-50 dark:bg-red-950/40 p-5 rounded-2xl border border-red-200 dark:border-red-900/60 flex items-start gap-3 text-red-700 dark:text-red-300 text-xs">
+                <AlertCircle className="w-5 h-5 shrink-0 text-red-500" />
+                <div className="space-y-1">
+                  <p className="font-bold font-poppins">Diagnosis Unavailable</p>
+                  <p className="font-inter">{analysisError}</p>
+                </div>
+              </div>
+            )}
+
+            {!analysis && !analyzing && !analysisError && (
               <div className="bg-white dark:bg-[#13251B] p-8 sm:p-12 rounded-3xl border border-[#0F5132]/15 dark:border-emerald-800/60 flex flex-col items-center gap-4 text-center">
                 <div className="w-14 h-14 rounded-2xl bg-stone-100 dark:bg-[#0E2016] flex items-center justify-center">
                   <CheckCircle2 className="w-7 h-7 text-stone-400 dark:text-emerald-400/60" />

@@ -1,4 +1,3 @@
-import { GoogleGenAI } from '@google/genai';
 import {
   AuthResponse,
   User,
@@ -36,15 +35,6 @@ export const removeStoredToken = (): void => {
 
 const env = (typeof import.meta !== 'undefined' && import.meta.env) ? import.meta.env : (typeof process !== 'undefined' ? (process.env as any || {}) : {});
 const API_BASE = (env.VITE_API_URL || '').replace(/\/$/, '');
-const GEMINI_KEY = env.VITE_GEMINI_API_KEY || '';
-
-let clientAI: GoogleGenAI | null = null;
-const getClientAI = () => {
-  if (!clientAI && GEMINI_KEY) {
-    clientAI = new GoogleGenAI({ apiKey: GEMINI_KEY });
-  }
-  return clientAI;
-};
 
 const fetchWithAuth = async (url: string, options: RequestInit = {}) => {
   const token = getStoredToken();
@@ -183,55 +173,19 @@ export const aiMentorApi = {
     message: string,
     language: string = 'English',
     conversationHistory: MentorMessage[] = []
-  ): Promise<{ reply: string; language: string; timestamp: string }> => {
-    try {
-      return await fetchWithAuth('/api/ai/mentor', {
-        method: 'POST',
-        body: JSON.stringify({ message, language, conversationHistory }),
-      });
-    } catch (backendErr) {
-      console.warn('Backend mentor API unavailable, falling back to direct browser Gemini engine:', backendErr);
-    }
-
-    const ai = getClientAI();
-    if (ai) {
-      try {
-        const systemPrompt = `You are KRIVIO AI, a friendly, practical voice-first AI business mentor for rural entrepreneurs in India (artisans, SHGs, farmers, potters, weavers).
-Topics: pricing craft products, selling on ONDC/Amazon Karigar/Meesho/Etsy, government schemes (PM Vishwakarma, MUDRA, NABARD), taking photos.
-Language: ${language}. Keep response clear, encouraging, warm, and concise (under 180 words) for voice output.`;
-
-        const formattedHistory = conversationHistory.slice(-6).map((msg) => ({
-          role: msg.sender === 'user' ? 'user' : 'model',
-          parts: [{ text: msg.text }],
-        }));
-
-        const response = await ai.models.generateContent({
-          model: 'gemini-2.5-flash',
-          contents: [
-            ...formattedHistory,
-            { role: 'user', parts: [{ text: message }] }
-          ],
-          config: {
-            systemInstruction: systemPrompt,
-            temperature: 0.7,
-          },
-        });
-
-        return {
-          reply: response.text || 'Namaste! I am here to help your rural business grow. What would you like to plan today?',
-          language,
-          timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
-        };
-      } catch (aiErr) {
-        console.warn('Direct AI error:', aiErr);
-      }
-    }
-
-    return {
-      reply: 'Namaste! I am KRIVIO AI. To calculate fair pricing: (Raw Material Cost) + (Labor Hours × Fair Wage) + 20% Margin. You can also list products on ONDC via Mystore or Plotch!',
-      language,
-      timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
-    };
+  ): Promise<{
+    reply: string;
+    language: string;
+    timestamp: string;
+    intent?: string;
+    entities?: Record<string, any>;
+    recommendedActions?: string[];
+    suggestedFollowUps?: string[];
+  }> => {
+    return await fetchWithAuth('/api/ai/mentor', {
+      method: 'POST',
+      body: JSON.stringify({ message, language, conversationHistory }),
+    });
   },
 };
 
@@ -484,58 +438,14 @@ export const productsApi = {
     craftType?: string;
     materials?: string;
     targetPrice?: number;
+    materialCost?: number;
+    laborCost?: number;
     language?: string;
   }): Promise<{ data: any }> => {
-    try {
-      return await fetchWithAuth('/api/products/generate-details', {
-        method: 'POST',
-        body: JSON.stringify(params),
-      });
-    } catch (backendErr) {
-      console.warn('Backend generation API note:', backendErr);
-    }
-
-    const ai = getClientAI();
-    if (ai) {
-      try {
-        const lang = params.language || 'English';
-        const prompt = `Act as an e-commerce marketing specialist for rural artisans and SHGs.
-Input Product details:
-- Name/Concept: ${params.rawName || 'Handcrafted item'}
-- Craft Type: ${params.craftType || 'Artisan Craft'}
-- Materials used: ${params.materials || 'Natural materials'}
-- Intended Price: ${params.targetPrice ? `₹${params.targetPrice}` : 'Suggest fair price'}
-- Output Language: ${lang}
-
-Generate JSON with:
-1. "title": High-converting descriptive title suitable for Amazon/ONDC in ${lang} (max 80 chars)
-2. "description": Engaging narrative highlighting artisan heritage and craft story in ${lang} (120-180 words)
-3. "category": Best fitting category name in ${lang}
-4. "suggestedPrice": Integer in INR
-5. "keywords": Array of 5-8 search tags in ${lang}
-6. "readinessScore": Integer 80-98`;
-
-        const response = await ai.models.generateContent({
-          model: 'gemini-2.5-flash',
-          contents: prompt,
-          config: {
-            responseMimeType: 'application/json',
-          },
-        });
-        return { data: JSON.parse(response.text || '{}') };
-      } catch {}
-    }
-
-    return {
-      data: {
-        title: `Authentic Handcrafted ${params.rawName || 'Heritage Art Piece'}`,
-        description: `Lovingly handcrafted by skilled rural artisans using authentic traditional techniques and sustainably sourced ${params.materials || 'natural materials'}. Each piece reflects generations of cultural heritage.`,
-        category: params.craftType || 'Handicrafts & Art',
-        suggestedPrice: Number(params.targetPrice) || 850,
-        keywords: ['handmade', 'rural craft', 'artisan made', 'eco friendly', 'traditional'],
-        readinessScore: 92,
-      },
-    };
+    return await fetchWithAuth('/api/products/generate-details', {
+      method: 'POST',
+      body: JSON.stringify(params),
+    });
   },
 
   suggestBrand: async (params: {
@@ -543,22 +453,12 @@ Generate JSON with:
     region?: string;
     personality?: string;
     language?: string;
-  }): Promise<{ suggestions: Array<{ name: string; meaning: string; whyItFits: string; personality: string; tagline: string }> }> => {
-    try {
-      return await fetchWithAuth('/api/products/suggest-brand', {
-        method: 'POST',
-        body: JSON.stringify(params),
-      });
-    } catch {
-      return {
-        suggestions: [
-          { name: 'KalaGram', meaning: 'Village of Art', whyItFits: 'Connects traditional craft with rural roots', personality: 'Cultural & Authentic', tagline: 'Every piece tells a story' },
-          { name: 'HastKraft', meaning: 'Handmade Craft', whyItFits: 'Simple, memorable, and highlights handmade origin', personality: 'Traditional & Handmade', tagline: 'Made with hands, made with heart' },
-          { name: 'MittiMool', meaning: 'Earth Root', whyItFits: 'Reflects natural materials and rural heritage', personality: 'Natural & Earthy', tagline: 'Rooted in tradition' },
-          { name: 'BharatHast', meaning: "India's Hands", whyItFits: 'Artisan focused identity', personality: 'Authentic & Artisan', tagline: 'Crafted for India, loved by the world' },
-        ],
-      };
-    }
+    productName?: string;
+  }): Promise<{ suggestions: Array<{ name: string; meaning: string; whyItFits?: string; culturalRelevance?: string; targetAppeal?: string; personality: string; tagline: string }> }> => {
+    return await fetchWithAuth('/api/products/suggest-brand', {
+      method: 'POST',
+      body: JSON.stringify(params),
+    });
   },
 
   generateIdentity: async (params: {
@@ -573,116 +473,71 @@ Generate JSON with:
     priceRange?: string;
     language?: string;
     listingMode?: string;
+    targetPrice?: number;
+    materialCost?: number;
+    laborCost?: number;
   }): Promise<{ data: any }> => {
-    try {
-      return await fetchWithAuth('/api/products/generate-identity', {
-        method: 'POST',
-        body: JSON.stringify(params),
-      });
-    } catch {
-      const title = params.productName || params.detectedSubject || 'Handcrafted Artisan Product';
-      return {
-        data: {
-          productTitle: `Authentic Handmade ${title}`,
-          shortDescription: `A beautifully crafted ${title.toLowerCase()} made by skilled rural artisans using traditional techniques.`,
-          detailedDescription: `This ${title.toLowerCase()} is lovingly handcrafted by rural artisans. Made using ${params.materials || 'natural materials'}, each piece carries the unique touch of its maker. Sourced from ${params.region || 'rural India'}, supporting sustainable livelihoods.`,
-          keyFeatures: [
-            '100% handmade by rural artisans',
-            `Made from ${params.materials || 'natural materials'}`,
-            'Each piece is unique — no two alike',
-            'Supports rural artisan livelihoods',
-          ],
-          materials: params.materials || 'Natural traditional materials',
-          craftMethod: 'Traditional handcraft techniques',
-          idealFor: params.targetAudience || 'Home décor enthusiasts & conscious buyers',
-          productStory: `Every ${title.toLowerCase()} from ${params.brandName || 'our collective'} carries the story of rural India.`,
-          careInstructions: 'Handle with care. Store in a dry place.',
-          suggestedTags: ['handmade', 'artisan', 'rural craft', 'authentic', 'traditional'],
-          suggestedKeywords: ['handmade', 'rural artisan', 'authentic craft', 'traditional'],
-          suggestedPrice: 850,
-          category: 'Handicrafts & Art',
-        },
-      };
-    }
+    return await fetchWithAuth('/api/products/generate-identity', {
+      method: 'POST',
+      body: JSON.stringify(params),
+    });
   },
 };
 
 export const imagesApi = {
   analyze: async (imageBase64: string): Promise<{ analysis: ImageAnalysis }> => {
-    try {
-      return await fetchWithAuth('/api/images/analyze', {
-        method: 'POST',
-        body: JSON.stringify({ imageBase64 }),
-      });
-    } catch (backendErr) {
-      console.warn('Backend image API note:', backendErr);
-    }
+    return await fetchWithAuth('/api/images/analyze', {
+      method: 'POST',
+      body: JSON.stringify({ imageBase64 }),
+    });
+  },
+};
 
-    const ai = getClientAI();
-    if (ai) {
-      try {
-        const cleanBase64 = imageBase64.replace(/^data:image\/\w+;base64,/, '');
-        const prompt = `Act as an e-commerce product photography advisor for rural artisans. Analyze this product photo for selling online on Amazon, ONDC, Meesho, and Etsy.
-Evaluate:
-1. Lighting quality (0-100)
-2. Background clarity (0-100)
-3. Overall appeal (0-100)
-4. Detected item name
-
-Return JSON with:
-"lightingScore": number,
-"backgroundScore": number,
-"overallScore": number,
-"lightingFeedback": string,
-"backgroundFeedback": string,
-"suggestions": string array with 3 tips,
-"detectedSubject": string`;
-
-        const response = await ai.models.generateContent({
-          model: 'gemini-2.5-flash',
-          contents: {
-            parts: [
-              { inlineData: { mimeType: 'image/jpeg', data: cleanBase64 } },
-              { text: prompt },
-            ],
-          },
-          config: {
-            responseMimeType: 'application/json',
-          },
-        });
-
-        const parsed = JSON.parse(response.text || '{}');
-        return {
-          analysis: {
-            id: `img_${Date.now()}`,
-            imageUrl: imageBase64,
-            ...parsed,
-            createdAt: new Date().toISOString(),
-          },
-        };
-      } catch (aiErr) {
-        console.warn('Direct vision AI note:', aiErr);
-      }
-    }
-
-    return {
-      analysis: {
-        id: `img_${Date.now()}`,
-        imageUrl: imageBase64,
-        lightingScore: 82,
-        backgroundScore: 85,
-        overallScore: 84,
-        lightingFeedback: 'Good natural lighting detected. Clear visibility of contours.',
-        backgroundFeedback: 'Clean neutral backdrop suitable for online marketplace listings.',
-        suggestions: [
-          'Shoot in morning natural daylight near a window for optimal warmth.',
-          'Place a plain white paper or cloth underneath for clean contrast.',
-          'Include one close-up shot showing fine texture and craftsmanship.',
-        ],
-        detectedSubject: 'Handcrafted Artisan Product',
-        createdAt: new Date().toISOString(),
-      },
+export const pricingApi = {
+  calculate: async (params: {
+    productId?: string;
+    productName?: string;
+    category?: string;
+    materialCost?: number;
+    laborCost?: number;
+    laborHours?: number;
+    hourlyRate?: number;
+    packagingCost?: number;
+    transportCost?: number;
+    overheadCost?: number;
+    desiredMarginPercent?: number;
+    platformFeePercent?: number;
+    language?: string;
+  }): Promise<{
+    breakdown: {
+      isComplete: boolean;
+      knownValues: Record<string, number>;
+      assumedValues: Record<string, number>;
+      missingFields: string[];
+      totalDirectCost: number;
+      materialCost: number;
+      laborCost: number;
+      packagingCost: number;
+      transportCost: number;
+      overheadCost: number;
+      marginPercentage: number;
+      fairRetailPrice: number;
+      platformFeePercentage: number;
+      marketplacePrice: number;
+      wholesalePrice: number;
+      currency: string;
     };
+    aiExplanation?: {
+      explanation: string;
+      marginAdvice: string;
+      marketplaceTip: string;
+      wholesaleGuidance: string;
+    };
+  }> => {
+    return await fetchWithAuth('/api/pricing/calculate', {
+      method: 'POST',
+      body: JSON.stringify(params),
+    });
   },
 };
 

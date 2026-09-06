@@ -39,7 +39,7 @@ export const ProductStudio: React.FC = () => {
   const [craftType, setCraftType] = useState('Handicrafts & Art');
   const [materials, setMaterials] = useState('');
   const [description, setDescription] = useState('');
-  const [price, setPrice] = useState<number>(850);
+  const [price, setPrice] = useState<number>(0);
   const [stock, setStock] = useState<number>(10);
   const [sku, setSku] = useState('');
   const [weight, setWeight] = useState('0.5 kg');
@@ -51,6 +51,7 @@ export const ProductStudio: React.FC = () => {
 
   const [generatingAI, setGeneratingAI] = useState(false);
   const [aiGeneratedSuccess, setAiGeneratedSuccess] = useState(false);
+  const [aiGenerateError, setAiGenerateError] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
   const [formError, setFormError] = useState('');
   const [warningMsg, setWarningMsg] = useState('');
@@ -83,7 +84,7 @@ export const ProductStudio: React.FC = () => {
     setCraftType('Handicrafts & Art');
     setMaterials('');
     setDescription('');
-    setPrice(850);
+    setPrice(0);
     setStock(10);
     setSku(`SKU-ART-${Date.now().toString().slice(-5)}`);
     setWeight('0.5 kg');
@@ -95,6 +96,7 @@ export const ProductStudio: React.FC = () => {
     setFormError('');
     setWarningMsg('');
     setAiGeneratedSuccess(false);
+    setAiGenerateError(null);
     setModalOpen(true);
   };
 
@@ -122,13 +124,14 @@ export const ProductStudio: React.FC = () => {
     if (!rawCraftInput.trim()) return;
     setGeneratingAI(true);
     setAiGeneratedSuccess(false);
+    setAiGenerateError(null);
 
     try {
       const res = await productsApi.generateDetails({
         rawName: rawCraftInput,
         craftType,
         materials,
-        targetPrice: price,
+        targetPrice: price > 0 ? price : undefined,
         language: currentLanguageConfig.name,
       });
 
@@ -141,8 +144,9 @@ export const ProductStudio: React.FC = () => {
         if (Array.isArray(data.keywords)) setKeywords(data.keywords);
         setAiGeneratedSuccess(true);
       }
-    } catch (err) {
+    } catch (err: any) {
       console.error('Failed to generate product details with Gemini', err);
+      setAiGenerateError(err.message || 'Failed to generate details. Please try again.');
     } finally {
       setGeneratingAI(false);
     }
@@ -635,6 +639,10 @@ export const ProductStudio: React.FC = () => {
                   <Sparkles className="w-4 h-4 text-[#D4AF37]" />
                   <span>{generatingAI ? (t('product.generatingWithAi') || 'AI Generating Details...') : (t('product.generateWithAi') || 'Auto-Fill Details with AI')}</span>
                 </button>
+
+                {aiGenerateError && (
+                  <p className="text-[11px] text-red-600 dark:text-red-400 font-inter">{aiGenerateError}</p>
+                )}
               </div>
 
               {/* Standard Form Inputs */}

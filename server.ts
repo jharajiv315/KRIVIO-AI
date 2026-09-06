@@ -15,6 +15,10 @@ import {
   RawDbProduct,
 } from './src/server/marketplace/index';
 import { QuotationService } from './src/server/quotation/quotation_service';
+import { AITaskRouter } from './src/server/ai/task_router';
+import { geminiService } from './src/server/ai/gemini_client';
+import { aiObservability } from './src/server/ai/observability';
+import { PricingEngine } from './src/server/pricing/pricing_engine';
 
 dotenv.config();
 
@@ -634,24 +638,36 @@ function normalizeLanguageName(langInput?: string): string {
 
 app.post('/api/products/generate-details', authenticateToken, async (req: AuthenticatedRequest, res: Response) => {
   try {
-    const { rawName = 'Handcrafted Craft Piece', craftType = 'Handicrafts & Art', materials = 'Natural materials', targetPrice = 850, language = 'en' } = req.body;
+    const { rawName = 'Handcrafted Craft Piece', craftType = 'Handicrafts & Art', materials = 'Natural materials', targetPrice, materialCost, laborCost, language = 'en' } = req.body;
     const targetLang = normalizeLanguageName(language || req.user?.preferredLanguage || 'en');
 
-    if (ai) {
-      try {
-        const prompt = `Act as an e-commerce marketing specialist for Indian rural artisans and SHGs.
+    if (!geminiService.isAvailable()) {
+      res.status(503).json({ error: 'AI service is currently unavailable. Server API key is not configured.' });
+      return;
+    }
+
+    // Deterministic price estimation if costs are provided
+    let calculatedPrice: number | undefined = undefined;
+    if (typeof materialCost === 'number' && typeof laborCost === 'number') {
+      const pricingBreakdown = PricingEngine.calculate({ materialCost, laborCost });
+      calculatedPrice = pricingBreakdown.fairRetailPrice;
+    } else if (typeof targetPrice === 'number' && targetPrice > 0) {
+      calculatedPrice = targetPrice;
+    }
+
+    const prompt = `Act as an e-commerce marketing specialist for Indian rural artisans and SHGs.
 Input Product details:
 - Name/Concept: ${rawName}
 - Craft Type: ${craftType}
 - Materials used: ${materials}
-- Target Price: ₹${targetPrice}
+- Base Price: ${calculatedPrice ? '₹' + calculatedPrice : 'To be estimated by artisan'}
 - Output Language: ${targetLang}
 
 Generate JSON with:
 1. "title": High-converting descriptive title suitable for Amazon/ONDC in ${targetLang} (max 80 chars)
 2. "description": Engaging narrative highlighting artisan heritage and craft story in ${targetLang} (120-180 words)
 3. "category": Best fitting category name in ${targetLang}
-4. "suggestedPrice": Integer in INR
+4. "suggestedPrice": Integer in INR (reflect realistic artisan price for this item)
 5. "keywords": Array of 5-8 search tags in ${targetLang}
 6. "readinessScore": Integer 80-98
 
@@ -660,148 +676,111 @@ Rules:
 - Keep brand name "KRIVIO AI", numbers, and currency in standard ₹ (INR) format.
 - Ensure natural phrasing and authentic cultural terms suitable for Indian regional buyers.`;
 
-        const response = await ai.models.generateContent({
-          model: 'gemini-2.5-flash',
-          contents: prompt,
-          config: { responseMimeType: 'application/json' }
-        });
-        const parsed = JSON.parse(response.text || '{}');
-        res.json({ data: parsed });
-        return;
-      } catch (e) {
-        console.warn('Gemini product generation note:', e);
-      }
-    }
-
-    res.json({
-      data: {
-        title: `Authentic Handcrafted ${rawName}`,
-        description: `Lovingly handcrafted by skilled rural artisans using authentic traditional techniques and sustainably sourced ${materials}. Each piece reflects generations of cultural heritage, offering timeless aesthetic charm.`,
-        category: craftType,
-        suggestedPrice: parseInt(targetPrice, 10) || 850,
-        keywords: ['handmade', 'rural craft', 'artisan made', 'eco friendly', 'traditional'],
-        readinessScore: 92
-      }
+    const rawResponse = await geminiService.generateContent({
+      userPrompt: prompt,
+      responseMimeType: 'application/json',
+      temperature: 0.4,
     });
-  } catch (err) {
-    res.status(500).json({ error: 'Failed to generate product details' });
+
+    const parsed = JSON.parse(rawResponse || '{}');
+    if (calculatedPrice) {
+      parsed.suggestedPrice = calculatedPrice;
+    }
+    res.json({ data: parsed });
+  } catch (err: any) {
+    console.error('Failed to generate product details:', err.message || err);
+    res.status(503).json({ error: 'Failed to generate product details from AI: ' + (err.message || 'Service error') });
   }
 });
 
 app.post('/api/products/suggest-brand', authenticateToken, async (req: AuthenticatedRequest, res: Response) => {
   try {
-    const { craftType = 'Handicrafts', region = 'Rural India', personality = 'Authentic & Cultural', language = 'en' } = req.body;
+    const { craftType = 'Handicrafts', region = 'Rural India', personality = 'Authentic & Cultural', language = 'en', productName } = req.body;
     const targetLang = normalizeLanguageName(language || req.user?.preferredLanguage || 'en');
 
-    if (ai) {
-      try {
-        const prompt = `You are a creative brand naming consultant for Indian rural enterprises, self-help groups (SHGs), and artisans.
-Craft Domain: ${craftType}
-Region: ${region}
-Personality: ${personality}
-Language for explanation/taglines: ${targetLang}
-
-Generate JSON with:
-"suggestions": Array of 4 brand objects with:
-- "name": Catchy, memorable brand name (in Roman/English letters, root words from Sanskrit, Hindi or regional language)
-- "meaning": Meaning of the name translated in ${targetLang}
-- "whyItFits": 1 sentence why it fits in ${targetLang}
-- "personality": Brand personality attribute in ${targetLang}
-- "tagline": Meaningful, high-impact brand slogan/tagline in ${targetLang}`;
-
-        const response = await ai.models.generateContent({
-          model: 'gemini-2.5-flash',
-          contents: prompt,
-          config: { responseMimeType: 'application/json' }
-        });
-        const parsed = JSON.parse(response.text || '{}');
-        if (parsed.suggestions && parsed.suggestions.length > 0) {
-          res.json({ suggestions: parsed.suggestions });
-          return;
-        }
-      } catch (e) {
-        console.warn('Gemini brand suggest note:', e);
-      }
+    if (!geminiService.isAvailable()) {
+      res.status(503).json({ error: 'AI service is currently unavailable. Server API key is not configured.' });
+      return;
     }
 
-    res.json({
-      suggestions: [
-        { name: 'KalaGram', meaning: 'Village of Art', whyItFits: 'Connects traditional craft with rural roots', personality: 'Cultural & Authentic', tagline: 'Every piece tells a story' },
-        { name: 'HastKraft', meaning: 'Handmade Craft', whyItFits: 'Simple, memorable, and highlights handmade origin', personality: 'Traditional & Handmade', tagline: 'Made with hands, made with heart' },
-        { name: 'MittiMool', meaning: 'Earth Root', whyItFits: 'Reflects natural materials and rural heritage', personality: 'Natural & Earthy', tagline: 'Rooted in tradition' },
-        { name: 'BharatHast', meaning: "India's Hands", whyItFits: 'Artisan focused identity', personality: 'Authentic & Artisan', tagline: 'Crafted for India, loved by the world' }
-      ]
+    const brandResult = await AITaskRouter.handle({
+      task: 'BRAND_SUGGESTION',
+      language: targetLang,
+      productContext: {
+        name: productName,
+        category: craftType,
+      },
+      businessContext: {
+        craftType,
+        state: region,
+        brandPersonality: personality,
+      },
+      parameters: { personality },
     });
-  } catch (err) {
-    res.status(500).json({ error: 'Failed to suggest brand names' });
+
+    res.json({ suggestions: brandResult.suggestions });
+  } catch (err: any) {
+    console.error('Failed to suggest brand names:', err.message || err);
+    res.status(503).json({ error: 'Failed to generate brand suggestions: ' + (err.message || 'Service error') });
   }
 });
 
 app.post('/api/products/generate-identity', authenticateToken, async (req: AuthenticatedRequest, res: Response) => {
-  const { productName, detectedSubject, materials = 'Natural traditional materials', region = 'Rural India', brandName = 'Artisan Collective', targetAudience = 'Home décor enthusiasts & conscious buyers', language = 'en' } = req.body;
-  const targetLang = normalizeLanguageName(language || req.user?.preferredLanguage || 'en');
-  const title = productName || detectedSubject || 'Handcrafted Artisan Product';
+  try {
+    const { productName, detectedSubject, materials = 'Natural traditional materials', region = 'Rural India', brandName = 'Artisan Collective', targetAudience = 'Home décor enthusiasts & conscious buyers', language = 'en', targetPrice, materialCost, laborCost } = req.body;
+    const targetLang = normalizeLanguageName(language || req.user?.preferredLanguage || 'en');
+    const title = productName || detectedSubject || 'Handcrafted Artisan Product';
 
-  if (ai) {
-    try {
-      const prompt = `Act as an e-commerce branding strategist for Indian rural artisans.
-Product: ${title}
-Materials: ${materials}
-Region: ${region}
-Brand: ${brandName}
-Audience: ${targetAudience}
-Language: ${targetLang}
-
-Generate JSON with:
-- "productTitle": Title in ${targetLang}
-- "shortDescription": 1-2 sentence hook in ${targetLang}
-- "detailedDescription": 2-3 paragraph artisan story in ${targetLang}
-- "keyFeatures": Array of 4 bullet points in ${targetLang}
-- "materials": ${materials}
-- "craftMethod": Craft technique description in ${targetLang}
-- "idealFor": Target buyer description in ${targetLang}
-- "productStory": Heritage narrative in ${targetLang}
-- "careInstructions": Practical care advice in ${targetLang}
-- "suggestedTags": Array of 5 tags in ${targetLang}
-- "suggestedKeywords": Array of 5 SEO search keywords in ${targetLang}
-- "suggestedPrice": Integer 850
-- "category": Category in ${targetLang}`;
-
-      const response = await ai.models.generateContent({
-        model: 'gemini-2.5-flash',
-        contents: prompt,
-        config: { responseMimeType: 'application/json' }
-      });
-      const parsed = JSON.parse(response.text || '{}');
-      res.json({ data: parsed });
+    if (!geminiService.isAvailable()) {
+      res.status(503).json({ error: 'AI service is currently unavailable. Server API key is not configured.' });
       return;
-    } catch (e) {
-      console.warn('Gemini identity generation note:', e);
     }
-  }
 
-  res.json({
-    data: {
-      productTitle: `Authentic Handmade ${title}`,
-      shortDescription: `A beautifully crafted ${title.toLowerCase()} made by skilled rural artisans using traditional techniques.`,
-      detailedDescription: `This ${title.toLowerCase()} is lovingly handcrafted by rural artisans. Made using ${materials}, each piece carries the unique touch of its maker. Sourced from ${region}, supporting sustainable livelihoods.`,
-      keyFeatures: [
-        '100% handmade by rural artisans',
-        `Made from ${materials}`,
-        'Each piece is unique — no two alike',
-        'Supports rural artisan livelihoods'
-      ],
-      materials,
-      craftMethod: 'Traditional handcraft techniques',
-      idealFor: targetAudience,
-      productStory: `Every ${title.toLowerCase()} from ${brandName} carries the story of rural heritage.`,
-      careInstructions: 'Handle with care. Store in a dry place.',
-      suggestedTags: ['handmade', 'artisan', 'rural craft', 'authentic', 'traditional'],
-      suggestedKeywords: ['handmade', 'rural artisan', 'authentic craft', 'traditional'],
-      suggestedPrice: 850,
-      category: 'Handicrafts & Art'
+    // Deterministic price estimation if costs are provided
+    let calculatedPrice: number | undefined = undefined;
+    if (typeof materialCost === 'number' && typeof laborCost === 'number') {
+      const pricingBreakdown = PricingEngine.calculate({ materialCost, laborCost });
+      calculatedPrice = pricingBreakdown.fairRetailPrice;
+    } else if (typeof targetPrice === 'number' && targetPrice > 0) {
+      calculatedPrice = targetPrice;
     }
-  });
+
+    const identityResult = await AITaskRouter.handle({
+      task: 'PRODUCT_IDENTITY',
+      language: targetLang,
+      productContext: {
+        name: title,
+        materials: Array.isArray(materials) ? materials : [materials],
+        price: calculatedPrice,
+      },
+      businessContext: {
+        businessName: brandName,
+        state: region,
+      },
+      userInput: `Generate full e-commerce catalog identity for ${title} made with ${materials} targeting ${targetAudience}.`,
+    });
+
+    const formattedData = {
+      productTitle: identityResult.title,
+      shortDescription: identityResult.shortDescription,
+      detailedDescription: identityResult.detailedDescription,
+      keyFeatures: identityResult.bulletFeatures,
+      materials,
+      craftMethod: identityResult.specifications?.['Craft Type'] || 'Traditional Handcrafted Technique',
+      idealFor: identityResult.targetAudience,
+      productStory: identityResult.story,
+      careInstructions: identityResult.careInstructions,
+      suggestedTags: identityResult.tags,
+      suggestedKeywords: identityResult.keywords,
+      suggestedPrice: calculatedPrice || (typeof targetPrice === 'number' ? targetPrice : undefined),
+      category: identityResult.specifications?.Category || 'Handicrafts & Art',
+    };
+
+    res.json({ data: formattedData });
+  } catch (err: any) {
+    console.error('Failed to generate product identity:', err.message || err);
+    res.status(503).json({ error: 'Failed to generate product identity: ' + (err.message || 'Service error') });
+  }
 });
 
 app.get('/api/products/:id', authenticateToken, async (req: AuthenticatedRequest, res: Response) => {
@@ -2071,41 +2050,38 @@ User Profile:
 Topics: pricing formulas, listing on ONDC/Amazon Karigar/Meesho/Etsy, government schemes (PM Vishwakarma, MUDRA, NABARD), taking photos with clean backgrounds.
 Language: Respond in ${language}. Keep the response clear, warm, practical, and concise (under 180 words) for voice reading.`;
 
-    let replyText = '';
-
-    if (ai) {
-      try {
-        const formattedHistory = (conversationHistory || []).slice(-6).map((msg: any) => ({
-          role: msg.sender === 'user' ? 'user' : 'model',
-          parts: [{ text: msg.text || '' }]
-        }));
-
-        const response = await ai.models.generateContent({
-          model: 'gemini-2.5-flash',
-          contents: [
-            ...formattedHistory,
-            { role: 'user', parts: [{ text: `${systemPrompt}\n\nUser: ${message}` }] }
-          ]
-        });
-        replyText = response.text || '';
-      } catch (e) {
-        console.warn('Gemini API execution note:', e);
-      }
+    if (!geminiService.isAvailable()) {
+      res.status(503).json({ error: 'AI Mentor service is temporarily unavailable. Server API key is not configured.' });
+      return;
     }
 
-    if (!replyText) {
-      const lower = message.toLowerCase();
-      if (lower.includes('ondc') || lower.includes('market') || lower.includes('sell')) {
-        replyText = `To sell on ONDC: 1. Keep your Udyam or SHG registration ready, 2. Add product dimensions and clear daylight photos in Product Studio, 3. Connect via buyer networks like Paytm and Mystore!`;
-      } else if (lower.includes('price') || lower.includes('cost') || lower.includes('margin')) {
-        replyText = `Craft pricing formula: (Raw Materials) + (Labor Hours × Fair Daily Wage) + 20% Profit. For example, ₹400 materials + ₹600 labor = ₹1,200 to ₹1,450 fair retail price.`;
-      } else if (lower.includes('scheme') || lower.includes('loan') || lower.includes('grant')) {
-        replyText = `Top artisan schemes: 1. PM Vishwakarma (₹15,000 toolkit voucher + 5% loan up to ₹3 Lakh), 2. MUDRA loan (up to ₹10 Lakh), 3. NABARD SHG grants.`;
-      } else {
-        replyText = `Namaste ${req.user!.name}! I am KRIVIO AI. How can I assist your rural business '${bizName}' today? Ask me about product pricing, taking photos, or government grants.`;
-      }
-    }
+    const mentorResult = await AITaskRouter.handle({
+      task: 'MENTOR',
+      language,
+      userInput: message,
+      userContext: {
+        userId,
+        name: req.user!.name,
+        preferredLanguage: req.user!.preferredLanguage,
+        state: prof?.state,
+      },
+      businessContext: {
+        businessName: bizName,
+        craftType,
+        targetChannels: prof?.channels || ['Local Market', 'ONDC', 'Amazon'],
+      },
+      productContext: prodsRes.rows.length > 0 ? {
+        name: prodsRes.rows[0].title,
+        price: prodsRes.rows[0].price,
+        category: prodsRes.rows[0].category,
+      } : undefined,
+      conversationContext: (conversationHistory || []).slice(-6).map((msg: any) => ({
+        role: msg.sender === 'user' ? 'user' : 'assistant',
+        content: msg.text || '',
+      })),
+    });
 
+    const replyText = mentorResult.response;
     const timestamp = new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
 
     // Persist to PostgreSQL conversations table
@@ -2137,12 +2113,84 @@ Language: Respond in ${language}. Keep the response clear, warm, practical, and 
 
     res.json({
       reply: replyText,
-      language,
+      intent: mentorResult.intent,
+      entities: mentorResult.entities,
+      recommendedActions: mentorResult.recommendedActions,
+      suggestedFollowUps: mentorResult.suggestedFollowUps,
+      language: mentorResult.language || language,
       timestamp
     });
   } catch (err: any) {
-    res.status(500).json({ error: 'Failed to process AI mentorship request' });
+    console.error('Failed to process AI mentorship request:', err.message || err);
+    res.status(503).json({ error: 'Failed to process AI mentorship request: ' + (err.message || 'Service error') });
   }
+});
+
+// --- DETERMINISTIC PRICING ENGINE ENDPOINT ---
+app.post('/api/pricing/calculate', authenticateToken, async (req: AuthenticatedRequest, res: Response) => {
+  try {
+    const {
+      productId,
+      productName,
+      category,
+      materialCost,
+      laborCost,
+      laborHours,
+      hourlyRate,
+      packagingCost,
+      transportCost,
+      overheadCost,
+      desiredMarginPercent,
+      platformFeePercent,
+      language = 'en',
+    } = req.body;
+
+    // Deterministic arithmetic calculation with optional vernacular explanation
+    const result = await PricingEngine.calculateWithExplanation(
+      {
+        productId,
+        materialCost,
+        laborCost,
+        laborHours,
+        hourlyRate,
+        packagingCost,
+        transportCost,
+        overheadCost,
+        desiredMarginPercent,
+        platformFeePercent,
+      },
+      {
+        productName,
+        category,
+        language: normalizeLanguageName(language || req.user?.preferredLanguage || 'en'),
+        artisanName: req.user?.name,
+      }
+    );
+
+    res.json(result);
+  } catch (err: any) {
+    console.error('Pricing calculation error:', err.message || err);
+    res.status(500).json({ error: 'Failed to calculate pricing: ' + (err.message || 'Calculation error') });
+  }
+});
+
+// --- AI HEALTH & OBSERVABILITY ENDPOINTS ---
+app.get('/api/ai/health', async (req: Request, res: Response) => {
+  const health = await geminiService.checkHealth();
+  const summary = aiObservability.getHealthSummary();
+  res.json({
+    status: health.healthy ? 'available' : 'degraded',
+    gemini: health,
+    observability: summary,
+    timestamp: new Date().toISOString(),
+  });
+});
+
+app.get('/api/ai/diagnostics', authenticateToken, async (req: AuthenticatedRequest, res: Response) => {
+  res.json({
+    summary: aiObservability.getHealthSummary(),
+    recentLogs: aiObservability.getRecentLogs(30),
+  });
 });
 
 // --- PUBLIC STOREFRONT ROUTE ---
@@ -2353,66 +2401,62 @@ app.post('/api/images/analyze', authenticateToken, async (req: AuthenticatedRequ
       res.status(400).json({ error: 'imageBase64 is required' });
       return;
     }
-    const cleanBase64 = imageBase64.replace(/^data:image\/\w+;base64,/, '');
 
-    if (ai) {
-      try {
-        const prompt = `Act as an e-commerce product photography advisor for rural artisans. Analyze this product photo for selling online on Amazon, ONDC, Meesho, and Etsy.
-Evaluate:
-1. Lighting quality (0-100)
-2. Background clarity (0-100)
-3. Overall appeal (0-100)
-4. Detected item name
-
-Return JSON with:
-"lightingScore": number,
-"backgroundScore": number,
-"overallScore": number,
-"lightingFeedback": string,
-"backgroundFeedback": string,
-"suggestions": string array with 3 tips,
-"detectedSubject": string`;
-
-        const response = await ai.models.generateContent({
-          model: 'gemini-2.5-flash',
-          contents: {
-            parts: [
-              { inlineData: { mimeType: 'image/jpeg', data: cleanBase64 } },
-              { text: prompt },
-            ],
-          },
-        });
-        const parsed = JSON.parse(response.text || '{}');
-        parsed.id = `img_${Date.now()}`;
-        parsed.imageUrl = imageBase64;
-        parsed.createdAt = new Date().toISOString();
-        res.json({ analysis: parsed });
-        return;
-      } catch (e) {
-        console.warn('Gemini vision note:', e);
-      }
+    if (!geminiService.isAvailable()) {
+      res.status(503).json({ error: 'Vision AI service is currently unavailable. Server API key is not configured.' });
+      return;
     }
 
-    res.json({
-      analysis: {
-        id: `img_${Date.now()}`,
-        imageUrl: imageBase64,
-        lightingScore: 82,
-        backgroundScore: 85,
-        overallScore: 84,
-        lightingFeedback: 'Good natural lighting detected. Clear visibility of contours.',
-        backgroundFeedback: 'Clean neutral backdrop suitable for online marketplace listings.',
-        suggestions: [
-          'Shoot in morning daylight near a window for natural warmth.',
-          'Place a plain white paper or cloth underneath for clean contrast.',
-          'Include one close-up shot showing fine texture and craftsmanship.'
-        ],
-        detectedSubject: 'Handcrafted Product',
-        createdAt: new Date().toISOString()
-      }
-    });
-  } catch (err) {
-    res.status(500).json({ error: 'Failed to analyze image' });
+    let mimeType = 'image/jpeg';
+    let cleanBase64 = imageBase64;
+    if (imageBase64.includes(',')) {
+      const parts = imageBase64.split(',', 2);
+      mimeType = parts[0].replace('data:', '').split(';')[0] || 'image/jpeg';
+      cleanBase64 = parts[1];
+    }
+
+    // Run both multimodal inspection and photo quality diagnosis
+    const [diagnosis, prodAnalysis] = await Promise.all([
+      AITaskRouter.handle({
+        task: 'PHOTO_DIAGNOSIS',
+        imageInput: { base64Data: cleanBase64, mimeType },
+        language: req.user?.preferredLanguage || 'en',
+      }),
+      AITaskRouter.handle({
+        task: 'PRODUCT_ANALYSIS',
+        imageInput: { base64Data: cleanBase64, mimeType },
+        language: req.user?.preferredLanguage || 'en',
+      }),
+    ]);
+
+    const analysis = {
+      id: `img_${Date.now()}`,
+      imageUrl: imageBase64,
+      lightingScore: diagnosis.dimensions.lighting.score,
+      backgroundScore: diagnosis.dimensions.background.score,
+      overallScore: diagnosis.overallScore,
+      lightingFeedback: diagnosis.dimensions.lighting.feedback,
+      backgroundFeedback: diagnosis.dimensions.background.feedback,
+      suggestions: diagnosis.actionableImprovements.length > 0 ? diagnosis.actionableImprovements.slice(0, 3) : [
+        'Shoot in morning daylight near a window for natural warmth.',
+        'Place a plain white paper or cloth underneath for clean contrast.',
+        'Include one close-up shot showing fine texture and craftsmanship.'
+      ],
+      detectedSubject: prodAnalysis.productType,
+      category: prodAnalysis.category,
+      visibleMaterials: prodAnalysis.visibleMaterials,
+      colors: prodAnalysis.colors,
+      craftCharacteristics: prodAnalysis.craftCharacteristics,
+      marketplaceCompliance: diagnosis.marketplaceCompliance,
+      uncertainAttributes: prodAnalysis.uncertainAttributes,
+      clarificationQuestions: prodAnalysis.clarificationQuestions,
+      createdAt: new Date().toISOString(),
+    };
+
+    res.json({ analysis });
+  } catch (err: any) {
+    console.error('Failed to analyze product image:', err.message || err);
+    res.status(503).json({ error: 'Failed to analyze product image with Vision AI: ' + (err.message || 'Service error') });
   }
 });
 
@@ -2698,42 +2742,51 @@ app.delete('/api/image-studio/history/:id', authenticateToken, async (req: Authe
 // --- VOICE & VERNACULAR LAYER ENDPOINTS ---
 
 // 1. Transcribe Voice Audio
+// 1. Transcribe Voice Audio
 app.post('/api/voice/transcribe', authenticateToken, async (req: AuthenticatedRequest, res: Response) => {
   try {
     const { audio_data, language = 'Hindi', mime_type = 'audio/webm' } = req.body;
     const requestId = `vreq_${Date.now()}_${Math.random().toString(36).slice(2, 6)}`;
-    let transcript = '';
 
-    if (audio_data && ai) {
-      try {
-        let cleanBase64 = audio_data;
-        let effectiveMime = mime_type;
-        if (cleanBase64.includes(',')) {
-          const parts = cleanBase64.split(',', 2);
-          effectiveMime = parts[0].replace('data:', '').split(';')[0];
-          cleanBase64 = parts[1];
-        }
-
-        const prompt = `You are a vernacular voice-to-text transcriber for Indian rural artisans, weavers, and self-help groups.
-The user is speaking in ${language}, Hinglish, or an Indian vernacular language.
-Transcribe EXACTLY what was said without translating, editing, or adding commentary.
-Return ONLY the raw spoken text.`;
-
-        const aiRes = await ai.models.generateContent({
-          model: 'gemini-2.5-flash-image',
-          contents: [
-            { inlineData: { mimeType: effectiveMime, data: cleanBase64 } },
-            { text: prompt },
-          ],
-        });
-        transcript = (aiRes.text || '').trim();
-      } catch (err: any) {
-        console.warn('Gemini audio transcription note:', err.message || err);
-      }
+    if (!audio_data) {
+      res.status(400).json({ error: 'audio_data is required for voice transcription.' });
+      return;
     }
 
-    if (!transcript) {
-      transcript = 'Maine 10 handmade brass diya lamps banaye hain, inka market price kya hona chahiye?';
+    if (!geminiService.isAvailable()) {
+      res.status(503).json({ error: 'Voice transcription service is temporarily unavailable. Server API key is not configured.' });
+      return;
+    }
+
+    let cleanBase64 = audio_data;
+    let effectiveMime = mime_type;
+    if (cleanBase64.includes(',')) {
+      const parts = cleanBase64.split(',', 2);
+      effectiveMime = parts[0].replace('data:', '').split(';')[0];
+      cleanBase64 = parts[1];
+    }
+
+    const prompt = `You are a vernacular voice-to-text transcriber for Indian rural artisans, weavers, and self-help groups.
+The user is speaking in ${language}, Hinglish, or an Indian vernacular language.
+Transcribe EXACTLY what was said without translating, editing, or adding commentary.
+Return ONLY the raw spoken text. If the audio is completely silent or unrecognizable, return the word [INDECIPHERABLE].`;
+
+    const rawTranscript = await geminiService.generateContent({
+      userPrompt: prompt,
+      inlineMedia: [
+        {
+          mimeType: effectiveMime,
+          data: cleanBase64,
+        },
+      ],
+      temperature: 0.1,
+    });
+
+    const transcript = (rawTranscript || '').trim();
+
+    if (!transcript || transcript === '[INDECIPHERABLE]') {
+      res.status(422).json({ error: 'Could not clearly recognize audio. Please speak clearly into your microphone and try again.' });
+      return;
     }
 
     res.json({
@@ -2745,8 +2798,8 @@ Return ONLY the raw spoken text.`;
       confidence: 0.95,
     });
   } catch (err: any) {
-    console.error('Voice transcription error:', err);
-    res.status(500).json({ error: 'Failed to transcribe audio. Please try speaking again.' });
+    console.error('Voice transcription error:', err.message || err);
+    res.status(503).json({ error: 'Failed to transcribe audio with Voice AI: ' + (err.message || 'Service error') });
   }
 });
 
@@ -2761,6 +2814,11 @@ app.post('/api/voice/respond', authenticateToken, async (req: AuthenticatedReque
       return;
     }
 
+    if (!geminiService.isAvailable()) {
+      res.status(503).json({ error: 'Voice AI service is temporarily unavailable. Server API key is not configured.' });
+      return;
+    }
+
     // Fetch user profile and products for grounded memory
     const profRes = await queryPg('SELECT * FROM business_profiles WHERE user_id = $1 LIMIT 1', [userId]).catch(() => ({ rows: [] }));
     const prof = profRes.rows[0];
@@ -2770,13 +2828,7 @@ app.post('/api/voice/respond', authenticateToken, async (req: AuthenticatedReque
     const prodRes = await queryPg('SELECT title, price, category FROM products WHERE user_id = $1 LIMIT 5', [userId]).catch(() => ({ rows: [] }));
     const prodList = prodRes.rows.map((p: any) => `${p.title} (₹${p.price || 0})`).join(', ');
 
-    let intent = 'PricingQuery';
-    let entities: Record<string, any> = {};
-    let replyText = '';
-
-    if (ai) {
-      try {
-        const sysPrompt = `You are KRIVIO AI, a voice-first business mentor for Indian artisans, weavers, and rural entrepreneurs.
+    const sysPrompt = `You are KRIVIO AI, a voice-first business mentor for Indian artisans, weavers, and rural entrepreneurs.
 User Profile:
 - Business: ${bizName}
 - Craft Domain: ${craftType}
@@ -2790,39 +2842,25 @@ Analyze this query and respond with JSON:
 {
   "intent": "PricingQuery" | "MarketingAdvice" | "CatalogHelp" | "SchemeInquiry" | "GeneralMentorship",
   "entities": {
-    "product": string or null,
-    "quantity": string or number or null,
-    "price": string or null,
-    "material": string or null
+    "product": "product name if mentioned",
+    "quantity": "quantity if mentioned",
+    "price": "price if mentioned",
+    "material": "material if mentioned"
   },
-  "reply": "Warm, respectful, practical answer in ${language}. Keep it concise (2-4 sentences max), culturally tailored, and actionable."
+  "reply": "Warm, respectful, practical answer in ${language}. Keep it concise (2-4 sentences max), culturally tailored, and actionable for voice playback."
 }`;
 
-        const aiRes = await ai.models.generateContent({
-          model: 'gemini-2.5-flash-image',
-          contents: [{ text: sysPrompt }],
-          config: { responseMimeType: 'application/json' },
-        });
+    const rawResponse = await geminiService.generateContent({
+      systemInstruction: 'Respond only with valid JSON as requested.',
+      userPrompt: sysPrompt,
+      responseMimeType: 'application/json',
+      temperature: 0.5,
+    });
 
-        const parsed = JSON.parse(aiRes.text || '{}');
-        intent = parsed.intent || 'GeneralMentorship';
-        entities = parsed.entities || {};
-        replyText = parsed.reply || '';
-      } catch (err: any) {
-        console.warn('Voice AI response note:', err.message || err);
-      }
-    }
-
-    if (!replyText) {
-      if (transcript.toLowerCase().includes('price') || transcript.includes('दाम') || transcript.includes('कीमत')) {
-        intent = 'PricingQuery';
-        entities = { product: 'Handmade Craft', quantity: 10 };
-        replyText = `नमस्ते ${bizName}! आपके 10 हस्तनिर्मित उत्पादों के लिए सामग्री व कारीगरी लागत जोड़कर ₹450-₹550 प्रति पीस का मूल्य ONDC और स्थानीय बाजार दोनों के लिए सर्वोत्तम रहेगा।`;
-      } else {
-        intent = 'GeneralMentorship';
-        replyText = `नमस्ते ${bizName}! KRIVIO AI आपके ${craftType} व्यवसाय को ONDC, Amazon और स्थानीय मेलों में आगे बढ़ाने के लिए हमेशा तत्पर है।`;
-      }
-    }
+    const parsed = JSON.parse(rawResponse || '{}');
+    const intent = parsed.intent || 'GeneralMentorship';
+    const entities = parsed.entities || {};
+    const replyText = parsed.reply || rawResponse;
 
     const assetId = `vast_${Date.now()}_${Math.random().toString(36).slice(2, 7)}`;
 
@@ -2857,8 +2895,8 @@ Analyze this query and respond with JSON:
       language,
     });
   } catch (err: any) {
-    console.error('Voice respond error:', err);
-    res.status(500).json({ error: 'Failed to process voice response.' });
+    console.error('Voice respond error:', err.message || err);
+    res.status(503).json({ error: 'Failed to process voice response: ' + (err.message || 'Service error') });
   }
 });
 

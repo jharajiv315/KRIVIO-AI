@@ -185,6 +185,7 @@ export const ProductIdentityWizard: React.FC<ProductIdentityWizardProps> = ({
     try {
       const res = await productsApi.suggestBrand({
         craftType: detectedSubject || productName || 'Handcrafted artisan product',
+        productName: productName || detectedSubject || 'Handcrafted artisan product',
         region, personality: brandPersonalities.join(', '), language,
       });
       setBrandSuggestions(res.suggestions || []);
@@ -214,9 +215,9 @@ export const ProductIdentityWizard: React.FC<ProductIdentityWizardProps> = ({
     try {
       const brand = hasBrand ? existingBrandName : (selectedBrand?.name || finalBrandName || '');
       const fullTitle = brand ? `${brand} — ${identity.productTitle}` : identity.productTitle;
-      const parsedPrice = typeof identity.suggestedPrice === 'number'
-        ? (isNaN(identity.suggestedPrice) ? 850 : identity.suggestedPrice)
-        : (parseFloat(String(identity.suggestedPrice || '').replace(/[^0-9.]/g, '')) || 850);
+      const parsedPrice = typeof identity.suggestedPrice === 'number' && !isNaN(identity.suggestedPrice) && identity.suggestedPrice > 0
+        ? identity.suggestedPrice
+        : (parseFloat(String(identity.suggestedPrice || '').replace(/[^0-9.]/g, '')) || 0);
 
       await productsApi.create({
         title: fullTitle.slice(0, 150),
