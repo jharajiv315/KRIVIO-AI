@@ -175,8 +175,9 @@ export function getDirectProductPhoto(product?: Partial<Product> | any): string 
   } else if (typeof product.image_urls === 'string' && product.image_urls.startsWith('[')) {
     try {
       const parsed = JSON.parse(product.image_urls);
-      if (Array.isArray(parsed) && parsed.length > 0 && isValidImageUrl(parsed[0])) {
-        return parsed[0];
+      if (Array.isArray(parsed) && parsed.length > 0) {
+        const found = parsed.find((u: any) => isValidImageUrl(u));
+        if (found) return found;
       }
     } catch {}
   }
@@ -188,9 +189,10 @@ export function getDirectProductPhoto(product?: Partial<Product> | any): string 
 
   // 4. Check images array of objects
   if (Array.isArray(product.images) && product.images.length > 0) {
-    const first = product.images[0];
-    if (typeof first === 'string' && isValidImageUrl(first)) return first;
-    if (first && typeof first === 'object' && isValidImageUrl(first.url)) return first.url;
+    for (const img of product.images) {
+      if (typeof img === 'string' && isValidImageUrl(img)) return img;
+      if (img && typeof img === 'object' && isValidImageUrl(img.url)) return img.url;
+    }
   }
 
   return null;

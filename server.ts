@@ -909,7 +909,7 @@ app.post('/api/products', authenticateToken, async (req: AuthenticatedRequest, r
     const rawImageUrls = Array.isArray(imageUrls)
       ? imageUrls
       : (typeof imageUrls === 'string' && imageUrls ? (imageUrls.startsWith('[') ? JSON.parse(imageUrls) : [imageUrls]) : []);
-    const safeImageUrls = rawImageUrls.length > 0 && rawImageUrls[0] && !rawImageUrls[0].includes('example.com')
+    const safeImageUrls = rawImageUrls.length > 0 && typeof rawImageUrls[0] === 'string' && !rawImageUrls[0].includes('example.com')
       ? rawImageUrls
       : [getContextualCraftImage({ title, category, material: effectiveMaterial, description })];
     const safeMarketplaces = Array.isArray(marketplaces)
