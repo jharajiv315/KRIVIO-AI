@@ -16,7 +16,15 @@ import {
   Copy,
   Archive,
   Upload,
+  Camera,
+  Image as ImageIcon,
 } from 'lucide-react';
+import {
+  getProductThumbnail,
+  getFallbackCraftThumbnail,
+  getContextualCraftImage,
+  getDirectProductPhoto,
+} from '../utils/productThumbnail';
 
 export const ProductStudio: React.FC = () => {
   const { t, formatCurrency, currentLanguageConfig } = useI18n();
@@ -26,6 +34,8 @@ export const ProductStudio: React.FC = () => {
   const [loading, setLoading] = useState(true);
   const [modalOpen, setModalOpen] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
+  const [dragOverProductId, setDragOverProductId] = useState<string | null>(null);
+  const [directUploadingId, setDirectUploadingId] = useState<string | null>(null);
 
   // Filters & Sorting
   const [searchTerm, setSearchTerm] = useState('');
@@ -219,6 +229,30 @@ export const ProductStudio: React.FC = () => {
     setFormError('');
   };
 
+  const handleDirectCardUpload = async (productId: string, file: File) => {
+    if (!file || !file.type.startsWith('image/')) return;
+    if (file.size > 15 * 1024 * 1024) {
+      alert('Image size exceeds 15MB limit. Please choose a smaller image.');
+      return;
+    }
+    setDirectUploadingId(productId);
+    try {
+      const compressed = await compressImage(file);
+      // Optimistically update UI
+      setProducts((prev) =>
+        prev.map((p) => (p.id === productId ? { ...p, imageUrls: [compressed, ...(p.imageUrls || [])] } : p))
+      );
+      await productsApi.update(productId, {
+        imageUrls: [compressed],
+      });
+      fetchProducts();
+    } catch (err) {
+      console.error('Failed to update product photo', err);
+    } finally {
+      setDirectUploadingId(null);
+    }
+  };
+
   const handleSaveProduct = async (e?: React.FormEvent) => {
     if (e) e.preventDefault();
     if (!title.trim()) {
@@ -242,6 +276,14 @@ export const ProductStudio: React.FC = () => {
     setFormError('');
 
     try {
+      const craftMatchedImage = getContextualCraftImage({
+        title: title.trim(),
+        category: craftType,
+        material: materials.trim(),
+        description: description.trim(),
+      });
+      const effectiveImageUrls = imageUrls.length > 0 ? imageUrls : [craftMatchedImage];
+
       const payload = {
         title: title.trim(),
         description: description.trim(),
@@ -254,7 +296,7 @@ export const ProductStudio: React.FC = () => {
         material: materials.trim(),
         status,
         keywords,
-        imageUrls,
+        imageUrls: effectiveImageUrls,
       };
 
       if (editingId) {
@@ -456,24 +498,85 @@ export const ProductStudio: React.FC = () => {
               className="bg-white dark:bg-[#13251B] rounded-2xl border border-[#0F5132]/15 dark:border-emerald-800/60 overflow-hidden shadow-xs hover:border-[#0F5132] dark:hover:border-emerald-400 transition-all flex flex-col group"
             >
               {/* Image Thumbnail */}
-              <div className="relative h-48 bg-[#F8F9F5] dark:bg-[#0E2016] overflow-hidden flex items-center justify-center">
-                {p.imageUrls && p.imageUrls.length > 0 && p.imageUrls[0] ? (
-                  <img
-                    src={p.imageUrls[0]}
-                    alt={p.title}
-                    className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
-                  />
-                ) : (
-                  <div className="flex flex-col items-center justify-center text-stone-400 dark:text-emerald-400/50 space-y-1.5 p-4 text-center">
-                    <Package className="w-10 h-10 stroke-1" />
-                    <span className="text-[11px] font-medium font-inter">{t('imageStudio.dropzone')}</span>
+              <div
+                className="relative h-48 bg-[#F8F9F5] dark:bg-[#0E2016] overflow-hidden flex items-center justify-center group/thumbnail cursor-pointer"
+                onDragOver={(e) => {
+                  e.preventDefault();
+                  setDragOverProductId(p.id);
+                }}
+                onDragLeave={() => setDragOverProductId(null)}
+                onDrop={(e) => {
+                  e.preventDefault();
+                  setDragOverProductId(null);
+                  if (e.dataTransfer.files && e.dataTransfer.files[0]) {
+                    handleDirectCardUpload(p.id, e.dataTransfer.files[0]);
+                  }
+                }}
+              >
+                <img
+                  src={getProductThumbnail(p)}
+                  alt={p.title}
+                  onError={(e) => {
+                    const fallback = getFallbackCraftThumbnail(p);
+                    if (e.currentTarget.src !== fallback) {
+                      e.currentTarget.src = fallback;
+                    }
+                  }}
+                  className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
+                />
+
+                {/* Direct Upload Overlay on Hover */}
+                <div className="absolute inset-0 bg-gradient-to-t from-black/70 via-black/20 to-transparent opacity-0 group-hover/thumbnail:opacity-100 transition-opacity flex items-end justify-between p-3 z-10">
+                  <label
+                    onClick={(e) => e.stopPropagation()}
+                    className="cursor-pointer px-2.5 py-1.5 bg-black/70 hover:bg-black/90 backdrop-blur-md text-white rounded-lg text-[10px] font-semibold flex items-center gap-1.5 transition-all shadow-md active:scale-95 font-poppins border border-white/20"
+                  >
+                    <Camera className="w-3.5 h-3.5" />
+                    <span>{getDirectProductPhoto(p) ? 'Change Photo' : 'Upload Photo'}</span>
+                    <input
+                      type="file"
+                      accept="image/*"
+                      className="hidden"
+                      onChange={(e) => {
+                        if (e.target.files && e.target.files[0]) {
+                          handleDirectCardUpload(p.id, e.target.files[0]);
+                        }
+                      }}
+                    />
+                  </label>
+
+                  {getDirectProductPhoto(p) ? (
+                    <span className="px-2 py-0.5 rounded-full text-[9px] font-bold bg-emerald-600/90 text-white backdrop-blur-xs shadow-xs font-poppins">
+                      Artisan Photo
+                    </span>
+                  ) : (
+                    <span className="px-2 py-0.5 rounded-full text-[9px] font-bold bg-amber-600/90 text-white backdrop-blur-xs shadow-xs flex items-center gap-1 font-poppins">
+                      <Sparkles className="w-2.5 h-2.5" /> Craft Match
+                    </span>
+                  )}
+                </div>
+
+                {/* Upload Spinner if currently processing */}
+                {directUploadingId === p.id && (
+                  <div className="absolute inset-0 bg-black/60 backdrop-blur-xs flex flex-col items-center justify-center text-white z-20">
+                    <div className="w-6 h-6 border-2 border-white border-t-transparent rounded-full animate-spin mb-1.5" />
+                    <span className="text-[11px] font-semibold font-poppins">Updating photo...</span>
                   </div>
                 )}
-                <div className="absolute top-3 left-3 bg-white/90 dark:bg-[#13251B]/90 backdrop-blur-xs px-2.5 py-1 rounded-full text-[10px] font-bold text-stone-800 dark:text-emerald-200 border border-[#0F5132]/15 dark:border-emerald-900/40 font-poppins">
+
+                {/* Drag Over Visual Indicator */}
+                {dragOverProductId === p.id && (
+                  <div className="absolute inset-0 bg-[#0F5132]/85 backdrop-blur-xs flex flex-col items-center justify-center text-white border-2 border-dashed border-emerald-300 z-20">
+                    <Upload className="w-8 h-8 animate-bounce mb-1" />
+                    <span className="text-xs font-bold font-poppins">Drop image to set product photo</span>
+                  </div>
+                )}
+
+                <div className="absolute top-3 left-3 bg-white/90 dark:bg-[#13251B]/90 backdrop-blur-xs px-2.5 py-1 rounded-full text-[10px] font-bold text-stone-800 dark:text-emerald-200 border border-[#0F5132]/15 dark:border-emerald-900/40 font-poppins z-10 pointer-events-none">
                   {p.category}
                 </div>
 
-                <div className="absolute top-3 right-3 flex items-center gap-1.5 font-poppins">
+                <div className="absolute top-3 right-3 flex items-center gap-1.5 font-poppins z-10 pointer-events-none">
                   <span
                     className={`px-2 py-1 rounded-full text-[10px] font-bold ${
                       p.status === 'published'
@@ -817,6 +920,32 @@ export const ProductStudio: React.FC = () => {
                     + Add URL
                   </button>
                 </div>
+
+                {imageUrls.length === 0 && (
+                  <div className="flex items-center gap-3 p-3 bg-emerald-50/70 dark:bg-emerald-950/40 border border-emerald-200/80 dark:border-emerald-800/60 rounded-xl">
+                    <img
+                      src={getContextualCraftImage({
+                        title: title || rawCraftInput || 'Craft Product',
+                        category: craftType,
+                        material: materials,
+                        description,
+                      })}
+                      alt="Craft match preview"
+                      className="w-14 h-14 rounded-lg object-cover border border-[#0F5132]/20 dark:border-emerald-700/60 shrink-0"
+                    />
+                    <div className="space-y-0.5">
+                      <div className="flex items-center gap-1.5">
+                        <Sparkles className="w-3.5 h-3.5 text-[#0F5132] dark:text-emerald-400" />
+                        <span className="text-xs font-bold text-stone-900 dark:text-white font-poppins">
+                          Contextual Craft Image Pre-Assigned
+                        </span>
+                      </div>
+                      <p className="text-[11px] text-stone-600 dark:text-emerald-300/80 font-inter">
+                        An authentic craft photo matching <strong>{craftType}</strong> is ready. You can keep it or upload your own photos above.
+                      </p>
+                    </div>
+                  </div>
+                )}
               </div>
             </form>
 

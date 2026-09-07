@@ -19,6 +19,7 @@ import { AITaskRouter } from './src/server/ai/task_router';
 import { geminiService } from './src/server/ai/gemini_client';
 import { aiObservability } from './src/server/ai/observability';
 import { PricingEngine } from './src/server/pricing/pricing_engine';
+import { getContextualCraftImage } from './src/utils/productThumbnail';
 
 dotenv.config();
 
@@ -905,9 +906,12 @@ app.post('/api/products', authenticateToken, async (req: AuthenticatedRequest, r
     const safeKeywords = Array.isArray(keywords)
       ? keywords
       : (typeof keywords === 'string' && keywords ? (keywords.startsWith('[') ? JSON.parse(keywords) : keywords.split(',').map((k: string) => k.trim()).filter(Boolean)) : []);
-    const safeImageUrls = Array.isArray(imageUrls)
+    const rawImageUrls = Array.isArray(imageUrls)
       ? imageUrls
       : (typeof imageUrls === 'string' && imageUrls ? (imageUrls.startsWith('[') ? JSON.parse(imageUrls) : [imageUrls]) : []);
+    const safeImageUrls = rawImageUrls.length > 0 && rawImageUrls[0] && !rawImageUrls[0].includes('example.com')
+      ? rawImageUrls
+      : [getContextualCraftImage({ title, category, material: effectiveMaterial, description })];
     const safeMarketplaces = Array.isArray(marketplaces)
       ? marketplaces
       : (typeof marketplaces === 'string' && marketplaces ? (marketplaces.startsWith('[') ? JSON.parse(marketplaces) : [marketplaces]) : ['ONDC']);

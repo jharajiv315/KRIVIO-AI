@@ -4,6 +4,7 @@ import { Product, PublicStorefrontData } from '../types';
 import { Logo } from './Logo';
 import { useI18n } from '../i18n/LanguageContext';
 import { LanguageSelector } from './LanguageSelector';
+import { getProductThumbnail, getFallbackCraftThumbnail } from '../utils/productThumbnail';
 import {
   MapPin,
   CheckCircle2,
@@ -405,18 +406,17 @@ export const PublicStorefront: React.FC<PublicStorefrontProps> = ({
               >
                 {/* Product Image */}
                 <div className="relative aspect-4/3 overflow-hidden bg-[#F8F9F5] flex items-center justify-center">
-                  {prod.imageUrls && prod.imageUrls.length > 0 && prod.imageUrls[0] ? (
-                    <img
-                      src={prod.imageUrls[0]}
-                      alt={prod.title}
-                      className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500"
-                    />
-                  ) : (
-                    <div className="flex flex-col items-center justify-center text-stone-400 space-y-1 p-4">
-                      <Package className="w-10 h-10 stroke-1" />
-                      <span className="text-[10px] font-medium font-inter">No Photo</span>
-                    </div>
-                  )}
+                  <img
+                    src={getProductThumbnail(prod)}
+                    alt={prod.title}
+                    onError={(e) => {
+                      const fallback = getFallbackCraftThumbnail(prod);
+                      if (e.currentTarget.src !== fallback) {
+                        e.currentTarget.src = fallback;
+                      }
+                    }}
+                    className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500"
+                  />
                   <span className="absolute top-3 left-3 px-2.5 py-0.5 rounded-full text-[10px] font-bold bg-white/90 backdrop-blur-xs text-[#0F5132] border border-[#0F5132]/20 font-poppins">
                     {prod.category}
                   </span>
@@ -570,18 +570,17 @@ export const PublicStorefront: React.FC<PublicStorefrontProps> = ({
             </div>
 
             <div className="aspect-video w-full rounded-2xl overflow-hidden bg-[#F8F9F5] flex items-center justify-center">
-              {selectedProductPreview.imageUrls && selectedProductPreview.imageUrls.length > 0 && selectedProductPreview.imageUrls[0] ? (
-                <img
-                  src={selectedProductPreview.imageUrls[0]}
-                  alt={selectedProductPreview.title}
-                  className="w-full h-full object-cover"
-                />
-              ) : (
-                <div className="flex flex-col items-center justify-center text-stone-400 space-y-2 p-8">
-                  <Package className="w-12 h-12 stroke-1" />
-                  <span className="text-xs font-medium font-inter">No Photo Uploaded</span>
-                </div>
-              )}
+              <img
+                src={getProductThumbnail(selectedProductPreview)}
+                alt={selectedProductPreview.title}
+                onError={(e) => {
+                  const fallback = getFallbackCraftThumbnail(selectedProductPreview);
+                  if (e.currentTarget.src !== fallback) {
+                    e.currentTarget.src = fallback;
+                  }
+                }}
+                className="w-full h-full object-cover"
+              />
             </div>
 
             <div className="space-y-3 font-inter text-xs sm:text-sm text-stone-700">
@@ -697,17 +696,17 @@ export const PublicStorefront: React.FC<PublicStorefrontProps> = ({
             {inquiryProduct && (
               <div className="p-3.5 bg-[#F8F9F5] rounded-2xl border border-stone-200/80 flex items-center justify-between gap-3">
                 <div className="flex items-center gap-3">
-                  {inquiryProduct.imageUrls && inquiryProduct.imageUrls[0] ? (
-                    <img
-                      src={inquiryProduct.imageUrls[0]}
-                      alt={inquiryProduct.title}
-                      className="w-12 h-12 rounded-xl object-cover"
-                    />
-                  ) : (
-                    <div className="w-12 h-12 rounded-xl bg-stone-200 flex items-center justify-center text-stone-400">
-                      <Package className="w-6 h-6 stroke-1" />
-                    </div>
-                  )}
+                  <img
+                    src={getProductThumbnail(inquiryProduct)}
+                    alt={inquiryProduct.title}
+                    onError={(e) => {
+                      const fallback = getFallbackCraftThumbnail(inquiryProduct);
+                      if (e.currentTarget.src !== fallback) {
+                        e.currentTarget.src = fallback;
+                      }
+                    }}
+                    className="w-12 h-12 rounded-xl object-cover"
+                  />
                   <div>
                     <h4 className="text-xs font-bold text-stone-900 font-poppins line-clamp-1">
                       {inquiryProduct.title}

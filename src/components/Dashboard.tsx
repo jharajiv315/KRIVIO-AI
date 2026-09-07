@@ -17,6 +17,7 @@ import { SettingsView } from './SettingsView';
 import { BusinessProfileView } from './BusinessProfileView';
 import { ImageStudio } from './ImageStudio';
 import { PublicStorefront } from './PublicStorefront';
+import { getProductThumbnail, getFallbackCraftThumbnail } from '../utils/productThumbnail';
 import {
   LayoutDashboard,
   Package,
@@ -550,17 +551,17 @@ export const Dashboard: React.FC<DashboardProps> = ({ currentTab, setCurrentTab,
                           onClick={() => setCurrentTab('products')}
                           className="p-3 bg-stone-50 dark:bg-[#183023]/60 rounded-xl border border-stone-100 dark:border-emerald-900/40 flex items-center gap-3 cursor-pointer hover:border-[#0F5132] dark:hover:border-emerald-400 transition-all font-inter"
                         >
-                          {prod.imageUrls && prod.imageUrls.length > 0 && prod.imageUrls[0] ? (
-                            <img
-                              src={prod.imageUrls[0]}
-                              alt={prod.title}
-                              className="w-12 h-12 rounded-lg object-cover shrink-0"
-                            />
-                          ) : (
-                            <div className="w-12 h-12 rounded-lg bg-[#0F5132]/10 dark:bg-emerald-950 flex items-center justify-center text-[#0F5132] dark:text-[#34D399] shrink-0">
-                              <Package className="w-6 h-6 stroke-1" />
-                            </div>
-                          )}
+                          <img
+                            src={getProductThumbnail(prod)}
+                            alt={prod.title}
+                            onError={(e) => {
+                              const fallback = getFallbackCraftThumbnail(prod);
+                              if (e.currentTarget.src !== fallback) {
+                                e.currentTarget.src = fallback;
+                              }
+                            }}
+                            className="w-12 h-12 rounded-lg object-cover shrink-0"
+                          />
                           <div className="flex-1 min-w-0">
                             <h4 className="text-xs font-bold text-stone-900 dark:text-white truncate">
                               {prod.title}
