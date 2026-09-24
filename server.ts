@@ -5,6 +5,8 @@ import { GoogleGenAI } from '@google/genai';
 import { Pool } from 'pg';
 import bcrypt from 'bcryptjs';
 import dotenv from 'dotenv';
+import crypto from 'crypto';
+import { createClient } from '@supabase/supabase-js';
 import { GenerationService, IMAGE_OPERATIONS, OPERATION_CATEGORIES } from './src/server/image_operations/index';
 import {
   MARKETPLACE_DESTINATIONS,
@@ -19,7 +21,7 @@ import { AITaskRouter } from './src/server/ai/task_router';
 import { geminiService } from './src/server/ai/gemini_client';
 import { aiObservability } from './src/server/ai/observability';
 import { PricingEngine } from './src/server/pricing/pricing_engine';
-import { getContextualCraftImage } from './src/utils/productThumbnail';
+import { getContextualCraftImage, isValidImageUrl, normalizeCandidateUrl } from './src/utils/productThumbnail';
 
 dotenv.config();
 
@@ -42,6 +44,11 @@ const PORT = process.env.PORT ? parseInt(process.env.PORT, 10) : 3000;
 const JWT_SECRET = process.env.JWT_SECRET || 'krivio_secret_key_2026';
 const SUPABASE_JWT_SECRET = process.env.SUPABASE_JWT_SECRET || '';
 
+// Initialize Supabase Server Client for authenticating OAuth tokens
+const SUPABASE_URL = process.env.VITE_SUPABASE_URL || process.env.SUPABASE_URL || 'https://mvbpxcsyyasckzymjyjb.supabase.co';
+const SUPABASE_ANON_KEY = process.env.VITE_SUPABASE_ANON_KEY || process.env.SUPABASE_ANON_KEY || 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im12YnB4Y3N5eWFzY2t6eW1qeWpiIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODgxMDMwNjQsImV4cCI6MjEwMzY3OTA2NH0.U3OcsC9bZZ5ORcNg8z_CEMf-kDg3PVqxetiZGEU_i24';
+const supabaseServerClient = createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+
 // Initialize Gemini Client
 const GEMINI_KEY = process.env.GEMINI_API_KEY || process.env.VITE_GEMINI_API_KEY;
 let ai: GoogleGenAI | null = null;
@@ -56,12 +63,38 @@ if (GEMINI_KEY) {
   });
 }
 
+// CORS whitelist patterns
+const ALLOWED_ORIGIN_PATTERNS = [
+  /^https:\/\/[a-z0-9-]+\.vercel\.app$/,
+  /^https:\/\/krivio-ai\.vercel\.app$/,
+  /^http:\/\/localhost(:\d+)?$/,
+  /^http:\/\/127\.0\.0\.1(:\d+)?$/
+];
+
 app.use((req: Request, res: Response, next: NextFunction) => {
-  res.header('Access-Control-Allow-Origin', '*');
+  const origin = req.headers.origin as string;
+  if (origin) {
+    const isAllowed = ALLOWED_ORIGIN_PATTERNS.some(p => p.test(origin)) ||
+      (process.env.APP_URL && origin === process.env.APP_URL) ||
+      (process.env.VITE_SITE_URL && origin === process.env.VITE_SITE_URL);
+    if (isAllowed) {
+      res.header('Access-Control-Allow-Origin', origin);
+      res.header('Access-Control-Allow-Credentials', 'true');
+    }
+  } else {
+    res.header('Access-Control-Allow-Origin', '*');
+  }
   res.header('Access-Control-Allow-Methods', 'GET, POST, PUT, DELETE, PATCH, OPTIONS');
   res.header('Access-Control-Allow-Headers', 'Content-Type, Authorization, X-Requested-With');
+
+  // Security Headers (OWASP)
+  res.header('X-Content-Type-Options', 'nosniff');
+  res.header('X-Frame-Options', 'SAMEORIGIN');
+  res.header('Referrer-Policy', 'strict-origin-when-cross-origin');
+  res.header('Permissions-Policy', 'camera=(self), microphone=(self), geolocation=()');
+
   if (req.method === 'OPTIONS') {
-    res.sendStatus(200);
+    res.sendStatus(204);
     return;
   }
   next();
@@ -138,20 +171,32 @@ async function resolveUserFromToken(token: string): Promise<AuthenticatedUser | 
     decoded = jwt.verify(token, JWT_SECRET);
   } catch {}
 
-  // 2. Try SUPABASE_JWT_SECRET
+  // 2. Try SUPABASE_JWT_SECRET if configured
   if (!decoded && SUPABASE_JWT_SECRET) {
     try {
       decoded = jwt.verify(token, SUPABASE_JWT_SECRET);
     } catch {}
   }
 
-  // 3. Fallback to unverified decode for Supabase OAuth tokens
-  if (!decoded) {
+  // 3. Cryptographically verify Supabase OAuth tokens via Supabase Auth client
+  if (!decoded && token) {
     try {
-      decoded = jwt.decode(token);
-    } catch {}
+      const { data: supaData, error: supaErr } = await supabaseServerClient.auth.getUser(token);
+      if (!supaErr && supaData && supaData.user) {
+        decoded = {
+          sub: supaData.user.id,
+          id: supaData.user.id,
+          email: supaData.user.email,
+          user_metadata: supaData.user.user_metadata || {},
+          role: supaData.user.role || 'artisan',
+        };
+      }
+    } catch (supaEx: any) {
+      console.warn('[Auth]: Supabase token verification failed:', supaEx?.message || supaEx);
+    }
   }
 
+  // Never accept unverified tokens (prevents JWT forgery/bypass)
   if (!decoded) return null;
 
   const subId = decoded.sub || decoded.id;
@@ -909,8 +954,11 @@ app.post('/api/products', authenticateToken, async (req: AuthenticatedRequest, r
     const rawImageUrls = Array.isArray(imageUrls)
       ? imageUrls
       : (typeof imageUrls === 'string' && imageUrls ? (imageUrls.startsWith('[') ? JSON.parse(imageUrls) : [imageUrls]) : []);
-    const safeImageUrls = rawImageUrls.length > 0 && typeof rawImageUrls[0] === 'string' && !rawImageUrls[0].includes('example.com')
-      ? rawImageUrls
+    const validCandidateUrls = rawImageUrls
+      .map((item: any) => normalizeCandidateUrl(item))
+      .filter((u: any): u is string => Boolean(u && isValidImageUrl(u)));
+    const safeImageUrls = validCandidateUrls.length > 0
+      ? validCandidateUrls
       : [getContextualCraftImage({ title, category, material: effectiveMaterial, description })];
     const safeMarketplaces = Array.isArray(marketplaces)
       ? marketplaces
@@ -1162,6 +1210,16 @@ app.put('/api/products/:id', authenticateToken, async (req: AuthenticatedRequest
     const effectiveLeadTime = leadTime !== undefined ? leadTime : lead_time;
     const effectiveOriginState = originState !== undefined ? originState : origin_state;
 
+    let sanitizedUpdateImageUrls: string[] | null = null;
+    if (imageUrls !== undefined && imageUrls !== null) {
+      const rawUpdate = Array.isArray(imageUrls)
+        ? imageUrls
+        : (typeof imageUrls === 'string' && imageUrls ? (imageUrls.startsWith('[') ? JSON.parse(imageUrls) : [imageUrls]) : []);
+      sanitizedUpdateImageUrls = rawUpdate
+        .map((item: any) => normalizeCandidateUrl(item))
+        .filter((u: any): u is string => Boolean(u && isValidImageUrl(u)));
+    }
+
     let row;
     try {
       const updateRes = await queryPg(
@@ -1207,7 +1265,7 @@ app.put('/api/products/:id', authenticateToken, async (req: AuthenticatedRequest
           dimensions,
           status,
           keywords ? JSON.stringify(keywords) : null,
-          imageUrls ? JSON.stringify(imageUrls) : null,
+          sanitizedUpdateImageUrls ? JSON.stringify(sanitizedUpdateImageUrls) : null,
           isMarketplaceReady,
           readinessScore,
           marketplaces ? JSON.stringify(marketplaces) : null,
@@ -1350,9 +1408,12 @@ app.post('/api/products/:id/duplicate', authenticateToken, async (req: Authentic
     const dupRes = await queryPg(
       `INSERT INTO products (
         id, user_id, title, description, category, price, currency, stock, sku, weight, dimensions,
-        status, keywords, image_urls, is_marketplace_ready, readiness_score, marketplaces, created_at, updated_at
+        status, keywords, image_urls, is_marketplace_ready, readiness_score, marketplaces,
+        material, short_description, craft_story, hsn_code, wholesale_price, mrp, moq, lead_time,
+        brand, color, origin_state, created_at, updated_at
       ) VALUES (
-        $1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, NOW(), NOW()
+        $1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17,
+        $18, $19, $20, $21, $22, $23, $24, $25, $26, $27, $28, NOW(), NOW()
       ) RETURNING *`,
       [
         newId,
@@ -1371,7 +1432,18 @@ app.post('/api/products/:id/duplicate', authenticateToken, async (req: Authentic
         JSON.stringify(orig.image_urls || []),
         orig.is_marketplace_ready,
         orig.readiness_score,
-        JSON.stringify(orig.marketplaces || [])
+        JSON.stringify(orig.marketplaces || []),
+        orig.material || '',
+        orig.short_description || '',
+        orig.craft_story || '',
+        orig.hsn_code || '',
+        orig.wholesale_price,
+        orig.mrp,
+        orig.moq || 1,
+        orig.lead_time || '3-5 business days',
+        orig.brand || '',
+        orig.color || '',
+        orig.origin_state || '',
       ]
     );
     const row = dupRes.rows[0];
@@ -1389,6 +1461,17 @@ app.post('/api/products/:id/duplicate', authenticateToken, async (req: Authentic
         sku: row.sku,
         weight: row.weight,
         dimensions: row.dimensions,
+        material: row.material,
+        shortDescription: row.short_description,
+        craftStory: row.craft_story,
+        hsnCode: row.hsn_code,
+        wholesalePrice: row.wholesale_price !== null && row.wholesale_price !== undefined ? parseFloat(row.wholesale_price) : undefined,
+        mrp: row.mrp !== null && row.mrp !== undefined ? parseFloat(row.mrp) : undefined,
+        moq: row.moq,
+        leadTime: row.lead_time,
+        brand: row.brand,
+        color: row.color,
+        originState: row.origin_state,
         status: row.status,
         keywords: Array.isArray(row.keywords) ? row.keywords : [],
         imageUrls: Array.isArray(row.image_urls) ? row.image_urls : [],
@@ -1434,8 +1517,9 @@ app.post('/api/marketplace/readiness', authenticateToken, async (req: Authentica
   try {
     const userId = req.user!.id;
     const { destination, productIds } = req.body;
+    const destKey = ((destination || '') as string).toLowerCase() as any;
 
-    if (!destination || !MARKETPLACE_DESTINATIONS[destination]) {
+    if (!destKey || !MARKETPLACE_DESTINATIONS[destKey]) {
       res.status(400).json({ error: `Unsupported or missing destination: ${destination}` });
       return;
     }
@@ -1466,7 +1550,7 @@ app.post('/api/marketplace/readiness', authenticateToken, async (req: Authentica
       })
     );
 
-    const batchResult = validateBatch(canonicalProducts, destination);
+    const batchResult = validateBatch(canonicalProducts, destKey);
 
     res.json(batchResult);
   } catch (err: any) {
@@ -1479,8 +1563,9 @@ app.post('/api/marketplace/export', authenticateToken, async (req: Authenticated
   try {
     const userId = req.user!.id;
     const { destination, productIds, allowPartial } = req.body;
+    const destKey = ((destination || '') as string).toLowerCase() as any;
 
-    if (!destination || !MARKETPLACE_DESTINATIONS[destination]) {
+    if (!destKey || !MARKETPLACE_DESTINATIONS[destKey]) {
       res.status(400).json({ error: `Unsupported destination: ${destination}` });
       return;
     }
@@ -1760,7 +1845,7 @@ app.get('/api/business-profile', authenticateToken, async (req: AuthenticatedReq
   }
 });
 
-app.post('/api/business-profile', authenticateToken, async (req: AuthenticatedRequest, res: Response) => {
+const handleSaveBusinessProfile = async (req: AuthenticatedRequest, res: Response) => {
   try {
     const userId = req.user!.id;
     const {
@@ -1882,11 +1967,19 @@ app.post('/api/business-profile', authenticateToken, async (req: AuthenticatedRe
     console.error('Business profile save error:', err);
     res.status(500).json({ error: 'Failed to save business profile' });
   }
-});
+};
 
-app.put('/api/business-profile', authenticateToken, async (req: AuthenticatedRequest, res: Response) => {
-  req.url = '/api/business-profile';
-  app._router.handle(req, res);
+app.post('/api/business-profile', authenticateToken, handleSaveBusinessProfile);
+app.put('/api/business-profile', authenticateToken, handleSaveBusinessProfile);
+
+app.delete('/api/business-profile', authenticateToken, async (req: AuthenticatedRequest, res: Response) => {
+  try {
+    const userId = req.user!.id;
+    await queryPg(`DELETE FROM business_profiles WHERE user_id = $1`, [userId]);
+    res.json({ success: true, message: 'Business profile removed successfully' });
+  } catch (err) {
+    res.status(500).json({ error: 'Failed to delete business profile' });
+  }
 });
 
 // --- DASHBOARD ROUTE (REAL METRICS & USER ISOLATION) ---
@@ -2308,7 +2401,28 @@ app.post('/api/payments/create-order', authenticateToken, async (req: Authentica
 app.post('/api/payments/verify', authenticateToken, async (req: AuthenticatedRequest, res: Response) => {
   try {
     const userId = req.user!.id;
-    const { razorpayPaymentId, razorpayOrderId } = req.body;
+    const { razorpayPaymentId, razorpayOrderId, razorpaySignature } = req.body;
+
+    if (!razorpayPaymentId) {
+      res.status(400).json({ error: 'Missing payment transaction ID' });
+      return;
+    }
+
+    const secret = process.env.RAZORPAY_KEY_SECRET;
+    if (secret && razorpaySignature && razorpayOrderId) {
+      const expectedSignature = crypto
+        .createHmac('sha256', secret)
+        .update(`${razorpayOrderId}|${razorpayPaymentId}`)
+        .digest('hex');
+
+      if (expectedSignature !== razorpaySignature) {
+        res.status(400).json({ error: 'Invalid payment signature. Verification failed.' });
+        return;
+      }
+    } else if (process.env.NODE_ENV === 'production' && !razorpaySignature) {
+      res.status(400).json({ error: 'Missing payment signature for verification.' });
+      return;
+    }
 
     await queryPg(
       `INSERT INTO subscriptions (id, user_id, plan, status, razorpay_payment_id, start_date, end_date)
@@ -3482,7 +3596,13 @@ async function startServer() {
   });
 }
 
-if (!process.env.VERCEL) {
+const isMainModule = Boolean(process.argv[1] && (
+  process.argv[1].endsWith('server.ts') ||
+  process.argv[1].endsWith('server.js') ||
+  process.argv[1].endsWith('server.cjs')
+));
+
+if (!process.env.VERCEL && isMainModule && process.env.NODE_ENV !== 'test') {
   startServer();
 }
 
