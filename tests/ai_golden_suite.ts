@@ -145,6 +145,8 @@ async function runSuite() {
     },
   });
 
+  await new Promise(r => setTimeout(r, 2000));
+
   const mentorCeramic = await AITaskRouter.handle({
     task: 'MENTOR',
     language: 'en',
@@ -172,6 +174,8 @@ async function runSuite() {
     'Mentor produces distinct intent and distinct responses for different questions'
   );
 
+  await new Promise(r => setTimeout(r, 2000));
+
   // 3.3 Brand Generation Differentiation: Brass Lamp vs Ceramic Tableware
   console.log('  Testing Brand Name Generation Differentiation...');
   const brandLamp = await AITaskRouter.handle({
@@ -180,6 +184,8 @@ async function runSuite() {
     productContext: { name: 'Handcrafted Brass Lamp', category: 'Metal Craft' },
     parameters: { personality: 'Radiant Heritage & Sacred Light' },
   });
+
+  await new Promise(r => setTimeout(r, 2000));
 
   const brandCeramic = await AITaskRouter.handle({
     task: 'BRAND_SUGGESTION',
@@ -206,6 +212,8 @@ async function runSuite() {
     'Brass craft and Ceramic craft produce completely different brand name sets'
   );
 
+  await new Promise(r => setTimeout(r, 2000));
+
   // 3.4 Multilingual Generation: Hindi & Marathi
   console.log('  Testing Multilingual Language Fidelity...');
   const mentorHindi = await AITaskRouter.handle({
@@ -217,6 +225,8 @@ async function runSuite() {
   // Verify response contains Devanagari Hindi characters
   const hasDevanagari = /[\u0900-\u097F]/.test(mentorHindi.response);
   assert(hasDevanagari, 'Hindi inquiry receives genuine Hindi/Devanagari response without English fallback');
+
+  await new Promise(r => setTimeout(r, 2000));
 
   // 3.5 Multimodal Vision Understanding Test
   console.log('  Testing Multimodal Vision Inspection...');
