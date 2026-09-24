@@ -230,4 +230,4 @@ export class AITaskRouter {
   }
 }
 
-const GeminiService_Model = 'gemini-3.6-flash';
+const GeminiService_Model = process.env.GEMINI_MODEL || 'gemini-3.5-flash-lite';
