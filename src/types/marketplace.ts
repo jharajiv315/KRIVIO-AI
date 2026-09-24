@@ -125,6 +125,7 @@ export interface QuotationItemInput {
   quantity: number;
   moq: number;
   unitPrice: number;
+  taxPercent?: number;
   leadTime?: string;
   pricingTiers?: PricingTier[];
   notes?: string;
