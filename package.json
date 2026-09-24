@@ -8,7 +8,10 @@
     "build": "vite build && esbuild server.ts --bundle --platform=node --format=cjs --packages=external --sourcemap --outfile=dist/server.cjs",
     "start": "node dist/server.cjs",
     "clean": "rm -rf dist server.js",
-    "lint": "tsc --noEmit"
+    "lint": "tsc --noEmit",
+    "test": "tsx tests/user_isolation.test.ts && tsx tests/marketplace_adapters.test.ts && tsx tests/api_integration.test.ts",
+    "test:ai": "tsx tests/ai_golden_suite.ts",
+    "test:all": "npm run test && npm run test:ai"
   },
   "dependencies": {
     "@google/genai": "^2.4.0",
