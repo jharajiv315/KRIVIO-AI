@@ -31,34 +31,34 @@ export default async function handler(req: IncomingMessage, res: ServerResponse)
     let app: any = null;
     const errors: Record<string, string> = {};
 
+    // Primary: Co-located server.cjs inside api/ (guaranteed zero path resolution & ESM directory issues)
     try {
-      // Primary TypeScript source resolution
       // @ts-ignore
-      const mod = await import('../server');
+      const mod = await import('./server.cjs');
       app = mod.default || mod.app || mod;
     } catch (e: any) {
-      errors['../server'] = e?.message || String(e);
+      errors['./server.cjs'] = e?.message || String(e);
     }
 
+    // Fallback 1: Pre-bundled CommonJS in dist/
     if (!app) {
       try {
-        // ESM JavaScript resolution fallback
-        // @ts-ignore
-        const mod = await import('../server.js');
-        app = mod.default || mod.app || mod;
-      } catch (e: any) {
-        errors['../server.js'] = e?.message || String(e);
-      }
-    }
-
-    if (!app) {
-      try {
-        // Pre-bundled CommonJS fallback
         // @ts-ignore
         const mod = await import('../dist/server.cjs');
         app = mod.default || mod.app || mod;
       } catch (e: any) {
         errors['../dist/server.cjs'] = e?.message || String(e);
+      }
+    }
+
+    // Fallback 2: Direct source TypeScript/ESM
+    if (!app) {
+      try {
+        // @ts-ignore
+        const mod = await import('../server');
+        app = mod.default || mod.app || mod;
+      } catch (e: any) {
+        errors['../server'] = e?.message || String(e);
       }
     }
 
