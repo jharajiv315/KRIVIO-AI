@@ -1,7 +1,7 @@
 import dotenv from 'dotenv';
 dotenv.config();
 import pg from 'pg';
-import { getContextualCraftImage } from '../src/utils/productThumbnail.ts';
+import { getContextualCraftImage, isValidImageUrl, normalizeCandidateUrl } from '../src/utils/productThumbnail.ts';
 
 const pool = new pg.Pool({
   connectionString: process.env.DATABASE_URL
@@ -14,13 +14,18 @@ async function run() {
 
     for (const row of res.rows) {
       let currentUrls = [];
-      if (Array.isArray(row.image_urls)) currentUrls = row.image_urls;
-      else if (typeof row.image_urls === 'string' && row.image_urls.startsWith('[')) {
-        try { currentUrls = JSON.parse(row.image_urls); } catch {}
+      if (Array.isArray(row.image_urls)) {
+        currentUrls = row.image_urls;
+      } else if (typeof row.image_urls === 'string' && row.image_urls.trim().startsWith('[')) {
+        try {
+          currentUrls = JSON.parse(row.image_urls);
+        } catch {}
       }
 
-      // Check if currentUrls has valid, accessible URLs (filter out example.com or empty)
-      const validUrls = currentUrls.filter(u => u && !u.includes('example.com') && !u.includes('placeholder'));
+      // Safely validate and normalize each candidate URL before checking
+      const validUrls = currentUrls
+        .map(u => normalizeCandidateUrl(u))
+        .filter(u => u && isValidImageUrl(u));
 
       if (validUrls.length === 0) {
         const contextualUrl = getContextualCraftImage(row);
@@ -30,12 +35,13 @@ async function run() {
           [JSON.stringify([contextualUrl]), row.id]
         );
       } else {
-        console.log(`Product [${row.id}] "${row.title}" already has valid image.`);
+        console.log(`Product [${row.id}] "${row.title}" already has ${validUrls.length} valid image(s).`);
       }
     }
     console.log('Database product update complete!');
   } catch (err) {
-    console.error('Error updating products in DB:', err);
+    console.error('Error updating products in DB:', err.message || err);
+    process.exit(1);
   } finally {
     await pool.end();
   }
