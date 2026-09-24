@@ -1,5 +1,15 @@
 import type { IncomingMessage, ServerResponse } from 'http';
 
+function extractApp(mod: any) {
+  if (!mod) return null;
+  if (typeof mod === 'function') return mod;
+  if (mod.default && typeof mod.default === 'function') return mod.default;
+  if (mod.default?.default && typeof mod.default.default === 'function') return mod.default.default;
+  if (mod.app && typeof mod.app === 'function') return mod.app;
+  if (mod.default?.app && typeof mod.default.app === 'function') return mod.default.app;
+  return null;
+}
+
 export default async function handler(req: IncomingMessage, res: ServerResponse) {
   const url = req.url || '';
 
@@ -35,7 +45,7 @@ export default async function handler(req: IncomingMessage, res: ServerResponse)
     try {
       // @ts-ignore
       const mod = await import('./server.cjs');
-      app = mod.default || mod.app || mod;
+      app = extractApp(mod);
     } catch (e: any) {
       errors['./server.cjs'] = e?.message || String(e);
     }
@@ -45,7 +55,7 @@ export default async function handler(req: IncomingMessage, res: ServerResponse)
       try {
         // @ts-ignore
         const mod = await import('../dist/server.cjs');
-        app = mod.default || mod.app || mod;
+        app = extractApp(mod);
       } catch (e: any) {
         errors['../dist/server.cjs'] = e?.message || String(e);
       }
@@ -56,7 +66,7 @@ export default async function handler(req: IncomingMessage, res: ServerResponse)
       try {
         // @ts-ignore
         const mod = await import('../server');
-        app = mod.default || mod.app || mod;
+        app = extractApp(mod);
       } catch (e: any) {
         errors['../server'] = e?.message || String(e);
       }
@@ -72,7 +82,7 @@ export default async function handler(req: IncomingMessage, res: ServerResponse)
       res.end(
         JSON.stringify({
           error: 'SERVERLESS_MODULE_NOT_RESOLVED',
-          details: 'Could not load server application instance in serverless runtime',
+          details: 'Could not extract Express application function in serverless runtime',
           resolutionErrors: errors,
         })
       );
