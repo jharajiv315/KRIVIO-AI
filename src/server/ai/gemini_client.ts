@@ -15,7 +15,8 @@ export interface GenerateGeminiOptions {
 
 export class GeminiService {
   private client: GoogleGenAI | null = null;
-  public static readonly DEFAULT_MODEL = 'gemini-3.6-flash';
+  public static readonly DEFAULT_MODEL = process.env.GEMINI_MODEL || 'gemini-3.5-flash-lite';
+  public static readonly FALLBACK_MODELS = ['gemini-3.5-flash-lite', 'gemini-3.6-flash'];
 
   private getClient(): GoogleGenAI | null {
     if (!this.client) {
@@ -80,7 +81,8 @@ export class GeminiService {
       throw new Error('GEMINI_API_KEY is not configured on the server. AI features cannot proceed without valid credentials.');
     }
 
-    const modelName = options.model || GeminiService.DEFAULT_MODEL;
+    const primaryModel = options.model || GeminiService.DEFAULT_MODEL;
+    const modelsToTry = [primaryModel, ...GeminiService.FALLBACK_MODELS.filter(m => m !== primaryModel)];
     const maxRetries = options.maxRetries ?? 2;
 
     // Prepare contents
@@ -116,50 +118,98 @@ export class GeminiService {
       config.responseMimeType = options.responseMimeType;
     }
 
-    let attempt = 0;
     let lastError: any = null;
 
-    while (attempt <= maxRetries) {
-      try {
-        const response = await client.models.generateContent({
-          model: modelName,
-          contents,
-          config: Object.keys(config).length > 0 ? config : undefined,
-        });
+    for (const currentModel of modelsToTry) {
+      let attempt = 0;
+      while (attempt <= maxRetries) {
+        try {
+          const response = await client.models.generateContent({
+            model: currentModel,
+            contents,
+            config: Object.keys(config).length > 0 ? config : undefined,
+          });
 
-        const textResult = response.text;
-        if (textResult !== undefined && textResult !== null) {
-          return textResult;
-        }
+          const textResult = response.text;
+          if (textResult !== undefined && textResult !== null) {
+            return textResult;
+          }
 
-        // Check parts
-        const parts = response.candidates?.[0]?.content?.parts;
-        if (parts && parts.length > 0 && parts[0].text) {
-          return parts[0].text;
-        }
+          // Check parts
+          const parts = response.candidates?.[0]?.content?.parts;
+          if (parts && parts.length > 0 && parts[0].text) {
+            return parts[0].text;
+          }
 
-        throw new Error('Gemini returned an empty candidate or text response.');
-      } catch (err: any) {
-        lastError = err;
-        attempt++;
+          throw new Error('Gemini returned an empty candidate or text response.');
+        } catch (err: any) {
+          lastError = err;
+          attempt++;
 
-        const isTransient =
-          err.status === 429 ||
-          err.status === 503 ||
-          err.status === 500 ||
-          (err.message && (err.message.includes('ResourceExhausted') || err.message.includes('overloaded') || err.message.includes('EAI_AGAIN')));
+          const isDailyQuotaExhausted =
+            err.message &&
+            (err.message.includes('PerDay') ||
+              err.message.includes('daily') ||
+              err.message.includes('GenerateRequestsPerDay'));
 
-        if (isTransient && attempt <= maxRetries) {
-          const delayMs = Math.pow(2, attempt) * 600;
-          console.warn(`[GeminiClient] Transient error on attempt ${attempt}/${maxRetries}. Retrying in ${delayMs}ms:`, err.message || err);
-          await new Promise(r => setTimeout(r, delayMs));
-        } else {
-          break;
+          const isTransient =
+            !isDailyQuotaExhausted &&
+            (err.status === 429 ||
+              err.status === 503 ||
+              err.status === 500 ||
+              err.status === 'UNAVAILABLE' ||
+              err.status === 'RESOURCE_EXHAUSTED' ||
+              (err.message && (err.message.includes('ResourceExhausted') || err.message.includes('overloaded') || err.message.includes('high demand') || err.message.includes('UNAVAILABLE') || err.message.includes('EAI_AGAIN'))));
+
+          // If current model is overloaded with 503/UNAVAILABLE and we have alternate models, break early to fail over
+          const hasAlternateModel = modelsToTry.some(m => m !== currentModel);
+          if ((err.status === 503 || err.status === 'UNAVAILABLE' || (err.message && err.message.includes('high demand'))) && hasAlternateModel) {
+            console.warn(`[GeminiClient] Fast failover from ${currentModel} to alternate model due to demand spike.`);
+            break;
+          }
+
+          if (isTransient && attempt <= (options.maxRetries ?? 2)) {
+            let delayMs = Math.min(Math.pow(2, attempt) * 1000, 4000);
+            if (err.status === 429 || (err.message && err.message.includes('quota'))) {
+              let parsedSeconds = 0;
+              const match = typeof err.message === 'string' ? err.message.match(/retry in ([0-9.]+)s/i) : null;
+              if (match && match[1]) {
+                parsedSeconds = Math.ceil(parseFloat(match[1]));
+              }
+              delayMs = Math.min(Math.max(delayMs, (parsedSeconds > 0 ? (parsedSeconds + 1) * 1000 : 3000)), 6000);
+            }
+            console.warn(`[GeminiClient] Transient error on model ${currentModel} attempt ${attempt}/${maxRetries}. Retrying in ${delayMs}ms:`, err.message || err);
+            await new Promise(r => setTimeout(r, delayMs));
+          } else {
+            if (isDailyQuotaExhausted) {
+              console.warn(`[GeminiClient] Daily quota limit reached (${currentModel}). Halting immediate retries.`);
+            }
+            break;
+          }
         }
       }
+
+      // If we encountered an error and have an alternate model in modelsToTry, attempt the next model
+      const shouldTryNextModel =
+        lastError &&
+        (lastError.status === 429 ||
+          lastError.status === 503 ||
+          lastError.status === 'UNAVAILABLE' ||
+          lastError.status === 'RESOURCE_EXHAUSTED' ||
+          (typeof lastError.message === 'string' &&
+            (lastError.message.includes('503') ||
+              lastError.message.includes('UNAVAILABLE') ||
+              lastError.message.includes('high demand') ||
+              lastError.message.includes('ResourceExhausted'))));
+
+      if (shouldTryNextModel) {
+        console.warn(`[GeminiClient] Model ${currentModel} failed with ${lastError.status || 'transient error'}. Checking alternate model...`);
+        continue;
+      }
+      break;
     }
 
-    console.error(`[GeminiClient] Exhausted attempts for model ${modelName}:`, lastError?.message || lastError);
+    console.error(`[GeminiClient] Exhausted all model attempts:`, lastError?.message || lastError);
     throw lastError;
   }
 }
