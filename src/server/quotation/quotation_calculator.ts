@@ -121,7 +121,15 @@ export function calculateQuotationTotals(
   }
 
   let taxTotal = 0;
-  if (taxRatePercent > 0) {
+  // Calculate item-level tax if specified on items
+  const itemTaxSum = snapshots.reduce((acc, item) => {
+    const rate = typeof item.taxPercent === 'number' && item.taxPercent > 0 ? item.taxPercent : 0;
+    return acc + (item.lineTotal * rate) / 100;
+  }, 0);
+
+  if (itemTaxSum > 0) {
+    taxTotal = roundCurrency(itemTaxSum);
+  } else if (taxRatePercent > 0) {
     taxTotal = roundCurrency((subtotal * taxRatePercent) / 100);
   }
   const grandTotal = roundCurrency(subtotal + taxTotal);
