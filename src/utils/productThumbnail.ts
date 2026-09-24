@@ -143,12 +143,33 @@ function hashString(str: string): number {
 }
 
 /**
+ * Normalizes an unknown candidate value (string, object with url/src/path, or URL instance) into a trimmed string.
+ */
+export function normalizeCandidateUrl(candidate: any): string | null {
+  if (!candidate) return null;
+  if (typeof candidate === 'string') {
+    const trimmed = candidate.trim();
+    return trimmed.length > 0 ? trimmed : null;
+  }
+  if (typeof candidate === 'object') {
+    // If it's a URL object or has toString
+    const possible = candidate.url || candidate.secure_url || candidate.secureUrl || candidate.src || candidate.path || candidate.href;
+    if (typeof possible === 'string') {
+      const trimmed = possible.trim();
+      return trimmed.length > 0 ? trimmed : null;
+    }
+  }
+  return null;
+}
+
+/**
  * Validates whether an image URL is a real, usable image (not placeholder, not broken sample)
  */
-export function isValidImageUrl(url?: string | null): boolean {
-  if (!url || typeof url !== 'string') return false;
-  const clean = url.trim().toLowerCase();
-  if (!clean || clean.length < 5) return false;
+export function isValidImageUrl(url?: any): boolean {
+  const normalized = normalizeCandidateUrl(url);
+  if (!normalized) return false;
+  const clean = normalized.toLowerCase();
+  if (clean.length < 5) return false;
   if (clean.includes('example.com') || clean.includes('localhost/placeholder') || clean === 'null' || clean === 'undefined') {
     return false;
   }
@@ -157,41 +178,72 @@ export function isValidImageUrl(url?: string | null): boolean {
 }
 
 /**
- * Finds the first valid custom photo from a product object across all possible field names
+ * Finds the first valid custom photo from a product object across all possible field names and collections
  */
 export function getDirectProductPhoto(product?: Partial<Product> | any): string | null {
-  if (!product) return null;
+  if (!product || typeof product !== 'object') return null;
 
-  // 1. Check array imageUrls
-  if (Array.isArray(product.imageUrls) && product.imageUrls.length > 0) {
-    const found = product.imageUrls.find((u: any) => isValidImageUrl(u));
-    if (found) return found;
-  }
+  // Helper to safely inspect any array or serialized JSON string
+  const checkCollection = (collection: any): string | null => {
+    if (!collection) return null;
+    let list: any[] = [];
+    if (Array.isArray(collection)) {
+      list = collection;
+    } else if (typeof collection === 'string' && collection.trim().startsWith('[')) {
+      try {
+        const parsed = JSON.parse(collection);
+        if (Array.isArray(parsed)) list = parsed;
+      } catch {}
+    }
 
-  // 2. Check snake_case image_urls
-  if (Array.isArray(product.image_urls) && product.image_urls.length > 0) {
-    const found = product.image_urls.find((u: any) => isValidImageUrl(u));
-    if (found) return found;
-  } else if (typeof product.image_urls === 'string' && product.image_urls.startsWith('[')) {
-    try {
-      const parsed = JSON.parse(product.image_urls);
-      if (Array.isArray(parsed) && parsed.length > 0) {
-        const found = parsed.find((u: any) => isValidImageUrl(u));
-        if (found) return found;
+    for (const item of list) {
+      const normalized = normalizeCandidateUrl(item);
+      if (normalized && isValidImageUrl(normalized)) {
+        return normalized;
       }
-    } catch {}
+    }
+    return null;
+  };
+
+  // 1. Search all plural image collections in prioritized order
+  const collectionsToSearch = [
+    product.imageUrls,
+    product.image_urls,
+    product.images,
+    product.photos,
+    product.gallery,
+    product.media,
+    product.assets,
+    product.generated_images,
+    product.generatedImages,
+  ];
+
+  for (const coll of collectionsToSearch) {
+    const found = checkCollection(coll);
+    if (found) return found;
   }
 
-  // 3. Check singular properties
-  if (isValidImageUrl(product.imageUrl)) return product.imageUrl;
-  if (isValidImageUrl(product.primaryImageUrl)) return product.primaryImageUrl;
-  if (isValidImageUrl(product.image)) return product.image;
+  // 2. Search all singular image properties
+  const singularFieldsToSearch = [
+    product.imageUrl,
+    product.image_url,
+    product.primaryImageUrl,
+    product.primary_image_url,
+    product.thumbnailUrl,
+    product.thumbnail_url,
+    product.thumbnail,
+    product.originalImage,
+    product.original_image,
+    product.enhancedImage,
+    product.enhanced_image,
+    product.image,
+    product.photo,
+  ];
 
-  // 4. Check images array of objects
-  if (Array.isArray(product.images) && product.images.length > 0) {
-    for (const img of product.images) {
-      if (typeof img === 'string' && isValidImageUrl(img)) return img;
-      if (img && typeof img === 'object' && isValidImageUrl(img.url)) return img.url;
+  for (const field of singularFieldsToSearch) {
+    const normalized = normalizeCandidateUrl(field);
+    if (normalized && isValidImageUrl(normalized)) {
+      return normalized;
     }
   }
 
