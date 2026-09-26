@@ -9,8 +9,28 @@ import { AuthModal } from './components/AuthModal';
 import { PricingModal } from './components/PricingModal';
 import { PublicStorefront } from './components/PublicStorefront';
 
+import { NotFound } from './components/NotFound';
+
 // Lazily imported studio and heavy feature components for optimized initial loading performance
 const Dashboard = lazy(() => import('./components/Dashboard').then(m => ({ default: m.Dashboard })));
+
+const TAB_TITLES: Record<string, string> = {
+  landing: 'KRIVIO AI — Voice-First AI Business Mentor for Rural Artisans & SHGs',
+  dashboard: 'KRIVIO AI — Artisan Dashboard & Business Hub',
+  products: 'KRIVIO AI — Product Studio & Catalog Management',
+  mentor: 'KRIVIO AI — Voice AI Business Mentor',
+  images: 'KRIVIO AI — AI Product Photography Studio',
+  'image-studio': 'KRIVIO AI — AI Product Photography Studio',
+  marketplace: 'KRIVIO AI — Marketplace Readiness & ONDC Export',
+  'sell-export': 'KRIVIO AI — Marketplace Readiness & ONDC Export',
+  schemes: 'KRIVIO AI — Government Schemes & Financial Aid',
+  subscriptions: 'KRIVIO AI — Subscription & Pricing Plans',
+  profile: 'KRIVIO AI — Artisan Profile',
+  'business-profile': 'KRIVIO AI — Artisan Business Profile',
+  settings: 'KRIVIO AI — Workspace Settings & Preferences',
+  'public-store': 'KRIVIO AI — Public Artisan Storefront',
+  'not-found': 'KRIVIO AI — Page Not Found (404)',
+};
 
 const LoadingFallback: React.FC = () => (
   <div className="flex flex-col items-center justify-center min-h-[50vh] gap-3 text-[#0F5132] dark:text-[#34D399] py-12">
@@ -27,13 +47,29 @@ const MainContent: React.FC = () => {
   const [pricingModalOpen, setPricingModalOpen] = useState<boolean>(false);
   const [publicStoreId, setPublicStoreId] = useState<string | null>(null);
 
-  // Check URL query parameters for public storefront links (?store=usr_demo_1 or ?storefront=...)
+  // Sync document title with active user view
+  useEffect(() => {
+    const title = TAB_TITLES[currentTab] || 'KRIVIO AI — Voice-First Mentor for Rural Bharat';
+    document.title = title;
+  }, [currentTab]);
+
+  // Check URL query parameters and pathname for routes
   useEffect(() => {
     const params = new URLSearchParams(window.location.search);
     const storeParam = params.get('store') || params.get('storefront') || params.get('artisan');
     if (storeParam) {
       setPublicStoreId(storeParam);
       setCurrentTab('public-store');
+      return;
+    }
+
+    const path = window.location.pathname.replace(/^\//, '').toLowerCase();
+    if (path && path !== '' && path !== 'index.html') {
+      if (TAB_TITLES[path]) {
+        setCurrentTab(path);
+      } else if (!path.startsWith('api') && !path.startsWith('diagnostic')) {
+        setCurrentTab('not-found');
+      }
     }
   }, []);
 
@@ -48,6 +84,27 @@ const MainContent: React.FC = () => {
         }}
         onOpenAuth={openAuthModal}
       />
+    );
+  }
+
+  if (currentTab === 'not-found') {
+    return (
+      <div className="min-h-screen flex flex-col bg-[#F8F9F5] dark:bg-[#0B1911] text-[#1A1A1A] dark:text-[#E2F1E7] transition-colors font-inter selection:bg-[#0F5132] selection:text-white">
+        <Navbar
+          currentTab={currentTab}
+          setCurrentTab={setCurrentTab}
+          openPricingModal={() => setPricingModalOpen(true)}
+        />
+        <main className="flex-1">
+          <NotFound onNavigate={setCurrentTab} />
+        </main>
+        <Footer setCurrentTab={setCurrentTab} />
+        <AuthModal />
+        <PricingModal
+          isOpen={pricingModalOpen}
+          onClose={() => setPricingModalOpen(false)}
+        />
+      </div>
     );
   }
 
