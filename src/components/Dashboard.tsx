@@ -110,6 +110,18 @@ export const Dashboard: React.FC<DashboardProps> = ({ currentTab, setCurrentTab,
     }
   }, [user]);
 
+  // Lock body scroll when mobile drawer is open
+  useEffect(() => {
+    if (mobileDrawerOpen) {
+      document.body.style.overflow = 'hidden';
+    } else {
+      document.body.style.overflow = '';
+    }
+    return () => {
+      document.body.style.overflow = '';
+    };
+  }, [mobileDrawerOpen]);
+
   const handleToggleTask = async (taskId: string) => {
     try {
       setTasks((prev) =>
