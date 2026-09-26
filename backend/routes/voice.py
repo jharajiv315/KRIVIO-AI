@@ -81,12 +81,17 @@ def transcribe_voice(
             )
             transcript = (response.text or "").strip()
         except Exception as e:
-            # If audio transcription fails, return friendly status
-            print("Gemini audio transcription note:", e)
+            logger.error(f"Gemini audio transcription error: {e}")
+            raise HTTPException(
+                status_code=status.HTTP_502_BAD_GATEWAY,
+                detail=f"Voice transcription service error: {str(e)}"
+            )
 
     if not transcript:
-        # Fallback placeholder if audio was empty or service was unavailable
-        transcript = "Maine 10 handmade brass diya lamps banaye hain, inka market price kya hona chahiye?"
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="No clear speech detected in audio stream. Please speak clearly into your microphone."
+        )
 
     return TranscribeResponse(
         success=True,
@@ -96,6 +101,7 @@ def transcribe_voice(
         detected_language=detected_lang,
         confidence=0.95
     )
+
 
 @router.post("/respond", response_model=RespondResponse)
 def respond_voice_interaction(
