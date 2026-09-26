@@ -2070,9 +2070,6 @@ app.delete('/api/business-profile', authenticateToken, async (req: Authenticated
 
 // --- DASHBOARD ROUTE (REAL METRICS & USER ISOLATION) ---
 
-// User tasks in-memory fallback
-const userTasksMemoryMap = new Map<string, Map<string, boolean>>();
-
 async function buildUserTasks(userId: string, prof: any, totalProducts: number, marketplaceReadyProducts: number) {
   let dbTaskMap = new Map<string, boolean>();
   try {
@@ -2080,13 +2077,12 @@ async function buildUserTasks(userId: string, prof: any, totalProducts: number, 
     for (const row of dbTaskRows.rows) {
       dbTaskMap.set(row.task_id, Boolean(row.completed));
     }
-  } catch {}
-
-  const memMap = userTasksMemoryMap.get(userId);
+  } catch (err: any) {
+    console.warn('[PostgreSQL Warning]: Failed to fetch user_tasks:', err?.message || err);
+  }
 
   const getStatus = (taskId: string, defaultStatus: boolean): boolean => {
     if (dbTaskMap.has(taskId)) return !!dbTaskMap.get(taskId);
-    if (memMap && memMap.has(taskId)) return !!memMap.get(taskId);
     return defaultStatus;
   };
 
@@ -2246,20 +2242,20 @@ app.post('/api/tasks/toggle', authenticateToken, async (req: AuthenticatedReques
 
     const nextCompleted = !isCurrentlyCompleted;
 
-    // Persist to PostgreSQL
-    await queryPg(
-      `INSERT INTO user_tasks (user_id, task_id, completed, updated_at)
-       VALUES ($1, $2, $3, NOW())
-       ON CONFLICT (user_id, task_id)
-       DO UPDATE SET completed = $3, updated_at = NOW()`,
-      [userId, taskId, nextCompleted]
-    ).catch(() => {});
-
-    // Update in-memory fallback
-    if (!userTasksMemoryMap.has(userId)) {
-      userTasksMemoryMap.set(userId, new Map());
+    // Persist to PostgreSQL; fail transparently if database write fails
+    try {
+      await queryPg(
+        `INSERT INTO user_tasks (user_id, task_id, completed, updated_at)
+         VALUES ($1, $2, $3, NOW())
+         ON CONFLICT (user_id, task_id)
+         DO UPDATE SET completed = $3, updated_at = NOW()`,
+        [userId, taskId, nextCompleted]
+      );
+    } catch (dbErr: any) {
+      console.error('[PostgreSQL Database Error]: Failed to persist task toggle:', dbErr?.message || dbErr);
+      res.status(500).json({ error: 'Failed to persist task status to database. Please check your connection and try again.' });
+      return;
     }
-    userTasksMemoryMap.get(userId)!.set(taskId, nextCompleted);
 
     const updatedTasks = await buildUserTasks(userId, profRes.rows[0], totalProducts, marketplaceReadyProducts);
 
