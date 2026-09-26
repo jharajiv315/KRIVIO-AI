@@ -116,6 +116,38 @@ app.use((req: Request, res: Response, next: NextFunction) => {
   next();
 });
 
+// Production Process Liveness Health Check (Fast, zero heavy dependencies)
+app.get(['/health', '/api/health'], (req: Request, res: Response) => {
+  res.json({
+    status: 'healthy',
+    process: 'alive',
+    service: 'krivio-ai-node-backend',
+    version: '2.0.0',
+    uptime_seconds: Math.floor(process.uptime()),
+    timestamp: new Date().toISOString(),
+  });
+});
+
+// Production Database Readiness Health Check (Deep probe)
+app.get(['/health/db', '/api/health/db', '/diagnostic/db'], async (req: Request, res: Response) => {
+  try {
+    const result = await pgPool.query('SELECT 1 as ping');
+    res.json({
+      status: 'healthy',
+      database: 'connected',
+      query_result: result.rows[0]?.ping ?? 1,
+      timestamp: new Date().toISOString(),
+    });
+  } catch (err: any) {
+    res.status(503).json({
+      status: 'unhealthy',
+      database: 'disconnected',
+      error: err?.message || 'Database ping failed',
+      timestamp: new Date().toISOString(),
+    });
+  }
+});
+
 export interface AuthenticatedUser {
   id: string;
   supabaseUserId?: string;
@@ -514,6 +546,50 @@ app.post('/api/auth/login', async (req: Request, res: Response) => {
     });
   } catch (err) {
     res.status(500).json({ error: 'Login failed' });
+  }
+});
+
+app.post('/api/auth/change-password', authenticateToken, async (req: AuthenticatedRequest, res: Response) => {
+  try {
+    const userId = req.user!.id;
+    const { currentPassword, newPassword } = req.body;
+
+    if (!currentPassword || !newPassword) {
+      res.status(400).json({ error: 'Current password and new password are required' });
+      return;
+    }
+
+    if (newPassword.length < 6) {
+      res.status(400).json({ error: 'New password must be at least 6 characters long' });
+      return;
+    }
+
+    const userRes = await queryPg(`SELECT password_hash FROM users WHERE id = $1`, [userId]);
+    const user = userRes.rows[0];
+
+    if (!user) {
+      res.status(404).json({ error: 'User not found' });
+      return;
+    }
+
+    if (user.password_hash) {
+      const isMatch = bcrypt.compareSync(currentPassword, user.password_hash);
+      if (!isMatch) {
+        res.status(400).json({ error: 'Current password is incorrect' });
+        return;
+      }
+    }
+
+    const newHash = bcrypt.hashSync(newPassword, 10);
+    await queryPg(`UPDATE users SET password_hash = $1, updated_at = NOW() WHERE id = $2`, [newHash, userId]);
+
+    res.json({
+      status: 'success',
+      message: 'Password updated successfully'
+    });
+  } catch (err: any) {
+    console.error('Change password error:', err);
+    res.status(500).json({ error: 'Failed to update password' });
   }
 });
 
@@ -1836,6 +1912,9 @@ app.get('/api/business-profile', authenticateToken, async (req: AuthenticatedReq
         business_registration: row.business_registration || '',
         gstNumber: row.gst_number || '',
         gst_number: row.gst_number || '',
+        ownerName: req.user?.name || '',
+        owner_name: req.user?.name || '',
+        email: req.user?.email || '',
         createdAt: row.created_at,
         updatedAt: row.updated_at
       }
@@ -1894,6 +1973,10 @@ const handleSaveBusinessProfile = async (req: AuthenticatedRequest, res: Respons
     const bPhone = phoneNumber || phone_number || req.user!.phone || '';
     const bReg = businessRegistration || business_registration || '';
     const bGst = gstNumber || gst_number || '';
+    const bOwner = req.body.ownerName || req.body.owner_name;
+    if (bOwner) {
+      await queryPg(`UPDATE users SET full_name = $1, updated_at = NOW() WHERE id = $2`, [bOwner, userId]).catch(() => {});
+    }
 
     const existing = await queryPg(`SELECT id FROM business_profiles WHERE user_id = $1`, [userId]);
 
@@ -1958,6 +2041,9 @@ const handleSaveBusinessProfile = async (req: AuthenticatedRequest, res: Respons
         business_registration: row.business_registration,
         gstNumber: row.gst_number,
         gst_number: row.gst_number,
+        ownerName: bOwner || req.user?.name || '',
+        owner_name: bOwner || req.user?.name || '',
+        email: req.user?.email || '',
         createdAt: row.created_at,
         updatedAt: row.updated_at
       },
@@ -1983,6 +2069,64 @@ app.delete('/api/business-profile', authenticateToken, async (req: Authenticated
 });
 
 // --- DASHBOARD ROUTE (REAL METRICS & USER ISOLATION) ---
+
+// User tasks in-memory fallback
+const userTasksMemoryMap = new Map<string, Map<string, boolean>>();
+
+async function buildUserTasks(userId: string, prof: any, totalProducts: number, marketplaceReadyProducts: number) {
+  let dbTaskMap = new Map<string, boolean>();
+  try {
+    const dbTaskRows = await queryPg(`SELECT task_id, completed FROM user_tasks WHERE user_id = $1`, [userId]);
+    for (const row of dbTaskRows.rows) {
+      dbTaskMap.set(row.task_id, Boolean(row.completed));
+    }
+  } catch {}
+
+  const memMap = userTasksMemoryMap.get(userId);
+
+  const getStatus = (taskId: string, defaultStatus: boolean): boolean => {
+    if (dbTaskMap.has(taskId)) return !!dbTaskMap.get(taskId);
+    if (memMap && memMap.has(taskId)) return !!memMap.get(taskId);
+    return defaultStatus;
+  };
+
+  const tasks = [
+    {
+      id: 'task_profile',
+      title: 'Complete your Business Profile',
+      description: 'Add your enterprise name, craft story, and location to build buyer credibility.',
+      category: 'profile',
+      completed: getStatus('task_profile', Boolean(prof && prof.business_name)),
+      dueDate: 'High Priority'
+    },
+    {
+      id: 'task_first_product',
+      title: 'Create your first Product listing',
+      description: 'Use the Product Studio with AI story generation to showcase your handcrafted inventory.',
+      category: 'product',
+      completed: getStatus('task_first_product', totalProducts > 0),
+      dueDate: 'Today'
+    },
+    {
+      id: 'task_marketplace_ready',
+      title: 'Complete dimensions and weight for ONDC',
+      description: 'Add package specifications to make all catalog products ONDC ready.',
+      category: 'marketplace',
+      completed: getStatus('task_marketplace_ready', totalProducts > 0 && marketplaceReadyProducts >= totalProducts),
+      dueDate: 'Today'
+    },
+    {
+      id: 'task_voice_mentor',
+      title: 'Consult AI Voice Mentor for fair pricing',
+      description: 'Ask your mentor in Hindi, English, or regional voice to calculate craft material and labor costs.',
+      category: 'mentor',
+      completed: getStatus('task_voice_mentor', totalProducts > 0),
+      dueDate: 'Recommended'
+    }
+  ];
+
+  return tasks;
+}
 
 app.get('/api/dashboard', authenticateToken, async (req: AuthenticatedRequest, res: Response) => {
   try {
@@ -2020,47 +2164,8 @@ app.get('/api/dashboard', authenticateToken, async (req: AuthenticatedRequest, r
     const revenueRes = await queryPg(`SELECT SUM(price * COALESCE(stock, 1)) as total_rev FROM products WHERE user_id = $1`, [userId]);
     const estimatedMonthlyRevenue = parseFloat(revenueRes.rows[0]?.total_rev) || 0.0;
 
-    // 6. Actionable tasks
-    const tasks = [];
-    let tCounter = 1;
-    if (!prof || !prof.business_name) {
-      tasks.push({
-        id: `tsk_${tCounter++}`,
-        title: 'Complete your Business Profile',
-        description: 'Add your enterprise name, craft story, and location to build buyer credibility.',
-        category: 'profile',
-        completed: false,
-        dueDate: 'High Priority'
-      });
-    }
-    if (totalProducts === 0) {
-      tasks.push({
-        id: `tsk_${tCounter++}`,
-        title: 'Create your first Product listing',
-        description: 'Use the Product Studio with AI story generation to showcase your handcrafted inventory.',
-        category: 'product',
-        completed: false,
-        dueDate: 'Today'
-      });
-    } else if (marketplaceReadyProducts < totalProducts) {
-      tasks.push({
-        id: `tsk_${tCounter++}`,
-        title: 'Complete dimensions and weight for ONDC',
-        description: 'Add package specifications to make all catalog products ONDC ready.',
-        category: 'marketplace',
-        completed: false,
-        dueDate: 'Today'
-      });
-    }
-
-    tasks.push({
-      id: `tsk_${tCounter++}`,
-      title: 'Consult AI Voice Mentor for fair pricing',
-      description: 'Ask your mentor in Hindi, English, or regional voice to calculate craft material and labor costs.',
-      category: 'mentor',
-      completed: totalProducts > 0,
-      dueDate: 'Recommended'
-    });
+    // 6. Actionable tasks (dynamically linked to completion status and persisted across sessions)
+    const tasks = await buildUserTasks(userId, prof, totalProducts, marketplaceReadyProducts);
 
     const recentProducts = prodsRes.rows.map((row) => ({
       id: row.id,
@@ -2114,6 +2219,57 @@ app.get('/api/dashboard', authenticateToken, async (req: AuthenticatedRequest, r
   } catch (err: any) {
     console.error('Dashboard error:', err);
     res.status(500).json({ error: 'Failed to load dashboard data' });
+  }
+});
+
+app.post('/api/tasks/toggle', authenticateToken, async (req: AuthenticatedRequest, res: Response) => {
+  try {
+    const userId = req.user!.id;
+    const { taskId } = req.body;
+    if (!taskId) {
+      res.status(400).json({ error: 'taskId is required' });
+      return;
+    }
+
+    // Fetch current user context
+    const profRes = await queryPg(`SELECT * FROM business_profiles WHERE user_id = $1`, [userId]).catch(() => ({ rows: [] }));
+    const totalCountRes = await queryPg(`SELECT COUNT(*) as cnt FROM products WHERE user_id = $1`, [userId]).catch(() => ({ rows: [{ cnt: '0' }] }));
+    const readyCountRes = await queryPg(`SELECT COUNT(*) as cnt FROM products WHERE user_id = $1 AND is_marketplace_ready = true`, [userId]).catch(() => ({ rows: [{ cnt: '0' }] }));
+
+    const totalProducts = parseInt(totalCountRes.rows[0]?.cnt || '0', 10) || 0;
+    const marketplaceReadyProducts = parseInt(readyCountRes.rows[0]?.cnt || '0', 10) || 0;
+
+    // Determine current completion state accurately
+    const currentTasks = await buildUserTasks(userId, profRes.rows[0], totalProducts, marketplaceReadyProducts);
+    const targetTask = currentTasks.find((t) => t.id === taskId);
+    const isCurrentlyCompleted = targetTask ? targetTask.completed : false;
+
+    const nextCompleted = !isCurrentlyCompleted;
+
+    // Persist to PostgreSQL
+    await queryPg(
+      `INSERT INTO user_tasks (user_id, task_id, completed, updated_at)
+       VALUES ($1, $2, $3, NOW())
+       ON CONFLICT (user_id, task_id)
+       DO UPDATE SET completed = $3, updated_at = NOW()`,
+      [userId, taskId, nextCompleted]
+    ).catch(() => {});
+
+    // Update in-memory fallback
+    if (!userTasksMemoryMap.has(userId)) {
+      userTasksMemoryMap.set(userId, new Map());
+    }
+    userTasksMemoryMap.get(userId)!.set(taskId, nextCompleted);
+
+    const updatedTasks = await buildUserTasks(userId, profRes.rows[0], totalProducts, marketplaceReadyProducts);
+
+    res.json({
+      success: true,
+      tasks: updatedTasks
+    });
+  } catch (err: any) {
+    console.error('Task toggle error:', err);
+    res.status(500).json({ error: 'Failed to toggle task' });
   }
 });
 
@@ -3522,8 +3678,17 @@ async function initPgDatabase() {
         summary JSONB DEFAULT '{}'::jsonb,
         created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
       );
+
+      CREATE TABLE IF NOT EXISTS user_tasks (
+        user_id VARCHAR(255) NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+        task_id VARCHAR(100) NOT NULL,
+        completed BOOLEAN DEFAULT FALSE,
+        updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
+        PRIMARY KEY (user_id, task_id)
+      );
     `;
     await pgPool.query(createTablesQuery);
+    await pgPool.query(`CREATE INDEX IF NOT EXISTS idx_user_tasks_user_id ON user_tasks(user_id)`).catch(() => {});
     await pgPool.query(`ALTER TABLE users ADD COLUMN IF NOT EXISTS preferred_language VARCHAR(10) DEFAULT 'en'`).catch(() => {});
     await pgPool.query(`ALTER TABLE products ADD COLUMN IF NOT EXISTS material VARCHAR(150)`).catch(() => {});
     await pgPool.query(`ALTER TABLE products ADD COLUMN IF NOT EXISTS short_description TEXT`).catch(() => {});
