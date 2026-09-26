@@ -124,7 +124,12 @@ export const PricingModal: React.FC<PricingModalProps> = ({ isOpen, onClose }) =
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-4 bg-black/65 backdrop-blur-xs animate-in fade-in duration-200">
-      <div className="bg-white dark:bg-[#13251B] rounded-3xl max-w-lg w-full p-5 sm:p-8 shadow-2xl border border-[#0F5132]/20 dark:border-emerald-800/60 relative space-y-6 max-h-[92vh] overflow-y-auto font-inter">
+      <div
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="pricing-modal-title"
+        className="bg-white dark:bg-[#13251B] rounded-3xl max-w-lg w-full p-5 sm:p-8 shadow-2xl border border-[#0F5132]/20 dark:border-emerald-800/60 relative space-y-6 max-h-[92vh] overflow-y-auto font-inter"
+      >
         <button
           onClick={onClose}
           aria-label={t('common.close')}
@@ -185,7 +190,7 @@ export const PricingModal: React.FC<PricingModalProps> = ({ isOpen, onClose }) =
                 <Crown className="w-3.5 h-3.5 text-[#D4AF37]" />
                 <span>{t('pricing.proPlanTitle')}</span>
               </div>
-              <h2 className="text-lg sm:text-2xl font-bold text-stone-900 dark:text-white font-poppins">
+              <h2 id="pricing-modal-title" className="text-lg sm:text-2xl font-bold text-stone-900 dark:text-white font-poppins">
                 {t('pricing.modalTitle')}
               </h2>
               <p className="text-xs text-stone-600 dark:text-emerald-200/70 font-inter max-w-sm">
