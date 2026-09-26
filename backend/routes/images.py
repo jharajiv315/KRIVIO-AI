@@ -2,10 +2,14 @@ import os
 import time
 import json
 import re
+import base64
+import logging
 from typing import Dict, Any
 from fastapi import APIRouter, Depends, HTTPException, status
 from backend.models.user import User
 from backend.security import get_current_user
+
+logger = logging.getLogger("krivio.routes.images")
 
 router = APIRouter(prefix="/api/images", tags=["images"])
 
@@ -24,12 +28,21 @@ def analyze_product_image(
     clean_base64 = re.sub(r"^data:image/\w+;base64,", "", image_base64)
     gemini_key = os.getenv("GEMINI_API_KEY")
 
-    if gemini_key:
-        try:
-            from google import genai
-            from google.genai import types
-            client = genai.Client(api_key=gemini_key)
-            prompt = """Act as an e-commerce product photography advisor for rural artisans. Analyze this product photo for selling online on Amazon, ONDC, Meesho, and Etsy.
+    if not gemini_key:
+        raise HTTPException(
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+            detail="AI vision service unconfigured. GEMINI_API_KEY is missing on backend."
+        )
+
+    try:
+        from google import genai
+        from google.genai import types
+        client = genai.Client(api_key=gemini_key)
+        
+        # Decode base64 to binary bytes for Gemini
+        image_bytes = base64.b64decode(clean_base64)
+        
+        prompt = """Act as an e-commerce product photography advisor for rural Indian artisans. Analyze this product photo for selling online on Amazon Karigar, ONDC, Meesho, and Etsy.
 Evaluate:
 1. Lighting quality (0-100)
 2. Background clarity (0-100)
@@ -42,40 +55,26 @@ Return JSON with:
 "overallScore": number,
 "lightingFeedback": string,
 "backgroundFeedback": string,
-"suggestions": string array with 3 tips,
+"suggestions": string array with 3 actionable tips,
 "detectedSubject": string"""
 
-            response = client.models.generate_content(
-                model="gemini-2.5-flash",
-                contents=[
-                    types.Part.from_bytes(data=bytes(clean_base64, 'utf-8'), mime_type="image/jpeg"),
-                    prompt
-                ],
-                config={"response_mime_type": "application/json"}
-            )
-            analysis_data = json.loads(response.text)
-            analysis_data["id"] = f"img_{int(time.time())}"
-            analysis_data["imageUrl"] = image_base64
-            analysis_data["createdAt"] = time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime())
-            return {"analysis": analysis_data}
-        except Exception as e:
-            pass
-
-    return {
-        "analysis": {
-            "id": f"img_{int(time.time())}",
-            "imageUrl": image_base64,
-            "lightingScore": 82,
-            "backgroundScore": 86,
-            "overallScore": 84,
-            "lightingFeedback": "Good natural lighting detected with clear visibility of craft contour lines.",
-            "backgroundFeedback": "Neutral backdrop suitable for e-commerce listings.",
-            "suggestions": [
-                "Shoot in morning daylight near an open window for warmer colors.",
-                "Place a plain white paper underneath for clear contrast.",
-                "Capture 1 close-up angle highlighting handmade craftsmanship."
+        response = client.models.generate_content(
+            model="gemini-2.5-flash",
+            contents=[
+                types.Part.from_bytes(data=image_bytes, mime_type="image/jpeg"),
+                prompt
             ],
-            "detectedSubject": "Handcrafted Artisan Item",
-            "createdAt": time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime())
-        }
-    }
+            config={"response_mime_type": "application/json"}
+        )
+        analysis_data = json.loads(response.text)
+        analysis_data["id"] = f"img_{int(time.time())}"
+        analysis_data["imageUrl"] = image_base64
+        analysis_data["createdAt"] = time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime())
+        return {"analysis": analysis_data}
+    except Exception as e:
+        logger.error(f"Gemini image analysis error: {e}")
+        raise HTTPException(
+            status_code=status.HTTP_502_BAD_GATEWAY,
+            detail=f"AI image analysis service temporarily unavailable: {str(e)}"
+        )
+
