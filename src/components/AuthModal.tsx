@@ -86,7 +86,12 @@ export const AuthModal: React.FC = () => {
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-4 bg-black/60 backdrop-blur-xs animate-in fade-in duration-200">
-      <div className="bg-white dark:bg-[#13251B] rounded-3xl max-w-md w-full p-5 sm:p-7 shadow-2xl border border-[#0F5132]/20 dark:border-emerald-800/60 relative max-h-[90vh] overflow-y-auto font-inter">
+      <div
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="auth-modal-title"
+        className="bg-white dark:bg-[#13251B] rounded-3xl max-w-md w-full p-5 sm:p-7 shadow-2xl border border-[#0F5132]/20 dark:border-emerald-800/60 relative max-h-[90vh] overflow-y-auto font-inter"
+      >
         {/* Close Button */}
         <button
           id="btn-close-auth-modal"
@@ -100,7 +105,7 @@ export const AuthModal: React.FC = () => {
         {/* Brand Logo & Header */}
         <div className="flex flex-col items-center text-center space-y-2 mb-5">
           <Logo variant="horizontal" size="md" showTagline={true} />
-          <h2 className="text-lg sm:text-xl font-bold text-stone-900 dark:text-white font-poppins mt-2">
+          <h2 id="auth-modal-title" className="text-lg sm:text-xl font-bold text-stone-900 dark:text-white font-poppins mt-2">
             {mode === 'login'
               ? t('auth.signInTitle')
               : mode === 'register'
@@ -177,10 +182,11 @@ export const AuthModal: React.FC = () => {
           {mode === 'register' && (
             <>
               <div>
-                <label className="block text-[11px] font-semibold text-stone-700 dark:text-emerald-200 mb-1 font-poppins">{t('auth.fullName')} *</label>
+                <label htmlFor="auth-fullname" className="block text-[11px] font-semibold text-stone-700 dark:text-emerald-200 mb-1 font-poppins">{t('auth.fullName')} *</label>
                 <div className="relative">
                   <UserIcon className="w-4 h-4 text-stone-400 dark:text-emerald-500 absolute left-3 top-3" />
                   <input
+                    id="auth-fullname"
                     type="text"
                     value={name}
                     onChange={(e) => setName(e.target.value)}
@@ -193,8 +199,9 @@ export const AuthModal: React.FC = () => {
 
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
                 <div>
-                  <label className="block text-[11px] font-semibold text-stone-700 dark:text-emerald-200 mb-1 font-poppins">{t('auth.role')}</label>
+                  <label htmlFor="auth-role" className="block text-[11px] font-semibold text-stone-700 dark:text-emerald-200 mb-1 font-poppins">{t('auth.role')}</label>
                   <select
+                    id="auth-role"
                     value={role}
                     onChange={(e) => setRole(e.target.value as any)}
                     className="w-full px-3 py-2.5 bg-[#F8F9F5] dark:bg-[#0E2016] border border-[#0F5132]/20 dark:border-emerald-800/60 rounded-xl text-xs text-stone-900 dark:text-white focus:ring-2 focus:ring-[#0F5132] outline-none font-inter cursor-pointer"
@@ -206,10 +213,11 @@ export const AuthModal: React.FC = () => {
                   </select>
                 </div>
                 <div>
-                  <label className="block text-[11px] font-semibold text-stone-700 dark:text-emerald-200 mb-1 font-poppins">{t('businessProfile.state')}</label>
+                  <label htmlFor="auth-location" className="block text-[11px] font-semibold text-stone-700 dark:text-emerald-200 mb-1 font-poppins">{t('businessProfile.state')}</label>
                   <div className="relative">
                     <MapPin className="w-4 h-4 text-stone-400 dark:text-emerald-500 absolute left-3 top-3" />
                     <input
+                      id="auth-location"
                       type="text"
                       value={location}
                       onChange={(e) => setLocation(e.target.value)}
@@ -221,10 +229,11 @@ export const AuthModal: React.FC = () => {
               </div>
 
               <div>
-                <label className="block text-[11px] font-semibold text-stone-700 dark:text-emerald-200 mb-1 font-poppins">{t('auth.businessName')}</label>
+                <label htmlFor="auth-business-name" className="block text-[11px] font-semibold text-stone-700 dark:text-emerald-200 mb-1 font-poppins">{t('auth.businessName')}</label>
                 <div className="relative">
                   <Building className="w-4 h-4 text-stone-400 dark:text-emerald-500 absolute left-3 top-3" />
                   <input
+                    id="auth-business-name"
                     type="text"
                     value={businessName}
                     onChange={(e) => setBusinessName(e.target.value)}
@@ -237,10 +246,11 @@ export const AuthModal: React.FC = () => {
           )}
 
           <div>
-            <label className="block text-[11px] font-semibold text-stone-700 dark:text-emerald-200 mb-1 font-poppins">{t('auth.email')} *</label>
+            <label htmlFor="auth-email" className="block text-[11px] font-semibold text-stone-700 dark:text-emerald-200 mb-1 font-poppins">{t('auth.email')} *</label>
             <div className="relative">
               <Mail className="w-4 h-4 text-stone-400 dark:text-emerald-500 absolute left-3 top-3" />
               <input
+                id="auth-email"
                 type="email"
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
@@ -254,7 +264,7 @@ export const AuthModal: React.FC = () => {
           {mode !== 'forgot' && (
             <div>
               <div className="flex justify-between items-center mb-1">
-                <label className="block text-[11px] font-semibold text-stone-700 dark:text-emerald-200 font-poppins">{t('auth.password')} *</label>
+                <label htmlFor="auth-password" className="block text-[11px] font-semibold text-stone-700 dark:text-emerald-200 font-poppins">{t('auth.password')} *</label>
                 {mode === 'login' && (
                   <button
                     type="button"
@@ -268,6 +278,7 @@ export const AuthModal: React.FC = () => {
               <div className="relative">
                 <Lock className="w-4 h-4 text-stone-400 dark:text-emerald-500 absolute left-3 top-3" />
                 <input
+                  id="auth-password"
                   type="password"
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}
