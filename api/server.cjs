@@ -6518,7 +6518,6 @@ app.delete("/api/business-profile", authenticateToken, async (req, res) => {
     res.status(500).json({ error: "Failed to delete business profile" });
   }
 });
-var userTasksMemoryMap = /* @__PURE__ */ new Map();
 async function buildUserTasks(userId, prof, totalProducts, marketplaceReadyProducts) {
   let dbTaskMap = /* @__PURE__ */ new Map();
   try {
@@ -6526,12 +6525,11 @@ async function buildUserTasks(userId, prof, totalProducts, marketplaceReadyProdu
     for (const row of dbTaskRows.rows) {
       dbTaskMap.set(row.task_id, Boolean(row.completed));
     }
-  } catch {
+  } catch (err) {
+    console.warn("[PostgreSQL Warning]: Failed to fetch user_tasks:", err?.message || err);
   }
-  const memMap = userTasksMemoryMap.get(userId);
   const getStatus = (taskId, defaultStatus) => {
     if (dbTaskMap.has(taskId)) return !!dbTaskMap.get(taskId);
-    if (memMap && memMap.has(taskId)) return !!memMap.get(taskId);
     return defaultStatus;
   };
   const tasks = [
@@ -6664,18 +6662,19 @@ app.post("/api/tasks/toggle", authenticateToken, async (req, res) => {
     const targetTask = currentTasks.find((t) => t.id === taskId);
     const isCurrentlyCompleted = targetTask ? targetTask.completed : false;
     const nextCompleted = !isCurrentlyCompleted;
-    await queryPg(
-      `INSERT INTO user_tasks (user_id, task_id, completed, updated_at)
-       VALUES ($1, $2, $3, NOW())
-       ON CONFLICT (user_id, task_id)
-       DO UPDATE SET completed = $3, updated_at = NOW()`,
-      [userId, taskId, nextCompleted]
-    ).catch(() => {
-    });
-    if (!userTasksMemoryMap.has(userId)) {
-      userTasksMemoryMap.set(userId, /* @__PURE__ */ new Map());
+    try {
+      await queryPg(
+        `INSERT INTO user_tasks (user_id, task_id, completed, updated_at)
+         VALUES ($1, $2, $3, NOW())
+         ON CONFLICT (user_id, task_id)
+         DO UPDATE SET completed = $3, updated_at = NOW()`,
+        [userId, taskId, nextCompleted]
+      );
+    } catch (dbErr) {
+      console.error("[PostgreSQL Database Error]: Failed to persist task toggle:", dbErr?.message || dbErr);
+      res.status(500).json({ error: "Failed to persist task status to database. Please check your connection and try again." });
+      return;
     }
-    userTasksMemoryMap.get(userId).set(taskId, nextCompleted);
     const updatedTasks = await buildUserTasks(userId, profRes.rows[0], totalProducts, marketplaceReadyProducts);
     res.json({
       success: true,
