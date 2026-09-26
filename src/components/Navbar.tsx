@@ -85,6 +85,19 @@ export const Navbar: React.FC<NavbarProps> = ({ currentTab, setCurrentTab, openP
     return () => window.removeEventListener('keydown', handleKeyDown);
   }, [moreDropdownOpen, mobileMenuOpen]);
 
+  // Lock body scroll when mobile menu is open
+  useEffect(() => {
+    if (mobileMenuOpen) {
+      document.body.style.overflow = 'hidden';
+    } else {
+      document.body.style.overflow = '';
+    }
+    return () => {
+      document.body.style.overflow = '';
+    };
+  }, [mobileMenuOpen]);
+
+
   // Primary 4 items + "More"
   const directNavItems = PRIMARY_NAV_ITEMS.filter((item) => item.id !== 'more');
 
