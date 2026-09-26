@@ -2,7 +2,6 @@ import logging
 from sqlalchemy import text
 from backend.database import engine, Base
 
-# Import all SQLAlchemy ORM models so they are registered with Base.metadata
 from backend.models.user import User
 from backend.models.business_profile import BusinessProfile
 from backend.models.product import Product
@@ -11,6 +10,8 @@ from backend.models.subscription import Subscription
 from backend.models.government_scheme import GovernmentScheme
 from backend.models.activity import Activity
 from backend.models.image import ProductImage
+from backend.models.quotation import Quotation
+from backend.models.voice import VoiceAsset
 
 logger = logging.getLogger(__name__)
 
