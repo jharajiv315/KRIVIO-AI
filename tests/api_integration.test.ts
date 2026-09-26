@@ -154,6 +154,31 @@ async function runApiIntegrationTests() {
     assert.strictEqual(meRes.data.user.id, userAId, '/api/auth/me returns User A ID');
     console.log('  ✔ /api/auth/me returns authenticated identity');
 
+    // 3.5 Change Password endpoint validation
+    const badPwRes = await makeRequest('/api/auth/change-password', {
+      method: 'POST',
+      token: userAToken,
+      body: { currentPassword: 'WrongPassword!', newPassword: 'BrandNewPassword456!' }
+    });
+    assert.strictEqual(badPwRes.status, 400, 'Incorrect current password rejected with 400');
+
+    const goodPwRes = await makeRequest('/api/auth/change-password', {
+      method: 'POST',
+      token: userAToken,
+      body: { currentPassword: testPassword, newPassword: 'BrandNewPassword456!' }
+    });
+    assert.strictEqual(goodPwRes.status, 200, 'Password changed successfully');
+    assert.strictEqual(goodPwRes.data.status, 'success');
+
+    // Verify login with new password
+    const newLoginRes = await makeRequest('/api/auth/login', {
+      method: 'POST',
+      body: { email: userAEmail, password: 'BrandNewPassword456!' }
+    });
+    assert.strictEqual(newLoginRes.status, 200, 'Login with new password succeeds');
+    userAToken = newLoginRes.data.token;
+    console.log('  ✔ /api/auth/change-password verified end-to-end');
+
     // --- 4. BUSINESS PROFILE & TENANT ISOLATION ---
     console.log('\n▶ 4. Business Profile & Tenant Isolation');
     
@@ -195,6 +220,35 @@ async function runApiIntegrationTests() {
     assert.strictEqual(userBProfRes.status, 200);
     assert.strictEqual(userBProfRes.data.businessProfile.businessName, '', 'User B receives clean unconfigured profile, NOT User A profile');
     console.log('  ✔ Tenant Isolation: User B cannot access User A profile');
+
+    // 4.4 Dashboard Tasks & Dynamic Task Toggle
+    const dashRes = await makeRequest('/api/dashboard', { token: userAToken });
+    assert.strictEqual(dashRes.status, 200, 'Dashboard data retrieved successfully');
+    assert.ok(Array.isArray(dashRes.data.tasks), 'Dashboard returns tasks array');
+    const profileTask = dashRes.data.tasks.find((t: any) => t.id === 'task_profile');
+    assert.ok(profileTask, 'task_profile exists in dashboard tasks');
+    const initialStatus = profileTask.completed;
+
+    const toggleRes = await makeRequest('/api/tasks/toggle', {
+      method: 'POST',
+      token: userAToken,
+      body: { taskId: 'task_profile' }
+    });
+    assert.strictEqual(toggleRes.status, 200, 'Task toggle succeeds');
+    assert.ok(Array.isArray(toggleRes.data.tasks), 'Toggle returns updated tasks');
+    const toggledTask = toggleRes.data.tasks.find((t: any) => t.id === 'task_profile');
+    assert.strictEqual(toggledTask.completed, !initialStatus, 'Task completion status inverted');
+
+    // Revert toggle
+    const revertRes = await makeRequest('/api/tasks/toggle', {
+      method: 'POST',
+      token: userAToken,
+      body: { taskId: 'task_profile' }
+    });
+    assert.strictEqual(revertRes.status, 200);
+    const revertedTask = revertRes.data.tasks.find((t: any) => t.id === 'task_profile');
+    assert.strictEqual(revertedTask.completed, initialStatus, 'Task completion status reverted');
+    console.log('  ✔ /api/dashboard and /api/tasks/toggle verified end-to-end');
 
     // --- 5. PRODUCT LIFECYCLE & STRICT TENANT ISOLATION ---
     console.log('\n▶ 5. Product Lifecycle, Duplication & Isolation');
