@@ -4763,6 +4763,34 @@ app.use((req, res, next) => {
   }
   next();
 });
+app.get(["/health", "/api/health"], (req, res) => {
+  res.json({
+    status: "healthy",
+    process: "alive",
+    service: "krivio-ai-node-backend",
+    version: "2.0.0",
+    uptime_seconds: Math.floor(process.uptime()),
+    timestamp: (/* @__PURE__ */ new Date()).toISOString()
+  });
+});
+app.get(["/health/db", "/api/health/db", "/diagnostic/db"], async (req, res) => {
+  try {
+    const result = await pgPool.query("SELECT 1 as ping");
+    res.json({
+      status: "healthy",
+      database: "connected",
+      query_result: result.rows[0]?.ping ?? 1,
+      timestamp: (/* @__PURE__ */ new Date()).toISOString()
+    });
+  } catch (err) {
+    res.status(503).json({
+      status: "unhealthy",
+      database: "disconnected",
+      error: err?.message || "Database ping failed",
+      timestamp: (/* @__PURE__ */ new Date()).toISOString()
+    });
+  }
+});
 var dbInitPromise = null;
 async function ensureDbInitialized() {
   if (!dbInitPromise) {
@@ -5100,6 +5128,42 @@ app.post("/api/auth/login", async (req, res) => {
     });
   } catch (err) {
     res.status(500).json({ error: "Login failed" });
+  }
+});
+app.post("/api/auth/change-password", authenticateToken, async (req, res) => {
+  try {
+    const userId = req.user.id;
+    const { currentPassword, newPassword } = req.body;
+    if (!currentPassword || !newPassword) {
+      res.status(400).json({ error: "Current password and new password are required" });
+      return;
+    }
+    if (newPassword.length < 6) {
+      res.status(400).json({ error: "New password must be at least 6 characters long" });
+      return;
+    }
+    const userRes = await queryPg(`SELECT password_hash FROM users WHERE id = $1`, [userId]);
+    const user = userRes.rows[0];
+    if (!user) {
+      res.status(404).json({ error: "User not found" });
+      return;
+    }
+    if (user.password_hash) {
+      const isMatch = import_bcryptjs.default.compareSync(currentPassword, user.password_hash);
+      if (!isMatch) {
+        res.status(400).json({ error: "Current password is incorrect" });
+        return;
+      }
+    }
+    const newHash = import_bcryptjs.default.hashSync(newPassword, 10);
+    await queryPg(`UPDATE users SET password_hash = $1, updated_at = NOW() WHERE id = $2`, [newHash, userId]);
+    res.json({
+      status: "success",
+      message: "Password updated successfully"
+    });
+  } catch (err) {
+    console.error("Change password error:", err);
+    res.status(500).json({ error: "Failed to update password" });
   }
 });
 app.put("/api/users/language", authenticateToken, async (req, res) => {
@@ -6305,6 +6369,9 @@ app.get("/api/business-profile", authenticateToken, async (req, res) => {
         business_registration: row.business_registration || "",
         gstNumber: row.gst_number || "",
         gst_number: row.gst_number || "",
+        ownerName: req.user?.name || "",
+        owner_name: req.user?.name || "",
+        email: req.user?.email || "",
         createdAt: row.created_at,
         updatedAt: row.updated_at
       }
@@ -6361,6 +6428,11 @@ var handleSaveBusinessProfile = async (req, res) => {
     const bPhone = phoneNumber || phone_number || req.user.phone || "";
     const bReg = businessRegistration || business_registration || "";
     const bGst = gstNumber || gst_number || "";
+    const bOwner = req.body.ownerName || req.body.owner_name;
+    if (bOwner) {
+      await queryPg(`UPDATE users SET full_name = $1, updated_at = NOW() WHERE id = $2`, [bOwner, userId]).catch(() => {
+      });
+    }
     const existing = await queryPg(`SELECT id FROM business_profiles WHERE user_id = $1`, [userId]);
     let row;
     if (existing.rows.length > 0) {
@@ -6422,6 +6494,9 @@ var handleSaveBusinessProfile = async (req, res) => {
         business_registration: row.business_registration,
         gstNumber: row.gst_number,
         gst_number: row.gst_number,
+        ownerName: bOwner || req.user?.name || "",
+        owner_name: bOwner || req.user?.name || "",
+        email: req.user?.email || "",
         createdAt: row.created_at,
         updatedAt: row.updated_at
       },
@@ -6443,6 +6518,58 @@ app.delete("/api/business-profile", authenticateToken, async (req, res) => {
     res.status(500).json({ error: "Failed to delete business profile" });
   }
 });
+var userTasksMemoryMap = /* @__PURE__ */ new Map();
+async function buildUserTasks(userId, prof, totalProducts, marketplaceReadyProducts) {
+  let dbTaskMap = /* @__PURE__ */ new Map();
+  try {
+    const dbTaskRows = await queryPg(`SELECT task_id, completed FROM user_tasks WHERE user_id = $1`, [userId]);
+    for (const row of dbTaskRows.rows) {
+      dbTaskMap.set(row.task_id, Boolean(row.completed));
+    }
+  } catch {
+  }
+  const memMap = userTasksMemoryMap.get(userId);
+  const getStatus = (taskId, defaultStatus) => {
+    if (dbTaskMap.has(taskId)) return !!dbTaskMap.get(taskId);
+    if (memMap && memMap.has(taskId)) return !!memMap.get(taskId);
+    return defaultStatus;
+  };
+  const tasks = [
+    {
+      id: "task_profile",
+      title: "Complete your Business Profile",
+      description: "Add your enterprise name, craft story, and location to build buyer credibility.",
+      category: "profile",
+      completed: getStatus("task_profile", Boolean(prof && prof.business_name)),
+      dueDate: "High Priority"
+    },
+    {
+      id: "task_first_product",
+      title: "Create your first Product listing",
+      description: "Use the Product Studio with AI story generation to showcase your handcrafted inventory.",
+      category: "product",
+      completed: getStatus("task_first_product", totalProducts > 0),
+      dueDate: "Today"
+    },
+    {
+      id: "task_marketplace_ready",
+      title: "Complete dimensions and weight for ONDC",
+      description: "Add package specifications to make all catalog products ONDC ready.",
+      category: "marketplace",
+      completed: getStatus("task_marketplace_ready", totalProducts > 0 && marketplaceReadyProducts >= totalProducts),
+      dueDate: "Today"
+    },
+    {
+      id: "task_voice_mentor",
+      title: "Consult AI Voice Mentor for fair pricing",
+      description: "Ask your mentor in Hindi, English, or regional voice to calculate craft material and labor costs.",
+      category: "mentor",
+      completed: getStatus("task_voice_mentor", totalProducts > 0),
+      dueDate: "Recommended"
+    }
+  ];
+  return tasks;
+}
 app.get("/api/dashboard", authenticateToken, async (req, res) => {
   try {
     const userId = req.user.id;
@@ -6467,45 +6594,7 @@ app.get("/api/dashboard", authenticateToken, async (req, res) => {
     }
     const revenueRes = await queryPg(`SELECT SUM(price * COALESCE(stock, 1)) as total_rev FROM products WHERE user_id = $1`, [userId]);
     const estimatedMonthlyRevenue = parseFloat(revenueRes.rows[0]?.total_rev) || 0;
-    const tasks = [];
-    let tCounter = 1;
-    if (!prof || !prof.business_name) {
-      tasks.push({
-        id: `tsk_${tCounter++}`,
-        title: "Complete your Business Profile",
-        description: "Add your enterprise name, craft story, and location to build buyer credibility.",
-        category: "profile",
-        completed: false,
-        dueDate: "High Priority"
-      });
-    }
-    if (totalProducts === 0) {
-      tasks.push({
-        id: `tsk_${tCounter++}`,
-        title: "Create your first Product listing",
-        description: "Use the Product Studio with AI story generation to showcase your handcrafted inventory.",
-        category: "product",
-        completed: false,
-        dueDate: "Today"
-      });
-    } else if (marketplaceReadyProducts < totalProducts) {
-      tasks.push({
-        id: `tsk_${tCounter++}`,
-        title: "Complete dimensions and weight for ONDC",
-        description: "Add package specifications to make all catalog products ONDC ready.",
-        category: "marketplace",
-        completed: false,
-        dueDate: "Today"
-      });
-    }
-    tasks.push({
-      id: `tsk_${tCounter++}`,
-      title: "Consult AI Voice Mentor for fair pricing",
-      description: "Ask your mentor in Hindi, English, or regional voice to calculate craft material and labor costs.",
-      category: "mentor",
-      completed: totalProducts > 0,
-      dueDate: "Recommended"
-    });
+    const tasks = await buildUserTasks(userId, prof, totalProducts, marketplaceReadyProducts);
     const recentProducts = prodsRes.rows.map((row) => ({
       id: row.id,
       userId: row.user_id,
@@ -6556,6 +6645,45 @@ app.get("/api/dashboard", authenticateToken, async (req, res) => {
   } catch (err) {
     console.error("Dashboard error:", err);
     res.status(500).json({ error: "Failed to load dashboard data" });
+  }
+});
+app.post("/api/tasks/toggle", authenticateToken, async (req, res) => {
+  try {
+    const userId = req.user.id;
+    const { taskId } = req.body;
+    if (!taskId) {
+      res.status(400).json({ error: "taskId is required" });
+      return;
+    }
+    const profRes = await queryPg(`SELECT * FROM business_profiles WHERE user_id = $1`, [userId]).catch(() => ({ rows: [] }));
+    const totalCountRes = await queryPg(`SELECT COUNT(*) as cnt FROM products WHERE user_id = $1`, [userId]).catch(() => ({ rows: [{ cnt: "0" }] }));
+    const readyCountRes = await queryPg(`SELECT COUNT(*) as cnt FROM products WHERE user_id = $1 AND is_marketplace_ready = true`, [userId]).catch(() => ({ rows: [{ cnt: "0" }] }));
+    const totalProducts = parseInt(totalCountRes.rows[0]?.cnt || "0", 10) || 0;
+    const marketplaceReadyProducts = parseInt(readyCountRes.rows[0]?.cnt || "0", 10) || 0;
+    const currentTasks = await buildUserTasks(userId, profRes.rows[0], totalProducts, marketplaceReadyProducts);
+    const targetTask = currentTasks.find((t) => t.id === taskId);
+    const isCurrentlyCompleted = targetTask ? targetTask.completed : false;
+    const nextCompleted = !isCurrentlyCompleted;
+    await queryPg(
+      `INSERT INTO user_tasks (user_id, task_id, completed, updated_at)
+       VALUES ($1, $2, $3, NOW())
+       ON CONFLICT (user_id, task_id)
+       DO UPDATE SET completed = $3, updated_at = NOW()`,
+      [userId, taskId, nextCompleted]
+    ).catch(() => {
+    });
+    if (!userTasksMemoryMap.has(userId)) {
+      userTasksMemoryMap.set(userId, /* @__PURE__ */ new Map());
+    }
+    userTasksMemoryMap.get(userId).set(taskId, nextCompleted);
+    const updatedTasks = await buildUserTasks(userId, profRes.rows[0], totalProducts, marketplaceReadyProducts);
+    res.json({
+      success: true,
+      tasks: updatedTasks
+    });
+  } catch (err) {
+    console.error("Task toggle error:", err);
+    res.status(500).json({ error: "Failed to toggle task" });
   }
 });
 app.post("/api/ai/mentor", authenticateToken, async (req, res) => {
@@ -7786,8 +7914,18 @@ async function initPgDatabase() {
         summary JSONB DEFAULT '{}'::jsonb,
         created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
       );
+
+      CREATE TABLE IF NOT EXISTS user_tasks (
+        user_id VARCHAR(255) NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+        task_id VARCHAR(100) NOT NULL,
+        completed BOOLEAN DEFAULT FALSE,
+        updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
+        PRIMARY KEY (user_id, task_id)
+      );
     `;
     await pgPool.query(createTablesQuery);
+    await pgPool.query(`CREATE INDEX IF NOT EXISTS idx_user_tasks_user_id ON user_tasks(user_id)`).catch(() => {
+    });
     await pgPool.query(`ALTER TABLE users ADD COLUMN IF NOT EXISTS preferred_language VARCHAR(10) DEFAULT 'en'`).catch(() => {
     });
     await pgPool.query(`ALTER TABLE products ADD COLUMN IF NOT EXISTS material VARCHAR(150)`).catch(() => {
