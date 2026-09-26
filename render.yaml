@@ -1,0 +1,61 @@
+# ==============================================================================
+# KRIVIO AI — RENDER BLUEPRINT SPECIFICATION (render.yaml)
+# https://render.com/docs/blueprint-spec
+# ==============================================================================
+
+services:
+  # Option A: Dedicated Python FastAPI Service (WhatsApp Webhooks & Voice Pipeline)
+  - type: web
+    name: krivio-ai-fastapi
+    runtime: python
+    region: oregon
+    plan: starter
+    buildCommand: "pip install --upgrade pip && pip install -r backend/requirements.txt"
+    startCommand: "gunicorn backend.main:app -w 2 -k uvicorn.workers.UvicornWorker --bind 0.0.0.0:$PORT --timeout 120"
+    healthCheckPath: /health
+    envVars:
+      - key: PYTHON_VERSION
+        value: 3.11.5
+      - key: ENVIRONMENT
+        value: production
+      - key: DATABASE_URL
+        sync: false
+      - key: GEMINI_API_KEY
+        sync: false
+      - key: SUPABASE_JWT_SECRET
+        sync: false
+      - key: JWT_SECRET
+        generateValue: true
+      - key: ALLOWED_ORIGINS
+        value: "https://krivio-ai.vercel.app"
+
+  # Option B: Dedicated Node.js Express Service (Full Feature Parity Monolith)
+  - type: web
+    name: krivio-ai-node-backend
+    runtime: node
+    region: oregon
+    plan: starter
+    buildCommand: "npm install && npm run build:server"
+    startCommand: "node dist/server.cjs"
+    healthCheckPath: /health
+    envVars:
+      - key: NODE_ENV
+        value: production
+      - key: DATABASE_URL
+        sync: false
+      - key: GEMINI_API_KEY
+        sync: false
+      - key: SUPABASE_URL
+        value: "https://mvbpxcsyyasckzymjyjb.supabase.co"
+      - key: SUPABASE_ANON_KEY
+        sync: false
+      - key: SUPABASE_JWT_SECRET
+        sync: false
+      - key: JWT_SECRET
+        generateValue: true
+      - key: RAZORPAY_KEY_ID
+        sync: false
+      - key: RAZORPAY_KEY_SECRET
+        sync: false
+      - key: APP_URL
+        value: "https://krivio-ai.vercel.app"
