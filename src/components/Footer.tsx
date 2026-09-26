@@ -139,8 +139,8 @@ export const Footer: React.FC<FooterProps> = ({ setCurrentTab }) => {
                 </button>
               </li>
               <li>
-                <button onClick={() => setCurrentTab('community')} className="hover:text-[#D4AF37] transition-colors cursor-pointer text-left">
-                  {t('nav.community')}
+                <button onClick={() => setCurrentTab('business-profile')} className="hover:text-[#D4AF37] transition-colors cursor-pointer text-left">
+                  {t('nav.businessProfile') || 'Business Profile'}
                 </button>
               </li>
             </ul>
