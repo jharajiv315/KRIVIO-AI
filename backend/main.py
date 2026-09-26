@@ -1,4 +1,8 @@
-from fastapi import FastAPI
+import os
+import time
+import uuid
+import logging
+from fastapi import FastAPI, Request, Response
 from fastapi.middleware.cors import CORSMiddleware
 from backend.connection import init_db, verify_db_connection
 from backend.routes import (
@@ -17,20 +21,27 @@ from backend.routes import (
     whatsapp_router,
 )
 
+logger = logging.getLogger("krivio.api")
+
 app = FastAPI(
     title="KRIVIO AI Backend API",
     description="FastAPI + PostgreSQL Database Layer for KRIVIO AI Rural Business Accelerator",
     version="2.0.0"
 )
 
-# CORS Middleware setup
-ALLOWED_ORIGINS = [
+# CORS Middleware setup - dynamically include additional origins if configured
+base_origins = [
     "https://krivio-ai.vercel.app",
     "http://localhost:3000",
     "http://localhost:5173",
     "http://127.0.0.1:3000",
     "http://127.0.0.1:5173",
 ]
+extra_origins = [o.strip() for o in os.getenv("ALLOWED_ORIGINS", "").split(",") if o.strip()]
+frontend_url = os.getenv("FRONTEND_URL", "").strip()
+if frontend_url and frontend_url not in base_origins:
+    base_origins.append(frontend_url)
+ALLOWED_ORIGINS = list(set(base_origins + extra_origins))
 
 app.add_middleware(
     CORSMiddleware,
@@ -41,6 +52,22 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
+# Production Structured Request Logging & Correlation ID Middleware
+@app.middleware("http")
+async def log_requests_middleware(request: Request, call_next):
+    req_id = request.headers.get("x-request-id") or str(uuid.uuid4())
+    start_time = time.time()
+
+    response: Response = await call_next(request)
+    duration_ms = round((time.time() - start_time) * 1000, 2)
+
+    response.headers["x-request-id"] = req_id
+    logger.info(
+        f"REQ_ID={req_id} METHOD={request.method} PATH={request.url.path} "
+        f"STATUS={response.status_code} DURATION_MS={duration_ms}ms"
+    )
+    return response
+
 # Initialize Database tables on application startup
 @app.on_event("startup")
 def on_startup():
@@ -48,20 +75,37 @@ def on_startup():
 
 @app.get("/")
 def root():
-    db_connected = verify_db_connection()
     return {
         "app": "KRIVIO AI FastAPI Service",
         "status": "online",
         "version": "2.0.0",
-        "postgresql_connected": db_connected,
-        "database_name": "krivio_db"
+        "runtime": "python-fastapi",
+        "environment": os.getenv("ENVIRONMENT", "production")
     }
 
+# 1. Process Liveness Health Check (Fast, zero heavy dependencies)
 @app.get("/health")
 def health_check():
+    """
+    Process Liveness Probe: Confirms the FastAPI process is responsive.
+    Does not fail if the database connection pool is cold or initializing.
+    """
+    return {
+        "status": "healthy",
+        "process": "alive",
+        "service": "krivio-fastapi-backend",
+        "version": "2.0.0"
+    }
+
+# 2. Database Readiness Health Check (Deep probe)
+@app.get("/health/db")
+def health_check_db():
+    """
+    Database Readiness Probe: Executes a SELECT 1 ping against PostgreSQL.
+    """
     db_status = verify_db_connection()
     return {
-        "status": "healthy" if db_status else "degraded",
+        "status": "healthy" if db_status else "unhealthy",
         "database": "connected" if db_status else "disconnected"
     }
 
@@ -118,4 +162,6 @@ app.include_router(whatsapp_router)
 
 if __name__ == "__main__":
     import uvicorn
-    uvicorn.run("backend.main:app", host="0.0.0.0", port=8000, reload=True)
+    port = int(os.getenv("PORT", "8000"))
+    uvicorn.run("backend.main:app", host="0.0.0.0", port=port, reload=False)
+
