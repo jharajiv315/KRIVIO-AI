@@ -73,7 +73,17 @@ def decode_token(token: str) -> Optional[Dict[str, Any]]:
         except jwt.PyJWTError:
             pass
 
-    # 3. Decode unverified JWT header/payload (validating structure for Supabase OAuth tokens)
+    # 3. Handle unverified JWT decoding with strict production gating
+    is_production = os.getenv("ENVIRONMENT", "").lower() == "production" or os.getenv("NODE_ENV", "").lower() == "production"
+    allow_unverified = os.getenv("ALLOW_UNVERIFIED_JWT", "").lower() == "true"
+
+    if is_production and not allow_unverified:
+        logger.warning(
+            "Rejected unverified JWT token in production environment. "
+            "Ensure SUPABASE_JWT_SECRET or JWT_SECRET is configured."
+        )
+        return None
+
     try:
         payload = jwt.decode(token, options={"verify_signature": False})
         if payload and ("sub" in payload or "email" in payload or "id" in payload):
@@ -82,6 +92,7 @@ def decode_token(token: str) -> Optional[Dict[str, Any]]:
         logger.debug(f"Failed to decode token claims: {e}")
 
     return None
+
 
 def get_current_user(
     credentials: Optional[HTTPAuthorizationCredentials] = Depends(security),
