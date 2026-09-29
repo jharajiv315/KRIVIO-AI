@@ -289,14 +289,14 @@ export const VoiceMentor: React.FC = () => {
 
       // Spoken voice reply in user's Indic language
       speakText(reply, assistantMsg.id);
-    } catch (err) {
+    } catch (err: any) {
       console.error('Mentor error:', err);
       setMessages((prev) => [
         ...prev,
         {
           id: `msg_err_${Date.now()}`,
           sender: 'assistant',
-          text: t('errors.general') || 'Network issue. Please try speaking again.',
+          text: err?.message || t('errors.general') || 'Network issue. Please try speaking again.',
           timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
         },
       ]);
