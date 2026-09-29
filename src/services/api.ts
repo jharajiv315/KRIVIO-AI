@@ -57,11 +57,15 @@ const fetchWithAuth = async (url: string, options: RequestInit = {}) => {
         if (text && text.trim().length > 0 && text.length < 250 && !text.includes('<!DOCTYPE') && !text.includes('<html')) {
           errorMessage = text.trim();
         } else if (response.status === 504 || response.status === 408) {
-          errorMessage = 'The server took too long to respond. Please try again with a compressed photo.';
+          errorMessage = url.includes('/images/')
+            ? 'The server took too long to respond. Please try again with a compressed photo.'
+            : 'The AI server took too long to respond. Please try asking again.';
         } else if (response.status === 413) {
-          errorMessage = 'The photo payload is too large. Please select a smaller or compressed photo.';
+          errorMessage = 'The request payload is too large. Please try a smaller payload.';
         } else if (response.status >= 500) {
-          errorMessage = 'The enhancement service is temporarily busy. Your photo is safe, please try again.';
+          errorMessage = url.includes('/images/')
+            ? 'The enhancement service is temporarily busy. Your photo is safe, please try again.'
+            : 'The AI mentor service is experiencing high traffic. Please try asking again in a moment.';
         }
       } catch {}
     }
