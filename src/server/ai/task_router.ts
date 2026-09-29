@@ -94,8 +94,10 @@ export class AITaskRouter {
       temperature: 0.7,
     });
 
+    const cleanRaw = (raw || '').replace(/^```(?:json)?\s*/i, '').replace(/\s*```$/i, '').trim();
+
     try {
-      const parsed = JSON.parse(raw);
+      const parsed = JSON.parse(cleanRaw);
       return {
         response: parsed.response || raw,
         intent: parsed.intent || 'GENERAL_ADVICE',
