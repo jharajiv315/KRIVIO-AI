@@ -16,7 +16,11 @@ export interface GenerateGeminiOptions {
 export class GeminiService {
   private client: GoogleGenAI | null = null;
   public static readonly DEFAULT_MODEL = process.env.GEMINI_MODEL || 'gemini-3.5-flash-lite';
-  public static readonly FALLBACK_MODELS = ['gemini-3.5-flash-lite', 'gemini-3.6-flash'];
+  public static readonly FALLBACK_MODELS = [
+    'gemini-3.5-flash-lite',
+    'gemini-flash-lite-latest',
+    'gemini-3.1-flash-lite',
+  ];
 
   private getClient(): GoogleGenAI | null {
     if (!this.client) {
