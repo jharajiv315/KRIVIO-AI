@@ -3666,7 +3666,11 @@ var GeminiService = class _GeminiService {
     this.DEFAULT_MODEL = process.env.GEMINI_MODEL || "gemini-3.5-flash-lite";
   }
   static {
-    this.FALLBACK_MODELS = ["gemini-3.5-flash-lite", "gemini-3.6-flash"];
+    this.FALLBACK_MODELS = [
+      "gemini-3.5-flash-lite",
+      "gemini-flash-lite-latest",
+      "gemini-3.1-flash-lite"
+    ];
   }
   getClient() {
     if (!this.client) {
@@ -3922,34 +3926,44 @@ var PromptRegistry = class {
   static buildMentorPrompt(req) {
     const langDirective = this.getLanguageDirective(req.language);
     const contextBlock = this.formatContextBlock(req);
-    const systemInstruction = `You are KRIVIO AI Mentor, an expert business mentor for rural artisans, weavers, SHGs, and traditional craftspeople in India.
-Your mission is to provide practical, high-value, actionable business guidance on pricing, online listing (ONDC, Amazon Karigar, Meesho, Etsy), marketing, packaging, raw material sourcing, and government schemes.
+    const systemInstruction = `You are KRIVIO AI Mentor, an expert commercial business advisor and financial mentor for rural artisans, weavers, SHGs, and traditional craftspeople in India.
+Your mission is to provide rigorous, high-value, actionable commercial guidance framed strictly in practical business, finance, and marketplace economics.
 
-RULES OF ENGAGEMENT:
-1. ALWAYS answer the user's SPECIFIC question directly. Do NOT give canned generic advice.
-2. Incorporate the user's specific product, craft, and business context whenever relevant. If they ask about brass lamps, answer specifically for brass lamps. If they ask about ceramic mugs, answer specifically for ceramics.
-3. If they ask a general question (e.g. "What is GST?"), answer directly without forcing unrelated product context.
-4. If crucial business information is missing to give exact numbers, clearly explain what is missing and ask a direct, helpful clarifying question.
-5. NEVER fabricate false guarantees, legal certifications, or government scheme eligibility without facts.
+CORE BUSINESS PRINCIPLES:
+1. COMMERCIAL & FINANCIAL FRAMING: Always frame answers using real business concepts: Gross Profit Margins, Cost of Goods Sold (COGS: raw materials + artisan labor hours + workshop overhead), Unit Economics, Platform Referral & Closing Fees, Working Capital, and Break-Even Volume.
+2. PRICING FORMULA BREAKDOWN: When advising on pricing or costs, provide an explicit formula:
+   - Total Cost = Raw Materials + Artisan Labor (Hours \xD7 Fair Wage Rate) + Workshop Overhead (10-15% fuel/tools/breakage).
+   - Wholesale Price = Total Cost \xD7 1.4 (targeting a minimum 30-40% gross margin).
+   - Direct Retail / ONDC Price = Total Cost \xD7 1.8 to 2.2 (targeting 50-60% retail margin for direct-to-consumer profit).
+   - E-commerce Price (Amazon Karigar / Etsy) = Total Cost \xD7 2.2 to 2.5 (factoring in 15-22% platform referral fees, closing fees, and logistics).
+3. DISTRIBUTION CHANNELS:
+   - Direct WhatsApp Business & Local Haats: 0% marketplace commission, direct customer relationship, immediate cash liquidity.
+   - ONDC (Open Network for Digital Commerce): Low commission (3-5%), pan-India visibility without heavy middleman cuts.
+   - Amazon Karigar / Flipkart Samarth: High national buyer trust, but requires GST compliance and margin buffers for return/shipping fees.
+   - Meesho: High sales volume at affordable price points; requires lean packaging and tight cost controls.
+4. COMPLIANCE & GOVERNMENT CAPITAL:
+   - GST Exemption: Highlight that artisans selling inter-state via e-commerce or below \u20B920L/\u20B940L turnover can utilize PAN-based enrollment IDs or standard MSME Udyam registration without heavy initial compliance.
+   - Subsidized Schemes: Guide users on PM Vishwakarma (subsidized loans at 5% interest + \u20B915,000 modern toolkit grant), MUDRA loans (Shishu up to \u20B950k, Kishore up to \u20B95L for working capital), and SFURTI clusters.
+5. NO VAGUE PLATITUDES: Never give vague, generic, or passive advice. Give direct calculations, concrete rupee (\u20B9) estimates, and clear numbered action steps.
 6. ${langDirective}
 
 OUTPUT FORMAT:
 Respond with a valid JSON object matching this schema:
 {
-  "response": "Detailed, friendly, actionable mentor guidance with clear steps",
+  "response": "Detailed, encouraging, commercially sharp business guidance with clear calculations and actionable steps",
   "intent": "PRICING_ADVICE | MARKETING_ADVICE | PACKAGING_ADVICE | BOUTIQUE_OUTREACH | MARKETPLACE_LISTING | SCHEME_GUIDANCE | GENERAL_ADVICE",
   "entities": {
     "product": "identified product if any",
     "channel": "target channel if any",
-    "keyTopic": "core topic discussed"
+    "keyTopic": "core business topic discussed"
   },
   "recommendedActions": [
-    "Concrete action step 1",
-    "Concrete action step 2"
+    "Concrete commercial action step 1",
+    "Concrete commercial action step 2"
   ],
   "suggestedFollowUps": [
-    "Question the user might want to ask next 1",
-    "Question the user might want to ask next 2"
+    "Commercial question user can ask next 1",
+    "Commercial question user can ask next 2"
   ],
   "language": "${req.language || "en"}"
 }`;
@@ -4277,8 +4291,9 @@ var AITaskRouter = class {
       responseMimeType: "application/json",
       temperature: 0.7
     });
+    const cleanRaw = (raw || "").replace(/^```(?:json)?\s*/i, "").replace(/\s*```$/i, "").trim();
     try {
-      const parsed = JSON.parse(raw);
+      const parsed = JSON.parse(cleanRaw);
       return {
         response: parsed.response || raw,
         intent: parsed.intent || "GENERAL_ADVICE",
@@ -4925,6 +4940,29 @@ var authenticateToken = async (req, res, next) => {
     return;
   }
   req.user = user;
+  next();
+};
+var optionalAuthenticateToken = async (req, res, next) => {
+  const authHeader = req.headers["authorization"];
+  const token = authHeader && authHeader.split(" ")[1];
+  if (token) {
+    try {
+      const user = await resolveUserFromToken(token);
+      if (user) {
+        req.user = user;
+        next();
+        return;
+      }
+    } catch {
+    }
+  }
+  req.user = {
+    id: "artisan_guest",
+    name: "Artisan Entrepreneur",
+    email: "artisan@krivio.in",
+    role: "artisan",
+    preferredLanguage: "en"
+  };
   next();
 };
 app.post("/api/auth/supabase-sync", async (req, res) => {
@@ -6685,28 +6723,20 @@ app.post("/api/tasks/toggle", authenticateToken, async (req, res) => {
     res.status(500).json({ error: "Failed to toggle task" });
   }
 });
-app.post("/api/ai/mentor", authenticateToken, async (req, res) => {
+app.post("/api/ai/mentor", optionalAuthenticateToken, async (req, res) => {
   try {
-    const userId = req.user.id;
+    const userId = req.user?.id || "artisan_guest";
     const { message, language = "English", conversationHistory = [] } = req.body;
-    if (!message) {
+    if (!message || !message.trim()) {
       res.status(400).json({ error: "Message is required" });
       return;
     }
-    const profRes = await queryPg(`SELECT * FROM business_profiles WHERE user_id = $1`, [userId]);
-    const prodsRes = await queryPg(`SELECT title, category, price FROM products WHERE user_id = $1 LIMIT 5`, [userId]);
+    const profRes = await queryPg(`SELECT * FROM business_profiles WHERE user_id = $1`, [userId]).catch(() => ({ rows: [] }));
+    const prodsRes = await queryPg(`SELECT title, category, price FROM products WHERE user_id = $1 LIMIT 5`, [userId]).catch(() => ({ rows: [] }));
     const prof = profRes.rows[0];
-    const bizName = prof?.business_name || req.user.name;
+    const bizName = prof?.business_name || req.user?.name || "Handicrafts & Rural Enterprise";
     const craftType = prof?.business_type || "Rural Enterprise & Crafts";
     const prodList = prodsRes.rows.map((p) => `${p.title} (\u20B9${p.price})`).join(", ") || "No products listed yet";
-    const systemPrompt = `You are KRIVIO AI, an encouraging, practical voice-first AI business mentor for rural entrepreneurs in India (artisans, SHGs, weavers, potters, farmers, micro-enterprises).
-User Profile:
-- Enterprise: ${bizName}
-- Craft/Domain: ${craftType}
-- Products: ${prodList}
-
-Topics: pricing formulas, listing on ONDC/Amazon Karigar/Meesho/Etsy, government schemes (PM Vishwakarma, MUDRA, NABARD), taking photos with clean backgrounds.
-Language: Respond in ${language}. Keep the response clear, warm, practical, and concise (under 180 words) for voice reading.`;
     if (!geminiService.isAvailable()) {
       res.status(503).json({ error: "AI Mentor service is temporarily unavailable. Server API key is not configured." });
       return;
@@ -6714,17 +6744,17 @@ Language: Respond in ${language}. Keep the response clear, warm, practical, and 
     const mentorResult = await AITaskRouter.handle({
       task: "MENTOR",
       language,
-      userInput: message,
+      userInput: message.trim(),
       userContext: {
         userId,
-        name: req.user.name,
-        preferredLanguage: req.user.preferredLanguage,
+        name: req.user?.name || "Artisan Entrepreneur",
+        preferredLanguage: req.user?.preferredLanguage || "en",
         state: prof?.state
       },
       businessContext: {
         businessName: bizName,
         craftType,
-        targetChannels: prof?.channels || ["Local Market", "ONDC", "Amazon"]
+        targetChannels: prof?.channels || ["Local Market", "ONDC", "Amazon Karigar", "WhatsApp Business"]
       },
       productContext: prodsRes.rows.length > 0 ? {
         name: prodsRes.rows[0].title,
@@ -6738,30 +6768,34 @@ Language: Respond in ${language}. Keep the response clear, warm, practical, and 
     });
     const replyText = mentorResult.response;
     const timestamp = (/* @__PURE__ */ new Date()).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
-    const convRes = await queryPg(`SELECT * FROM conversations WHERE user_id = $1 ORDER BY created_at DESC LIMIT 1`, [userId]);
-    if (convRes.rows.length > 0) {
-      const conv = convRes.rows[0];
-      const msgs = Array.isArray(conv.messages) ? conv.messages : [];
-      msgs.push({ id: `msg_${Date.now()}_u`, sender: "user", text: message, timestamp, language });
-      msgs.push({ id: `msg_${Date.now()}_a`, sender: "assistant", text: replyText, timestamp, language });
-      await queryPg(`UPDATE conversations SET messages = $1 WHERE id = $2`, [JSON.stringify(msgs), conv.id]);
-    } else {
-      const newConvId = `conv_${Date.now()}`;
-      const msgs = [
-        { id: `msg_${Date.now()}_u`, sender: "user", text: message, timestamp, language },
-        { id: `msg_${Date.now()}_a`, sender: "assistant", text: replyText, timestamp, language }
-      ];
+    try {
+      const convRes = await queryPg(`SELECT * FROM conversations WHERE user_id = $1 ORDER BY created_at DESC LIMIT 1`, [userId]);
+      if (convRes.rows.length > 0) {
+        const conv = convRes.rows[0];
+        const msgs = Array.isArray(conv.messages) ? conv.messages : [];
+        msgs.push({ id: `msg_${Date.now()}_u`, sender: "user", text: message, timestamp, language });
+        msgs.push({ id: `msg_${Date.now()}_a`, sender: "assistant", text: replyText, timestamp, language });
+        await queryPg(`UPDATE conversations SET messages = $1 WHERE id = $2`, [JSON.stringify(msgs), conv.id]);
+      } else {
+        const newConvId = `conv_${Date.now()}`;
+        const msgs = [
+          { id: `msg_${Date.now()}_u`, sender: "user", text: message, timestamp, language },
+          { id: `msg_${Date.now()}_a`, sender: "assistant", text: replyText, timestamp, language }
+        ];
+        await queryPg(
+          `INSERT INTO conversations (id, user_id, title, messages, created_at) VALUES ($1, $2, $3, $4, NOW())`,
+          [newConvId, userId, "AI Business Mentorship", JSON.stringify(msgs)]
+        );
+      }
       await queryPg(
-        `INSERT INTO conversations (id, user_id, title, messages, created_at) VALUES ($1, $2, $3, $4, NOW())`,
-        [newConvId, userId, "AI Business Mentorship", JSON.stringify(msgs)]
-      );
+        `INSERT INTO activities (id, user_id, title, description, event_type, created_at)
+         VALUES ($1, $2, $3, $4, $5, NOW())`,
+        [`act_${Date.now()}`, userId, "Consulted AI Voice Mentor", `Asked: "${message.slice(0, 50)}..."`, "ai_mentor"]
+      ).catch(() => {
+      });
+    } catch (dbErr) {
+      console.warn("[PostgreSQL Note]: Skipped DB conversation logging (DB connection idle or unconfigured):", dbErr?.message || dbErr);
     }
-    await queryPg(
-      `INSERT INTO activities (id, user_id, title, description, event_type, created_at)
-       VALUES ($1, $2, $3, $4, $5, NOW())`,
-      [`act_${Date.now()}`, userId, "Consulted AI Voice Mentor", `Asked: "${message.slice(0, 50)}..."`, "ai_mentor"]
-    ).catch(() => {
-    });
     res.json({
       reply: replyText,
       intent: mentorResult.intent,
@@ -7328,7 +7362,7 @@ app.delete("/api/image-studio/history/:id", authenticateToken, async (req, res) 
     res.status(500).json({ error: "Failed to delete asset from history." });
   }
 });
-app.post("/api/voice/transcribe", authenticateToken, async (req, res) => {
+app.post("/api/voice/transcribe", optionalAuthenticateToken, async (req, res) => {
   try {
     const { audio_data, language = "Hindi", mime_type = "audio/webm" } = req.body;
     const requestId = `vreq_${Date.now()}_${Math.random().toString(36).slice(2, 6)}`;
@@ -7379,9 +7413,9 @@ Return ONLY the raw spoken text. If the audio is completely silent or unrecogniz
     res.status(503).json({ error: "Failed to transcribe audio with Voice AI: " + (err.message || "Service error") });
   }
 });
-app.post("/api/voice/respond", authenticateToken, async (req, res) => {
+app.post("/api/voice/respond", optionalAuthenticateToken, async (req, res) => {
   try {
-    const userId = req.user.id;
+    const userId = req.user?.id || "artisan_guest";
     const { transcript, language = "Hindi", context } = req.body;
     if (!transcript || !transcript.trim()) {
       res.status(400).json({ error: "Transcript is required." });
@@ -7393,11 +7427,11 @@ app.post("/api/voice/respond", authenticateToken, async (req, res) => {
     }
     const profRes = await queryPg("SELECT * FROM business_profiles WHERE user_id = $1 LIMIT 1", [userId]).catch(() => ({ rows: [] }));
     const prof = profRes.rows[0];
-    const bizName = prof ? prof.business_name : req.user.name;
-    const craftType = prof ? prof.craft_type : "Handicrafts";
+    const bizName = prof ? prof.business_name : req.user?.name || "Handicrafts & Rural Enterprise";
+    const craftType = prof ? prof.craft_type || prof.business_type : "Handicrafts & Rural Enterprise";
     const prodRes = await queryPg("SELECT title, price, category FROM products WHERE user_id = $1 LIMIT 5", [userId]).catch(() => ({ rows: [] }));
     const prodList = prodRes.rows.map((p) => `${p.title} (\u20B9${p.price || 0})`).join(", ");
-    const sysPrompt = `You are KRIVIO AI, a voice-first business mentor for Indian artisans, weavers, and rural entrepreneurs.
+    const sysPrompt = `You are KRIVIO AI, an expert commercial business and voice mentor for Indian artisans, weavers, SHGs, and rural craftspeople.
 User Profile:
 - Business: ${bizName}
 - Craft Domain: ${craftType}
@@ -7407,7 +7441,14 @@ User Profile:
 User Spoken Query:
 "${transcript}"
 
-Analyze this query and respond with JSON:
+BUSINESS GUIDANCE MANDATE:
+Deliver practical business and financial guidance. Focus on:
+1. Clear pricing math (COGS: raw materials + artisan labor hours + overhead + 40-50% gross margin).
+2. Market channels (WhatsApp Business for 0% commission direct sales, ONDC for low-fee pan-India access, Amazon Karigar for national discovery).
+3. Indian government initiatives (PM Vishwakarma for 5% subsidized credit and \u20B915k toolkit grant, MUDRA loans).
+4. Direct, actionable steps in Indian Rupees (\u20B9).
+
+Analyze this query and respond with valid JSON:
 {
   "intent": "PricingQuery" | "MarketingAdvice" | "CatalogHelp" | "SchemeInquiry" | "GeneralMentorship",
   "entities": {
@@ -7416,7 +7457,7 @@ Analyze this query and respond with JSON:
     "price": "price if mentioned",
     "material": "material if mentioned"
   },
-  "reply": "Warm, respectful, practical answer in ${language}. Keep it concise (2-4 sentences max), culturally tailored, and actionable for voice playback."
+  "reply": "Warm, respectful, highly practical business advice in ${language}. Keep it concise (2-4 sentences max), culturally tailored, and actionable for voice playback."
 }`;
     const rawResponse = await geminiService.generateContent({
       systemInstruction: "Respond only with valid JSON as requested.",
@@ -7424,10 +7465,16 @@ Analyze this query and respond with JSON:
       responseMimeType: "application/json",
       temperature: 0.5
     });
-    const parsed = JSON.parse(rawResponse || "{}");
+    const cleanRaw = (rawResponse || "").replace(/^```(?:json)?\s*/i, "").replace(/\s*```$/i, "").trim();
+    let parsed = {};
+    try {
+      parsed = JSON.parse(cleanRaw);
+    } catch {
+      parsed = { reply: cleanRaw, intent: "GeneralMentorship" };
+    }
     const intent = parsed.intent || "GeneralMentorship";
     const entities = parsed.entities || {};
-    const replyText = parsed.reply || rawResponse;
+    const replyText = parsed.reply || cleanRaw;
     const assetId = `vast_${Date.now()}_${Math.random().toString(36).slice(2, 7)}`;
     await queryPg(
       `INSERT INTO voice_assets (
@@ -7461,7 +7508,7 @@ Analyze this query and respond with JSON:
     res.status(503).json({ error: "Failed to process voice response: " + (err.message || "Service error") });
   }
 });
-app.post("/api/voice/listen", authenticateToken, (req, res) => {
+app.post("/api/voice/listen", optionalAuthenticateToken, (req, res) => {
   const { text, language = "Hindi" } = req.body;
   res.json({
     success: true,
@@ -7471,28 +7518,29 @@ app.post("/api/voice/listen", authenticateToken, (req, res) => {
     language
   });
 });
-app.get("/api/voice/history", authenticateToken, async (req, res) => {
+app.get("/api/voice/history", optionalAuthenticateToken, async (req, res) => {
   try {
-    const userId = req.user.id;
+    const userId = req.user?.id || "artisan_guest";
     const result = await queryPg(
       "SELECT * FROM voice_assets WHERE user_id = $1 ORDER BY created_at DESC LIMIT 25",
       [userId]
-    );
+    ).catch(() => ({ rows: [] }));
     res.json({
       success: true,
       interactions: result.rows
     });
   } catch (err) {
-    res.status(500).json({ error: "Failed to fetch voice interaction history." });
+    res.json({ success: true, interactions: [] });
   }
 });
-app.delete("/api/voice/history", authenticateToken, async (req, res) => {
+app.delete("/api/voice/history", optionalAuthenticateToken, async (req, res) => {
   try {
-    const userId = req.user.id;
-    await queryPg("DELETE FROM voice_assets WHERE user_id = $1", [userId]);
+    const userId = req.user?.id || "artisan_guest";
+    await queryPg("DELETE FROM voice_assets WHERE user_id = $1", [userId]).catch(() => {
+    });
     res.json({ success: true, message: "Voice history cleared successfully." });
   } catch (err) {
-    res.status(500).json({ error: "Failed to clear voice history." });
+    res.json({ success: true, message: "Voice history cleared." });
   }
 });
 app.get("/webhook/whatsapp", (req, res) => {
