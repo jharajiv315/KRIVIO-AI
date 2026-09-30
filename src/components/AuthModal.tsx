@@ -20,7 +20,11 @@ import { Logo } from './Logo';
 
 const EMAIL_REGEX = /^[a-zA-Z0-9.!#$%&'*+/=?^_`{|}~-]+@[a-zA-Z0-9](?:[a-zA-Z0-9-]{0,61}[a-zA-Z0-9])?(?:\.[a-zA-Z0-9](?:[a-zA-Z0-9-]{0,61}[a-zA-Z0-9])?)+$/;
 
-export const AuthModal: React.FC = () => {
+export interface AuthModalProps {
+  onAuthSuccess?: (tab?: string) => void;
+}
+
+export const AuthModal: React.FC<AuthModalProps> = ({ onAuthSuccess }) => {
   const {
     isAuthModalOpen,
     closeAuthModal,
@@ -138,6 +142,10 @@ export const AuthModal: React.FC = () => {
       if (mode === 'login') {
         await login(email.trim(), password);
         setSuccessMsg(t('auth.loginSuccess') || 'Welcome back! Signing you in...');
+        onAuthSuccess?.('dashboard');
+        setTimeout(() => {
+          closeAuthModal();
+        }, 350);
       } else if (mode === 'register') {
         await register({
           name: name.trim(),
@@ -148,6 +156,10 @@ export const AuthModal: React.FC = () => {
           location: location.trim() || 'India',
         });
         setSuccessMsg(t('auth.registerSuccess') || 'Account created successfully! Welcome to KRIVIO.');
+        onAuthSuccess?.('dashboard');
+        setTimeout(() => {
+          closeAuthModal();
+        }, 350);
       } else if (mode === 'forgot') {
         const res = await forgotPassword(email.trim());
         setSuccessMsg(
@@ -173,6 +185,10 @@ export const AuthModal: React.FC = () => {
       try {
         await loginWithGoogle('Google Entrepreneur', email || 'artisan@krivio.ai');
         setSuccessMsg(t('auth.loginSuccess') || 'Signed in successfully via Google.');
+        onAuthSuccess?.('dashboard');
+        setTimeout(() => {
+          closeAuthModal();
+        }, 350);
       } catch (innerErr: any) {
         setError(innerErr.message || 'Google sign-in could not be completed. Please try with email.');
       }
