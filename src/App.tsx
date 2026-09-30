@@ -1,4 +1,4 @@
-import React, { useState, useEffect, Suspense, lazy } from 'react';
+import React, { useState, useEffect, useRef, Suspense, lazy } from 'react';
 import { ThemeProvider } from './context/ThemeContext';
 import { AuthProvider, useAuth } from './context/AuthContext';
 import { LanguageProvider } from './i18n/LanguageContext';
@@ -9,6 +9,7 @@ import { AuthModal } from './components/AuthModal';
 import { PricingModal } from './components/PricingModal';
 import { PublicStorefront } from './components/PublicStorefront';
 import { ResetPassword } from './components/ResetPassword';
+import { getStoredToken } from './services/api';
 
 import { NotFound } from './components/NotFound';
 
@@ -44,10 +45,40 @@ const LoadingFallback: React.FC = () => (
 );
 
 const MainContent: React.FC = () => {
-  const { openAuthModal } = useAuth();
-  const [currentTab, setCurrentTab] = useState<string>('landing');
+  const { openAuthModal, user } = useAuth();
+  const [currentTab, setCurrentTab] = useState<string>(() => {
+    const params = new URLSearchParams(window.location.search);
+    const hasSpecialRoute = params.has('store') || params.has('storefront') || params.has('token') || window.location.pathname.length > 1;
+    if (!hasSpecialRoute) {
+      const savedTab = sessionStorage.getItem('krivio_active_tab');
+      if (savedTab && TAB_TITLES[savedTab]) return savedTab;
+      if (getStoredToken()) return 'dashboard';
+    }
+    return 'landing';
+  });
   const [pricingModalOpen, setPricingModalOpen] = useState<boolean>(false);
   const [publicStoreId, setPublicStoreId] = useState<string | null>(null);
+
+  // Preserve active tab across page refreshes for authenticated sessions
+  useEffect(() => {
+    if (currentTab && currentTab !== 'landing' && currentTab !== 'not-found' && currentTab !== 'reset-password' && currentTab !== 'public-store') {
+      sessionStorage.setItem('krivio_active_tab', currentTab);
+    }
+  }, [currentTab]);
+
+  // When user logs in/registers, automatically transition from landing to dashboard
+  const prevUserRef = useRef(user);
+  useEffect(() => {
+    if (!prevUserRef.current && user) {
+      if (currentTab === 'landing') {
+        setCurrentTab('dashboard');
+      }
+    } else if (prevUserRef.current && !user) {
+      sessionStorage.removeItem('krivio_active_tab');
+      setCurrentTab('landing');
+    }
+    prevUserRef.current = user;
+  }, [user, currentTab]);
 
   // Sync document title with active user view
   useEffect(() => {
@@ -108,7 +139,7 @@ const MainContent: React.FC = () => {
           <ResetPassword onNavigateHome={() => setCurrentTab('landing')} />
         </main>
         <Footer setCurrentTab={setCurrentTab} />
-        <AuthModal />
+        <AuthModal onAuthSuccess={(tab) => setCurrentTab(tab || 'dashboard')} />
         <PricingModal
           isOpen={pricingModalOpen}
           onClose={() => setPricingModalOpen(false)}
@@ -129,7 +160,7 @@ const MainContent: React.FC = () => {
           <NotFound onNavigate={setCurrentTab} />
         </main>
         <Footer setCurrentTab={setCurrentTab} />
-        <AuthModal />
+        <AuthModal onAuthSuccess={(tab) => setCurrentTab(tab || 'dashboard')} />
         <PricingModal
           isOpen={pricingModalOpen}
           onClose={() => setPricingModalOpen(false)}
@@ -169,7 +200,7 @@ const MainContent: React.FC = () => {
 
       {!isWorkspace && <Footer setCurrentTab={setCurrentTab} />}
 
-      <AuthModal />
+      <AuthModal onAuthSuccess={(tab) => setCurrentTab(tab || 'dashboard')} />
       <PricingModal
         isOpen={pricingModalOpen}
         onClose={() => setPricingModalOpen(false)}
