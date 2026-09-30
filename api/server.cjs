@@ -4709,9 +4709,12 @@ function getContextualCraftImage(product) {
 // server.ts
 import_dotenv.default.config();
 var imageGenService = new GenerationService();
+var isRemoteDb = Boolean(
+  process.env.DATABASE_URL && !process.env.DATABASE_URL.includes("localhost") && !process.env.DATABASE_URL.includes("127.0.0.1")
+);
 var pgPool = new import_pg.Pool({
   connectionString: process.env.DATABASE_URL || "postgresql://postgres:postgres@localhost:5432/krivio_db",
-  ssl: process.env.DATABASE_URL && process.env.DATABASE_URL.includes("sslmode=require") ? { rejectUnauthorized: false } : false
+  ssl: isRemoteDb ? { rejectUnauthorized: false } : false
 });
 pgPool.on("error", (err) => {
   console.warn("[PostgreSQL Pool Warning]: Idle client error:", err.message || err);
