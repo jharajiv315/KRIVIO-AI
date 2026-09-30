@@ -5,12 +5,16 @@ import { supabase, signInWithGoogleOAuth, signOutSupabase } from '../services/su
 
 const USER_STORAGE_KEY = 'krivio_user_profile';
 
+export type AuthModalMode = 'login' | 'register' | 'forgot';
+
 interface AuthContextType {
   user: User | null;
   token: string | null;
   isLoading: boolean;
   isAuthModalOpen: boolean;
-  openAuthModal: () => void;
+  authModalMode: AuthModalMode;
+  setAuthModalMode: (mode: AuthModalMode) => void;
+  openAuthModal: (mode?: AuthModalMode) => void;
   closeAuthModal: () => void;
   login: (email: string, pass: string) => Promise<void>;
   register: (data: {
@@ -25,6 +29,8 @@ interface AuthContextType {
   updateUser: (data: Partial<User>) => void;
   loginWithGoogle: (name?: string, email?: string, avatarUrl?: string, googleId?: string) => Promise<void>;
   signInWithGoogle: (redirectTo?: string) => Promise<void>;
+  forgotPassword: (email: string) => Promise<{ status: string; message: string }>;
+  resetPassword: (token: string, newPassword: string) => Promise<{ status: string; message: string }>;
   logout: () => void;
   refreshUser: () => Promise<void>;
 }
@@ -43,8 +49,12 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const [token, setToken] = useState<string | null>(() => getStoredToken());
   const [isLoading, setIsLoading] = useState<boolean>(true);
   const [isAuthModalOpen, setIsAuthModalOpen] = useState<boolean>(false);
+  const [authModalMode, setAuthModalMode] = useState<AuthModalMode>('login');
 
-  const openAuthModal = () => setIsAuthModalOpen(true);
+  const openAuthModal = (mode: AuthModalMode = 'login') => {
+    setAuthModalMode(mode);
+    setIsAuthModalOpen(true);
+  };
   const closeAuthModal = () => setIsAuthModalOpen(false);
 
   const syncAndSaveUser = async (sbUser: any, accessToken: string) => {
@@ -245,6 +255,14 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     }
   };
 
+  const forgotPassword = async (email: string) => {
+    return await authApi.forgotPassword(email);
+  };
+
+  const resetPassword = async (token: string, newPass: string) => {
+    return await authApi.resetPassword(token, newPass);
+  };
+
   const logout = () => {
     signOutSupabase().catch(() => {});
     localStorage.removeItem(USER_STORAGE_KEY);
@@ -260,6 +278,8 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         token,
         isLoading,
         isAuthModalOpen,
+        authModalMode,
+        setAuthModalMode,
         openAuthModal,
         closeAuthModal,
         login,
@@ -267,6 +287,8 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         updateUser,
         loginWithGoogle,
         signInWithGoogle,
+        forgotPassword,
+        resetPassword,
         logout,
         refreshUser,
       }}
