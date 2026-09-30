@@ -8,6 +8,7 @@ import { LandingPage } from './components/LandingPage';
 import { AuthModal } from './components/AuthModal';
 import { PricingModal } from './components/PricingModal';
 import { PublicStorefront } from './components/PublicStorefront';
+import { ResetPassword } from './components/ResetPassword';
 
 import { NotFound } from './components/NotFound';
 
@@ -29,6 +30,7 @@ const TAB_TITLES: Record<string, string> = {
   'business-profile': 'KRIVIO AI — Artisan Business Profile',
   settings: 'KRIVIO AI — Workspace Settings & Preferences',
   'public-store': 'KRIVIO AI — Public Artisan Storefront',
+  'reset-password': 'KRIVIO AI — Set New Password',
   'not-found': 'KRIVIO AI — Page Not Found (404)',
 };
 
@@ -63,7 +65,14 @@ const MainContent: React.FC = () => {
       return;
     }
 
+    const resetToken = params.get('token') || params.get('reset_token');
     const path = window.location.pathname.replace(/^\//, '').toLowerCase();
+
+    if (resetToken || path === 'reset-password') {
+      setCurrentTab('reset-password');
+      return;
+    }
+
     if (path && path !== '' && path !== 'index.html') {
       if (TAB_TITLES[path]) {
         setCurrentTab(path);
@@ -84,6 +93,27 @@ const MainContent: React.FC = () => {
         }}
         onOpenAuth={openAuthModal}
       />
+    );
+  }
+
+  if (currentTab === 'reset-password') {
+    return (
+      <div className="min-h-screen flex flex-col bg-[#F8F9F5] dark:bg-[#0B1911] text-[#1A1A1A] dark:text-[#E2F1E7] transition-colors font-inter selection:bg-[#0F5132] selection:text-white">
+        <Navbar
+          currentTab={currentTab}
+          setCurrentTab={setCurrentTab}
+          openPricingModal={() => setPricingModalOpen(true)}
+        />
+        <main className="flex-1 flex items-center justify-center">
+          <ResetPassword onNavigateHome={() => setCurrentTab('landing')} />
+        </main>
+        <Footer setCurrentTab={setCurrentTab} />
+        <AuthModal />
+        <PricingModal
+          isOpen={pricingModalOpen}
+          onClose={() => setPricingModalOpen(false)}
+        />
+      </div>
     );
   }
 
