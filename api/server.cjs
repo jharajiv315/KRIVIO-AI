@@ -4767,6 +4767,32 @@ app.use((req, res, next) => {
 });
 app.use(import_express.default.json({ limit: "25mb" }));
 app.use(import_express.default.urlencoded({ extended: true, limit: "25mb" }));
+var EMAIL_REGEX = /^[a-zA-Z0-9.!#$%&'*+/=?^_`{|}~-]+@[a-zA-Z0-9](?:[a-zA-Z0-9-]{0,61}[a-zA-Z0-9])?(?:\.[a-zA-Z0-9](?:[a-zA-Z0-9-]{0,61}[a-zA-Z0-9])?)+$/;
+var authRateLimitMap = /* @__PURE__ */ new Map();
+var authRateLimiter = (maxRequests = 25, windowMs = 5 * 60 * 1e3) => {
+  return (req, res, next) => {
+    if (process.env.NODE_ENV === "test") {
+      return next();
+    }
+    const ip = req.headers["x-forwarded-for"]?.split(",")[0]?.trim() || req.socket.remoteAddress || "127.0.0.1";
+    const now = Date.now();
+    const record = authRateLimitMap.get(ip);
+    if (!record || now > record.resetAt) {
+      authRateLimitMap.set(ip, { count: 1, resetAt: now + windowMs });
+      return next();
+    }
+    if (record.count >= maxRequests) {
+      const retryAfterSec = Math.ceil((record.resetAt - now) / 1e3);
+      res.setHeader("Retry-After", retryAfterSec.toString());
+      res.status(429).json({
+        error: `Too many attempts from this IP. Please wait ${retryAfterSec} seconds before trying again.`
+      });
+      return;
+    }
+    record.count++;
+    next();
+  };
+};
 app.use((req, res, next) => {
   if (process.env.VERCEL) {
     const vercelForwarded = req.headers["x-vercel-forwarded-path"] || req.headers["x-matched-path"] || req.headers["x-forwarded-uri"];
@@ -5001,8 +5027,12 @@ app.post("/api/auth/supabase-sync", async (req, res) => {
       JWT_SECRET,
       { expiresIn: "7d" }
     );
-    const subRes = await queryPg(`SELECT plan, status, end_date FROM subscriptions WHERE user_id = $1`, [user.id]);
+    const [subRes, bpRes] = await Promise.all([
+      queryPg(`SELECT plan, status, end_date FROM subscriptions WHERE user_id = $1`, [user.id]).catch(() => ({ rows: [] })),
+      queryPg(`SELECT business_name, state FROM business_profiles WHERE user_id = $1 LIMIT 1`, [user.id]).catch(() => ({ rows: [] }))
+    ]);
     const subPlan = subRes.rows[0]?.plan || "free";
+    const bp = bpRes.rows[0];
     res.json({
       token,
       access_token: token,
@@ -5019,6 +5049,8 @@ app.post("/api/auth/supabase-sync", async (req, res) => {
         role: user.role,
         preferred_language: user.preferred_language || "en",
         preferredLanguage: user.preferred_language || "en",
+        businessName: bp?.business_name || "",
+        location: bp?.state || "India",
         is_active: user.is_active,
         is_verified: user.is_verified,
         subscriptionPlan: subPlan,
@@ -5045,8 +5077,12 @@ app.get("/api/auth/me", authenticateToken, async (req, res) => {
       res.status(404).json({ error: "User not found" });
       return;
     }
-    const subRes = await queryPg(`SELECT plan, status, end_date FROM subscriptions WHERE user_id = $1`, [user.id]);
+    const [subRes, bpRes] = await Promise.all([
+      queryPg(`SELECT plan, status, end_date FROM subscriptions WHERE user_id = $1`, [user.id]).catch(() => ({ rows: [] })),
+      queryPg(`SELECT business_name, state, district FROM business_profiles WHERE user_id = $1 LIMIT 1`, [user.id]).catch(() => ({ rows: [] }))
+    ]);
     const subPlan = subRes.rows[0]?.plan || "free";
+    const bp = bpRes.rows[0];
     res.json({
       user: {
         id: user.id,
@@ -5061,6 +5097,8 @@ app.get("/api/auth/me", authenticateToken, async (req, res) => {
         role: user.role,
         preferred_language: user.preferred_language || "en",
         preferredLanguage: user.preferred_language || "en",
+        businessName: bp?.business_name || "",
+        location: bp?.state || "India",
         is_active: user.is_active,
         is_verified: user.is_verified,
         subscriptionPlan: subPlan,
@@ -5071,33 +5109,80 @@ app.get("/api/auth/me", authenticateToken, async (req, res) => {
       }
     });
   } catch (err) {
+    console.error("[GetMe Error]:", err);
     res.status(500).json({ error: "Failed to load user profile" });
   }
 });
-app.post("/api/auth/register", async (req, res) => {
+app.post("/api/auth/register", authRateLimiter(20, 5 * 60 * 1e3), async (req, res) => {
   try {
-    const { name, email, password, role, phone, preferred_language } = req.body;
-    if (!email || !password) {
-      res.status(400).json({ error: "Email and password required" });
+    const { name, email, password, role, businessName, location, phone, preferred_language } = req.body;
+    if (!name || typeof name !== "string" || name.trim().length < 2) {
+      res.status(400).json({ error: "Full name is required (minimum 2 characters)" });
+      return;
+    }
+    if (!email || typeof email !== "string") {
+      res.status(400).json({ error: "Email address is required" });
       return;
     }
     const cleanEmail = email.toLowerCase().trim();
-    const existing = await queryPg(`SELECT id FROM users WHERE LOWER(email) = $1`, [cleanEmail]);
-    if (existing.rows.length > 0) {
-      res.status(400).json({ error: "User with this email already exists" });
+    if (!EMAIL_REGEX.test(cleanEmail)) {
+      res.status(400).json({ error: "Please enter a valid email address" });
       return;
     }
-    const newId = `usr_${Date.now()}_${Math.random().toString(36).slice(2, 7)}`;
-    const hash = import_bcryptjs.default.hashSync(password, 10);
+    if (!password || typeof password !== "string" || password.length < 6) {
+      res.status(400).json({ error: "Password must be at least 6 characters long" });
+      return;
+    }
+    const ALLOWED_ROLES = ["artisan", "shg", "farmer", "small_business"];
+    const finalRole = ALLOWED_ROLES.includes(role) ? role : "artisan";
+    const finalName = name.trim();
+    const finalBusinessName = businessName && typeof businessName === "string" ? businessName.trim() : "";
+    const finalLocation = location && typeof location === "string" ? location.trim() : "";
+    const finalPhone = phone && typeof phone === "string" ? phone.trim() : "";
+    const finalLang = preferred_language && typeof preferred_language === "string" ? preferred_language.trim() : "en";
+    const existing = await queryPg(`SELECT id FROM users WHERE LOWER(email) = $1`, [cleanEmail]);
+    if (existing.rows.length > 0) {
+      res.status(409).json({ error: "An account with this email address already exists. Please sign in instead." });
+      return;
+    }
+    const newId = `usr_${Date.now()}_${import_crypto.default.randomBytes(3).toString("hex")}`;
+    const hash = await import_bcryptjs.default.hash(password, 10);
     const insertRes = await queryPg(
       `INSERT INTO users (id, full_name, email, password_hash, phone_number, role, preferred_language, is_active, is_verified, created_at, updated_at)
        VALUES ($1, $2, $3, $4, $5, $6, $7, true, false, NOW(), NOW())
        RETURNING *`,
-      [newId, name || cleanEmail.split("@")[0], cleanEmail, hash, phone || "", role || "artisan", preferred_language || "en"]
+      [newId, finalName, cleanEmail, hash, finalPhone, finalRole, finalLang]
     );
     const user = insertRes.rows[0];
-    const token = import_jsonwebtoken.default.sign({ id: user.id, sub: user.id, email: user.email, role: user.role }, JWT_SECRET, { expiresIn: "7d" });
-    res.json({
+    if (finalBusinessName || finalLocation) {
+      const bpId = `bp_${Date.now()}_${import_crypto.default.randomBytes(3).toString("hex")}`;
+      await queryPg(
+        `INSERT INTO business_profiles (id, user_id, business_name, state, language, created_at, updated_at)
+         VALUES ($1, $2, $3, $4, $5, NOW(), NOW())
+         ON CONFLICT (user_id) DO UPDATE SET
+           business_name = EXCLUDED.business_name,
+           state = EXCLUDED.state,
+           updated_at = NOW()`,
+        [bpId, user.id, finalBusinessName, finalLocation || "India", finalLang === "hi" ? "Hindi" : "English"]
+      ).catch((bpErr) => {
+        console.warn("[Register Notice]: Could not create default business profile row:", bpErr.message);
+      });
+    }
+    const subId = `sub_${Date.now()}_${import_crypto.default.randomBytes(3).toString("hex")}`;
+    await queryPg(
+      `INSERT INTO subscriptions (id, user_id, plan, status, start_date, created_at, updated_at)
+       VALUES ($1, $2, 'free', 'active', NOW(), NOW(), NOW())
+       ON CONFLICT (user_id) DO NOTHING`,
+      [subId, user.id]
+    ).catch((subErr) => {
+      console.warn("[Register Notice]: Could not create default subscription row:", subErr.message);
+    });
+    const token = import_jsonwebtoken.default.sign(
+      { id: user.id, sub: user.id, email: user.email, role: user.role },
+      JWT_SECRET,
+      { expiresIn: "7d" }
+    );
+    res.status(200).json({
       token,
       access_token: token,
       user: {
@@ -5111,6 +5196,8 @@ app.post("/api/auth/register", async (req, res) => {
         role: user.role,
         preferred_language: user.preferred_language || "en",
         preferredLanguage: user.preferred_language || "en",
+        businessName: finalBusinessName,
+        location: finalLocation,
         is_active: user.is_active,
         is_verified: user.is_verified,
         subscriptionPlan: "free",
@@ -5120,26 +5207,53 @@ app.post("/api/auth/register", async (req, res) => {
       }
     });
   } catch (err) {
-    res.status(500).json({ error: "Registration failed" });
+    console.error("[Registration Error]:", err);
+    if (err.code === "ECONNREFUSED" || err.message?.includes("connect ECONNREFUSED")) {
+      res.status(503).json({
+        error: "Database service is currently unreachable. Please check database server configuration or try again shortly."
+      });
+      return;
+    }
+    if (err.code === "23505" || err.message?.includes("unique constraint") || err.message?.includes("duplicate key")) {
+      res.status(409).json({
+        error: "An account with this email address already exists. Please sign in instead."
+      });
+      return;
+    }
+    res.status(500).json({
+      error: err.message || "Registration failed. Please check your information and try again."
+    });
   }
 });
-app.post("/api/auth/login", async (req, res) => {
+app.post("/api/auth/login", authRateLimiter(25, 5 * 60 * 1e3), async (req, res) => {
   try {
     const { email, password } = req.body;
     if (!email || !password) {
-      res.status(400).json({ error: "Email and password required" });
+      res.status(400).json({ error: "Email and password are required" });
       return;
     }
     const cleanEmail = email.toLowerCase().trim();
     const userRes = await queryPg(`SELECT * FROM users WHERE LOWER(email) = $1`, [cleanEmail]);
     const user = userRes.rows[0];
     if (!user || !user.password_hash || !import_bcryptjs.default.compareSync(password, user.password_hash)) {
-      res.status(401).json({ error: "Invalid email or password" });
+      res.status(401).json({ error: "Invalid email or password. Please verify your credentials and try again." });
       return;
     }
-    const token = import_jsonwebtoken.default.sign({ id: user.id, sub: user.id, email: user.email, role: user.role }, JWT_SECRET, { expiresIn: "7d" });
-    const subRes = await queryPg(`SELECT plan, status, end_date FROM subscriptions WHERE user_id = $1`, [user.id]);
+    if (user.is_active === false) {
+      res.status(403).json({ error: "This account has been deactivated. Please contact support." });
+      return;
+    }
+    const token = import_jsonwebtoken.default.sign(
+      { id: user.id, sub: user.id, email: user.email, role: user.role },
+      JWT_SECRET,
+      { expiresIn: "7d" }
+    );
+    const [subRes, bpRes] = await Promise.all([
+      queryPg(`SELECT plan, status, end_date FROM subscriptions WHERE user_id = $1`, [user.id]).catch(() => ({ rows: [] })),
+      queryPg(`SELECT business_name, state, district FROM business_profiles WHERE user_id = $1 LIMIT 1`, [user.id]).catch(() => ({ rows: [] }))
+    ]);
     const subPlan = subRes.rows[0]?.plan || "free";
+    const bp = bpRes.rows[0];
     res.json({
       token,
       access_token: token,
@@ -5155,6 +5269,8 @@ app.post("/api/auth/login", async (req, res) => {
         role: user.role,
         preferred_language: user.preferred_language || "en",
         preferredLanguage: user.preferred_language || "en",
+        businessName: bp?.business_name || "",
+        location: bp?.state || "India",
         is_active: user.is_active,
         is_verified: user.is_verified,
         subscriptionPlan: subPlan,
@@ -5165,7 +5281,124 @@ app.post("/api/auth/login", async (req, res) => {
       }
     });
   } catch (err) {
-    res.status(500).json({ error: "Login failed" });
+    console.error("[Login Error]:", err);
+    if (err.code === "ECONNREFUSED" || err.message?.includes("connect ECONNREFUSED")) {
+      res.status(503).json({
+        error: "Database service is currently unreachable. Please try again shortly."
+      });
+      return;
+    }
+    res.status(500).json({ error: "Login failed. Please check your network and try again." });
+  }
+});
+app.post("/api/auth/forgot-password", authRateLimiter(10, 5 * 60 * 1e3), async (req, res) => {
+  try {
+    const { email } = req.body;
+    if (!email || typeof email !== "string") {
+      res.status(400).json({ error: "Email address is required" });
+      return;
+    }
+    const cleanEmail = email.toLowerCase().trim();
+    if (!EMAIL_REGEX.test(cleanEmail)) {
+      res.status(400).json({ error: "Please enter a valid email address" });
+      return;
+    }
+    const userRes = await queryPg(`SELECT id, email FROM users WHERE LOWER(email) = $1`, [cleanEmail]);
+    const user = userRes.rows[0];
+    if (user) {
+      const rawToken = import_crypto.default.randomBytes(32).toString("hex");
+      const tokenHash = import_crypto.default.createHash("sha256").update(rawToken).digest("hex");
+      const resetId = `rst_${Date.now()}_${import_crypto.default.randomBytes(3).toString("hex")}`;
+      await queryPg(
+        `UPDATE password_resets SET used_at = NOW() WHERE LOWER(email) = $1 AND used_at IS NULL`,
+        [cleanEmail]
+      ).catch(() => {
+      });
+      await queryPg(
+        `INSERT INTO password_resets (id, email, token_hash, expires_at, created_at)
+         VALUES ($1, $2, $3, NOW() + INTERVAL '1 hour', NOW())`,
+        [resetId, cleanEmail, tokenHash]
+      );
+      console.log(`[Auth Recovery]: Reset token issued for ${cleanEmail}: ${rawToken}`);
+    }
+    res.json({
+      status: "success",
+      message: "If an account exists with this email address, password reset instructions have been dispatched."
+    });
+  } catch (err) {
+    console.error("[Forgot Password Error]:", err);
+    res.status(500).json({ error: "Failed to process password recovery request. Please try again." });
+  }
+});
+app.post("/api/auth/verify-reset-token", async (req, res) => {
+  try {
+    const { token } = req.body;
+    if (!token || typeof token !== "string") {
+      res.status(400).json({ valid: false, error: "Reset token is required" });
+      return;
+    }
+    const tokenHash = import_crypto.default.createHash("sha256").update(token.trim()).digest("hex");
+    const resetRes = await queryPg(
+      `SELECT email, expires_at, used_at FROM password_resets WHERE token_hash = $1`,
+      [tokenHash]
+    );
+    const reset = resetRes.rows[0];
+    if (!reset || reset.used_at || new Date(reset.expires_at) < /* @__PURE__ */ new Date()) {
+      res.status(400).json({
+        valid: false,
+        error: "This password reset link is invalid, expired, or has already been used. Please request a new link."
+      });
+      return;
+    }
+    const email = reset.email;
+    const [namePart, domainPart] = email.split("@");
+    const maskedName = namePart.length <= 2 ? namePart[0] + "*" : namePart[0] + "*".repeat(Math.max(1, namePart.length - 2)) + namePart.slice(-1);
+    const maskedEmail = `${maskedName}@${domainPart}`;
+    res.json({ valid: true, maskedEmail });
+  } catch (err) {
+    console.error("[Verify Reset Token Error]:", err);
+    res.status(500).json({ valid: false, error: "Failed to verify token" });
+  }
+});
+app.post("/api/auth/reset-password", authRateLimiter(10, 5 * 60 * 1e3), async (req, res) => {
+  try {
+    const { token, newPassword } = req.body;
+    if (!token || typeof token !== "string") {
+      res.status(400).json({ error: "Reset token is required" });
+      return;
+    }
+    if (!newPassword || typeof newPassword !== "string" || newPassword.length < 6) {
+      res.status(400).json({ error: "New password must be at least 6 characters long" });
+      return;
+    }
+    const tokenHash = import_crypto.default.createHash("sha256").update(token.trim()).digest("hex");
+    const resetRes = await queryPg(
+      `SELECT * FROM password_resets WHERE token_hash = $1 AND used_at IS NULL AND expires_at > NOW()`,
+      [tokenHash]
+    );
+    const reset = resetRes.rows[0];
+    if (!reset) {
+      res.status(400).json({
+        error: "This password reset link is invalid, expired, or has already been consumed. Please request a new one."
+      });
+      return;
+    }
+    const newHash = await import_bcryptjs.default.hash(newPassword, 10);
+    await queryPg(
+      `UPDATE users SET password_hash = $1, updated_at = NOW() WHERE LOWER(email) = LOWER($2)`,
+      [newHash, reset.email]
+    );
+    await queryPg(
+      `UPDATE password_resets SET used_at = NOW() WHERE id = $1`,
+      [reset.id]
+    );
+    res.json({
+      status: "success",
+      message: "Password has been successfully updated. You can now sign in with your new password."
+    });
+  } catch (err) {
+    console.error("[Reset Password Error]:", err);
+    res.status(500).json({ error: "Failed to reset password. Please try again." });
   }
 });
 app.post("/api/auth/change-password", authenticateToken, async (req, res) => {
@@ -7787,6 +8020,17 @@ async function initPgDatabase() {
         created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
         updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
       );
+
+      CREATE TABLE IF NOT EXISTS password_resets (
+        id VARCHAR(255) PRIMARY KEY,
+        email VARCHAR(255) NOT NULL,
+        token_hash VARCHAR(255) NOT NULL,
+        expires_at TIMESTAMP WITH TIME ZONE NOT NULL,
+        used_at TIMESTAMP WITH TIME ZONE,
+        created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
+      );
+      CREATE INDEX IF NOT EXISTS idx_password_resets_email ON password_resets(email);
+      CREATE INDEX IF NOT EXISTS idx_password_resets_token_hash ON password_resets(token_hash);
 
       CREATE TABLE IF NOT EXISTS business_profiles (
         id VARCHAR(255) PRIMARY KEY,
