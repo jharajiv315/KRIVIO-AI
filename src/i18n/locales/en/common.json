@@ -77,7 +77,13 @@
     "schemesDesc": "PM Vishwakarma, PMEGP & Mudra subsidies",
     "profileDesc": "Personal verification & contact details",
     "subscriptionDesc": "Upgrade to Pro or manage your plan",
-    "settingsDesc": "Language preferences & display"
+    "settingsDesc": "Language preferences & display",
+    "product": "Product",
+    "howItWorks": "How it works",
+    "forArtisans": "For artisans",
+    "pricing": "Pricing",
+    "getStarted": "Get started",
+    "signIn": "Sign in"
   },
   "landing": {
     "heroBadge": "India's First Voice AI Business Accelerator",
