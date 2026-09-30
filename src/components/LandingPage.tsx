@@ -229,7 +229,7 @@ export const LandingPage: React.FC<LandingPageProps> = ({ setCurrentTab, openPri
       </section>
 
       {/* 6 Real Platform Capabilities */}
-      <section className="py-14 lg:py-20 bg-white dark:bg-[#0E2016] border-b border-[#0F5132]/10 dark:border-emerald-900/30">
+      <section id="product" className="py-14 lg:py-20 bg-white dark:bg-[#0E2016] border-b border-[#0F5132]/10 dark:border-emerald-900/30 scroll-mt-20">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="text-center max-w-2xl mx-auto mb-12 space-y-2">
             <span className="text-xs font-bold text-[#0F5132] dark:text-emerald-400 uppercase tracking-wider font-poppins">
@@ -277,8 +277,162 @@ export const LandingPage: React.FC<LandingPageProps> = ({ setCurrentTab, openPri
         </div>
       </section>
 
+      {/* How It Works Section */}
+      <section id="how-it-works" className="py-14 lg:py-20 bg-[#F8F9F5] dark:bg-[#0B1911] border-b border-[#0F5132]/10 dark:border-emerald-900/30 scroll-mt-20">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+          <div className="text-center max-w-2xl mx-auto mb-14 space-y-2">
+            <span className="text-xs font-bold text-[#0F5132] dark:text-emerald-400 uppercase tracking-wider font-poppins">
+              How It Works
+            </span>
+            <h2 className="text-2xl sm:text-3xl font-bold text-stone-900 dark:text-white font-poppins">
+              From Local Hands to Global Markets in 3 Steps
+            </h2>
+            <p className="text-xs sm:text-sm text-stone-600 dark:text-emerald-200/80 font-inter">
+              Voice-first simplicity tailored for artisans, weavers, and self-help groups.
+            </p>
+          </div>
+
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-8 relative">
+            {/* Step 1 */}
+            <div className="bg-white dark:bg-[#13251B] p-6 sm:p-7 rounded-2xl border border-stone-200/80 dark:border-emerald-800/60 shadow-2xs space-y-4 relative flex flex-col justify-between">
+              <div className="space-y-3">
+                <div className="w-12 h-12 rounded-xl bg-[#0F5132] text-white flex items-center justify-center font-bold text-base font-poppins shadow-xs">
+                  01
+                </div>
+                <h3 className="text-lg font-bold font-poppins text-stone-900 dark:text-white">
+                  Speak in Your Native Language
+                </h3>
+                <p className="text-xs text-stone-600 dark:text-emerald-200/80 leading-relaxed font-inter">
+                  Describe your craft, materials, and creation time by voice in Hindi, Marathi, Tamil, Bengali, or 6 other Indian languages, or upload workshop phone photos.
+                </p>
+              </div>
+              <div className="pt-3 border-t border-stone-100 dark:border-emerald-900/40 text-[11px] font-semibold text-[#0F5132] dark:text-emerald-300 font-poppins flex items-center gap-1.5">
+                <Mic className="w-3.5 h-3.5" />
+                <span>Zero typing or English needed</span>
+              </div>
+            </div>
+
+            {/* Step 2 */}
+            <div className="bg-white dark:bg-[#13251B] p-6 sm:p-7 rounded-2xl border border-stone-200/80 dark:border-emerald-800/60 shadow-2xs space-y-4 relative flex flex-col justify-between">
+              <div className="space-y-3">
+                <div className="w-12 h-12 rounded-xl bg-[#0F5132] text-white flex items-center justify-center font-bold text-base font-poppins shadow-xs">
+                  02
+                </div>
+                <h3 className="text-lg font-bold font-poppins text-stone-900 dark:text-white">
+                  AI Calculates Fair Prices & Story
+                </h3>
+                <p className="text-xs text-stone-600 dark:text-emerald-200/80 leading-relaxed font-inter">
+                  KRIVIO AI calculates your exact Cost of Goods Sold (COGS), protects fair artisan wages, assigns HSN codes, and writes an authentic craft story for buyers.
+                </p>
+              </div>
+              <div className="pt-3 border-t border-stone-100 dark:border-emerald-900/40 text-[11px] font-semibold text-[#0F5132] dark:text-emerald-300 font-poppins flex items-center gap-1.5">
+                <BadgeCheck className="w-3.5 h-3.5" />
+                <span>Arithmetic margin protection</span>
+              </div>
+            </div>
+
+            {/* Step 3 */}
+            <div className="bg-white dark:bg-[#13251B] p-6 sm:p-7 rounded-2xl border border-stone-200/80 dark:border-emerald-800/60 shadow-2xs space-y-4 relative flex flex-col justify-between">
+              <div className="space-y-3">
+                <div className="w-12 h-12 rounded-xl bg-[#0F5132] text-white flex items-center justify-center font-bold text-base font-poppins shadow-xs">
+                  03
+                </div>
+                <h3 className="text-lg font-bold font-poppins text-stone-900 dark:text-white">
+                  Sell on ONDC, Amazon & WhatsApp
+                </h3>
+                <p className="text-xs text-stone-600 dark:text-emerald-200/80 leading-relaxed font-inter">
+                  Export ready catalog feeds directly to ONDC Beckn networks and Amazon Karigar, or receive direct customer inquiries on your WhatsApp with 0% middleman deduction.
+                </p>
+              </div>
+              <div className="pt-3 border-t border-stone-100 dark:border-emerald-900/40 text-[11px] font-semibold text-[#0F5132] dark:text-emerald-300 font-poppins flex items-center gap-1.5">
+                <Store className="w-3.5 h-3.5" />
+                <span>Direct customer connection</span>
+              </div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      {/* For Artisans Section */}
+      <section id="for-artisans" className="py-14 lg:py-20 bg-white dark:bg-[#0E2016] border-b border-[#0F5132]/10 dark:border-emerald-900/30 scroll-mt-20">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+          <div className="grid grid-cols-1 lg:grid-cols-12 gap-10 items-center">
+            <div className="lg:col-span-5 space-y-4">
+              <span className="text-xs font-bold text-[#0F5132] dark:text-emerald-400 uppercase tracking-wider font-poppins">
+                For Artisans & SHGs
+              </span>
+              <h2 className="text-2xl sm:text-3xl lg:text-4xl font-bold font-poppins text-stone-900 dark:text-white leading-tight">
+                Built For Grassroots Makers, Not Tech Experts
+              </h2>
+              <p className="text-xs sm:text-sm text-stone-600 dark:text-emerald-200/80 leading-relaxed font-inter">
+                Traditional artisans have spent generations perfecting their crafts. KRIVIO AI takes care of the digital commerce complexity so you keep 100% of your earnings.
+              </p>
+              <div className="pt-2">
+                <button
+                  onClick={handlePrimaryCTA}
+                  className="inline-flex items-center gap-2 px-5 py-3 bg-[#0F5132] hover:bg-[#0B3D26] text-white text-xs font-bold font-poppins rounded-xl shadow-xs transition-all active:scale-98 cursor-pointer"
+                >
+                  <span>Start Your Artisan Journey</span>
+                  <ArrowRight className="w-3.5 h-3.5" />
+                </button>
+              </div>
+            </div>
+
+            <div className="lg:col-span-7 grid grid-cols-1 sm:grid-cols-2 gap-4">
+              <div className="p-5 rounded-2xl bg-[#F8F9F5] dark:bg-[#13251B] border border-stone-200 dark:border-emerald-800/60 space-y-2">
+                <div className="w-9 h-9 rounded-lg bg-[#0F5132]/10 dark:bg-emerald-950 text-[#0F5132] dark:text-emerald-300 flex items-center justify-center">
+                  <Globe className="w-5 h-5" />
+                </div>
+                <h4 className="text-sm font-bold font-poppins text-stone-900 dark:text-white">
+                  10+ Regional Languages
+                </h4>
+                <p className="text-xs text-stone-600 dark:text-emerald-200/80 leading-relaxed font-inter">
+                  Speaks your dialect natively. Hindi, Bengali, Marathi, Tamil, Telugu, Gujarati, and Assamese fully supported.
+                </p>
+              </div>
+
+              <div className="p-5 rounded-2xl bg-[#F8F9F5] dark:bg-[#13251B] border border-stone-200 dark:border-emerald-800/60 space-y-2">
+                <div className="w-9 h-9 rounded-lg bg-[#0F5132]/10 dark:bg-emerald-950 text-[#0F5132] dark:text-emerald-300 flex items-center justify-center">
+                  <Award className="w-5 h-5" />
+                </div>
+                <h4 className="text-sm font-bold font-poppins text-stone-900 dark:text-white">
+                  Fair Pricing Formulas
+                </h4>
+                <p className="text-xs text-stone-600 dark:text-emerald-200/80 leading-relaxed font-inter">
+                  Never get exploited by city middlemen. Calculate hourly labor and wholesale markups so your craft remains profitable.
+                </p>
+              </div>
+
+              <div className="p-5 rounded-2xl bg-[#F8F9F5] dark:bg-[#13251B] border border-stone-200 dark:border-emerald-800/60 space-y-2">
+                <div className="w-9 h-9 rounded-lg bg-[#0F5132]/10 dark:bg-emerald-950 text-[#0F5132] dark:text-emerald-300 flex items-center justify-center">
+                  <Landmark className="w-5 h-5" />
+                </div>
+                <h4 className="text-sm font-bold font-poppins text-stone-900 dark:text-white">
+                  Government Subsidies
+                </h4>
+                <p className="text-xs text-stone-600 dark:text-emerald-200/80 leading-relaxed font-inter">
+                  Direct eligibility guides for PM Vishwakarma (₹15,000 tool grants & 5% interest loans), PMEGP, and SFURTI clusters.
+                </p>
+              </div>
+
+              <div className="p-5 rounded-2xl bg-[#F8F9F5] dark:bg-[#13251B] border border-stone-200 dark:border-emerald-800/60 space-y-2">
+                <div className="w-9 h-9 rounded-lg bg-[#0F5132]/10 dark:bg-emerald-950 text-[#0F5132] dark:text-emerald-300 flex items-center justify-center">
+                  <ShieldCheck className="w-5 h-5" />
+                </div>
+                <h4 className="text-sm font-bold font-poppins text-stone-900 dark:text-white">
+                  Complete Data Ownership
+                </h4>
+                <p className="text-xs text-stone-600 dark:text-emerald-200/80 leading-relaxed font-inter">
+                  Your craft motifs, customer data, and sales history stay 100% private to your artisan account.
+                </p>
+              </div>
+            </div>
+          </div>
+        </div>
+      </section>
+
       {/* Honest, Clear Pricing Section */}
-      <section className="py-14 lg:py-20 bg-[#F8F9F5] dark:bg-[#0B1911]">
+      <section id="pricing" className="py-14 lg:py-20 bg-[#F8F9F5] dark:bg-[#0B1911] scroll-mt-20">
         <div className="max-w-4xl mx-auto px-4 text-center space-y-6">
           <div className="space-y-2">
             <span className="text-xs font-bold text-[#0F5132] dark:text-emerald-400 uppercase tracking-wider font-poppins">
