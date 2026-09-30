@@ -48,28 +48,26 @@ export const PRIMARY_NAV_ITEMS: PrimaryNavItem[] = [
   {
     id: 'dashboard',
     labelKey: 'nav.dashboard',
-    defaultLabel: 'Home',
+    defaultLabel: 'Dashboard',
     icon: LayoutDashboard,
   },
   {
     id: 'products',
     labelKey: 'nav.productStudio',
-    defaultLabel: 'Products',
+    defaultLabel: 'Product Studio',
     icon: Package,
   },
   {
     id: 'images',
     labelKey: 'nav.imageStudio',
-    defaultLabel: 'AI Studio',
+    defaultLabel: 'Image Studio',
     icon: Camera,
-    badge: 'Vision',
   },
   {
     id: 'mentor',
     labelKey: 'nav.voiceMentor',
-    defaultLabel: 'AI Mentor',
+    defaultLabel: 'Voice AI Mentor',
     icon: Mic,
-    badge: 'Voice AI',
     isSpecial: true,
   },
   {
