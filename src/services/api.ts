@@ -138,6 +138,27 @@ export const authApi = {
     });
   },
 
+  forgotPassword: async (email: string): Promise<{ status: string; message: string }> => {
+    return await fetchWithAuth('/api/auth/forgot-password', {
+      method: 'POST',
+      body: JSON.stringify({ email }),
+    });
+  },
+
+  verifyResetToken: async (token: string): Promise<{ valid: boolean; maskedEmail?: string }> => {
+    return await fetchWithAuth('/api/auth/verify-reset-token', {
+      method: 'POST',
+      body: JSON.stringify({ token }),
+    });
+  },
+
+  resetPassword: async (token: string, newPassword: string): Promise<{ status: string; message: string }> => {
+    return await fetchWithAuth('/api/auth/reset-password', {
+      method: 'POST',
+      body: JSON.stringify({ token, newPassword }),
+    });
+  },
+
   updateProfile: async (data: Partial<User>): Promise<{ user: User }> => {
     return await fetchWithAuth('/api/users/profile', {
       method: 'PUT',
