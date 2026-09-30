@@ -478,7 +478,7 @@ export const Navbar: React.FC<NavbarProps> = ({
                 {/* Secondary: Sign in */}
                 <button
                   id="btn-nav-signin"
-                  onClick={openAuthModal}
+                  onClick={() => openAuthModal('login')}
                   className="hidden sm:inline-flex items-center justify-center px-3.5 py-2 text-xs sm:text-sm font-semibold text-stone-700 dark:text-emerald-100 hover:text-[#0F5132] dark:hover:text-white transition-colors cursor-pointer font-poppins focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#0F5132]"
                 >
                   {t('nav.signIn') || 'Sign in'}
@@ -487,7 +487,7 @@ export const Navbar: React.FC<NavbarProps> = ({
                 {/* Primary: Get started */}
                 <button
                   id="btn-nav-getstarted"
-                  onClick={openAuthModal}
+                  onClick={() => openAuthModal('register')}
                   className="inline-flex items-center justify-center px-4 py-2 text-xs sm:text-sm font-semibold bg-[#0F5132] hover:bg-[#0B3D26] text-white rounded-xl shadow-xs transition-all hover:shadow-sm active:scale-98 cursor-pointer font-poppins focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#0F5132] dark:focus-visible:ring-emerald-400 whitespace-nowrap"
                 >
                   {t('nav.getStarted') || 'Get started'}
@@ -699,7 +699,7 @@ export const Navbar: React.FC<NavbarProps> = ({
                     id="mobile-btn-getstarted"
                     onClick={() => {
                       setMobileMenuOpen(false);
-                      openAuthModal();
+                      openAuthModal('register');
                     }}
                     className="min-h-[44px] w-full flex items-center justify-center px-4 py-3 text-sm font-semibold bg-[#0F5132] hover:bg-[#0B3D26] text-white rounded-xl shadow-xs transition-all font-poppins cursor-pointer"
                   >
@@ -709,7 +709,7 @@ export const Navbar: React.FC<NavbarProps> = ({
                     id="mobile-btn-signin"
                     onClick={() => {
                       setMobileMenuOpen(false);
-                      openAuthModal();
+                      openAuthModal('login');
                     }}
                     className="min-h-[44px] w-full flex items-center justify-center px-4 py-2.5 text-sm font-semibold text-stone-800 dark:text-emerald-100 hover:bg-stone-200/60 dark:hover:bg-emerald-900/30 border border-stone-200 dark:border-emerald-800/40 rounded-xl transition-colors font-poppins cursor-pointer"
                   >
