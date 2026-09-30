@@ -27,9 +27,15 @@ dotenv.config();
 
 const imageGenService = new GenerationService();
 
+const isRemoteDb = Boolean(
+  process.env.DATABASE_URL &&
+  !process.env.DATABASE_URL.includes('localhost') &&
+  !process.env.DATABASE_URL.includes('127.0.0.1')
+);
+
 const pgPool = new Pool({
   connectionString: process.env.DATABASE_URL || 'postgresql://postgres:postgres@localhost:5432/krivio_db',
-  ssl: process.env.DATABASE_URL && process.env.DATABASE_URL.includes('sslmode=require') ? { rejectUnauthorized: false } : false
+  ssl: isRemoteDb ? { rejectUnauthorized: false } : false
 });
 
 // Guard against unhandled idle client errors terminating the server/lambda process
