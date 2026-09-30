@@ -67,7 +67,13 @@
     "subscription": "सदस्यता",
     "publicStore": "सार्वजनिक स्टोरफ्रंट",
     "notifications": "सूचनाएं",
-    "voiceAiBadge": "वॉयस AI"
+    "voiceAiBadge": "वॉयस AI",
+    "product": "उत्पाद",
+    "howItWorks": "यह कैसे काम करता है",
+    "forArtisans": "कारीगरों के लिए",
+    "pricing": "मूल्य निर्धारण",
+    "getStarted": "शुरू करें",
+    "signIn": "साइन इन"
   },
   "landing": {
     "heroBadge": "भारत का पहला वॉयस AI बिजनेस एक्सीलेटर",
