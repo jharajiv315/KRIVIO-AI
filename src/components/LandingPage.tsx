@@ -116,7 +116,7 @@ export const LandingPage: React.FC<LandingPageProps> = ({ setCurrentTab, openPri
                 <span className="font-poppins">{t('landing.heroBadge') || 'Vocal for Local • Digital Business Mentor'}</span>
               </div>
 
-              <h1 className="text-3xl sm:text-4xl lg:text-5xl font-extrabold tracking-tight text-[#0F5132] dark:text-white leading-[1.2] font-poppins">
+              <h1 className="text-2xl sm:text-4xl lg:text-5xl font-extrabold tracking-tight text-[#0F5132] dark:text-white leading-[1.2] font-poppins">
                 {t('landing.heroTitle1')}{' '}
                 <span className="text-[#0F5132] dark:text-emerald-400 underline decoration-[#D4AF37] decoration-4 underline-offset-8">
                   {t('landing.heroTitle2')}
@@ -169,7 +169,7 @@ export const LandingPage: React.FC<LandingPageProps> = ({ setCurrentTab, openPri
 
             {/* Right Visual: Interactive Voice Mentor Preview */}
             <div className="lg:col-span-5">
-              <div className="bg-white dark:bg-[#13251B] rounded-2xl p-5 sm:p-6 shadow-xl border border-[#0F5132]/15 dark:border-emerald-800/60 max-w-md mx-auto space-y-4">
+              <div className="bg-white dark:bg-[#13251B] rounded-2xl p-4 sm:p-6 shadow-xl border border-[#0F5132]/15 dark:border-emerald-800/60 max-w-md mx-auto space-y-4">
                 {/* Header */}
                 <div className="flex items-center justify-between pb-3 border-b border-stone-100 dark:border-emerald-900/40">
                   <Logo variant="horizontal" size="xs" showTagline={false} />
@@ -206,7 +206,7 @@ export const LandingPage: React.FC<LandingPageProps> = ({ setCurrentTab, openPri
                           Hindi / English Voice
                         </span>
                       </div>
-                      <p className="leading-relaxed text-xs">
+                      <p className="leading-relaxed text-xs break-words">
                         "For pure silk with hand-woven Zari, standard raw material cost is ~₹1,200 and weaving labor is ~₹800. Adding 40% artisan margin and platform fee yields a retail price of ₹3,250. This protects your craftsmanship and remains competitive with metro boutiques."
                       </p>
                     </div>
