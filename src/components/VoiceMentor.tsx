@@ -541,7 +541,7 @@ export const VoiceMentor: React.FC = () => {
               </div>
             )}
 
-            <div className="flex items-center justify-end gap-2 pt-1">
+            <div className="flex flex-wrap sm:flex-nowrap items-center justify-end gap-2 pt-1">
               <button
                 onClick={cancelPendingTranscript}
                 className="px-3 py-1.5 text-xs font-semibold text-stone-600 dark:text-emerald-300 hover:bg-stone-200 dark:hover:bg-emerald-950 rounded-xl transition-colors cursor-pointer font-poppins"
