@@ -619,7 +619,7 @@ export const ProductStudio: React.FC = () => {
                 </div>
 
                 {/* Footer / Actions */}
-                <div className="pt-3 border-t border-stone-100 dark:border-emerald-900/40 flex items-center justify-between">
+                <div className="pt-3 border-t border-stone-100 dark:border-emerald-900/40 flex flex-wrap items-center justify-between gap-2">
                   <div>
                     <span className="text-[10px] text-stone-400 dark:text-emerald-400/60 block font-medium">{t('product.tablePrice')}</span>
                     <span className="text-base font-extrabold text-stone-900 dark:text-white font-poppins">
@@ -670,8 +670,8 @@ export const ProductStudio: React.FC = () => {
 
       {/* Add / Edit Product Modal */}
       {modalOpen && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-4 bg-black/70 backdrop-blur-xs animate-in fade-in duration-200">
-          <div className="bg-white dark:bg-[#13251B] rounded-3xl max-w-3xl w-full shadow-2xl border border-[#0F5132]/20 dark:border-emerald-800/60 flex flex-col max-h-[90vh] overflow-hidden">
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-2 sm:p-4 bg-black/70 backdrop-blur-xs animate-in fade-in duration-200">
+          <div className="bg-white dark:bg-[#13251B] rounded-3xl max-w-3xl w-full shadow-2xl border border-[#0F5132]/20 dark:border-emerald-800/60 flex flex-col max-h-[92vh] overflow-hidden">
             {/* Sticky Header */}
             <div className="px-5 sm:px-7 py-4 sm:py-5 border-b border-stone-200/80 dark:border-emerald-800/50 flex items-center justify-between bg-white dark:bg-[#13251B] shrink-0">
               <div>
