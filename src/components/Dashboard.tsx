@@ -636,7 +636,7 @@ export const Dashboard: React.FC<DashboardProps> = ({ currentTab, setCurrentTab,
       {/* Workspace Main Top Navigation Bar */}
       <header className="sticky top-0 z-30 bg-white/95 dark:bg-[#13251B]/95 backdrop-blur-md border-b border-[#0F5132]/10 dark:border-emerald-900/30 px-3 sm:px-6 lg:px-8 py-2.5 sm:py-3 flex items-center justify-between gap-3">
         {/* Left: Brand & Sidebar Collapse / Mobile Drawer Toggle */}
-        <div className="flex items-center gap-2 sm:gap-3">
+        <div className="flex items-center gap-2 sm:gap-3 shrink-0">
           {/* Desktop collapse button */}
           <button
             onClick={() => setIsSidebarCollapsed(!isSidebarCollapsed)}
