@@ -75,6 +75,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         profile_image: avatarUrl,
         phone_number: phone,
         role,
+        access_token: accessToken,
       });
 
       if (res.user.preferred_language || res.user.preferredLanguage) {

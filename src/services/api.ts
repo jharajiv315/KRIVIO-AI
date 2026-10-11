@@ -84,6 +84,7 @@ export const authApi = {
     avatar_url?: string;
     phone_number?: string;
     role?: string;
+    access_token?: string;
   }): Promise<AuthResponse> => {
     const res = await fetchWithAuth('/api/auth/supabase-sync', {
       method: 'POST',
@@ -837,7 +838,8 @@ export const paymentsApi = {
 
   verifyPayment: async (data: {
     razorpayPaymentId: string;
-    razorpayOrderId?: string;
+    razorpayOrderId: string;
+    razorpaySignature: string;
   }): Promise<{ success: boolean; subscriptionPlan: string; message: string }> => {
     return await fetchWithAuth('/api/payments/verify', {
       method: 'POST',

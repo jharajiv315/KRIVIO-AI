@@ -16,30 +16,7 @@ interface SubscriptionViewProps {
 export const SubscriptionView: React.FC<SubscriptionViewProps> = ({ openPricingModal }) => {
   const { user, refreshUser } = useAuth();
   const { t, formatCurrency } = useI18n();
-  const [isProcessing, setIsProcessing] = useState(false);
   const [statusMessage, setStatusMessage] = useState<string | null>(null);
-
-  const handleSimulateUpgrade = async () => {
-    setIsProcessing(true);
-    setStatusMessage(null);
-    try {
-      const order = await paymentsApi.createOrder('pro', 299);
-      // Simulate successful payment verification
-      const verifyRes = await paymentsApi.verifyPayment({
-        razorpayPaymentId: `pay_${Date.now()}`,
-        razorpayOrderId: order.orderId,
-      });
-
-      if (verifyRes.success) {
-        await refreshUser();
-        setStatusMessage(t('subscription.active'));
-      }
-    } catch (err: any) {
-      setStatusMessage(err.message || t('errors.general'));
-    } finally {
-      setIsProcessing(false);
-    }
-  };
 
   const isPro = user?.subscriptionPlan === 'pro';
 

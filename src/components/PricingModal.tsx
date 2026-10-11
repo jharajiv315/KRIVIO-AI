@@ -61,17 +61,28 @@ export const PricingModal: React.FC<PricingModalProps> = ({ isOpen, onClose }) =
           description: 'Pro AI Business Mentor for Rural Artisans',
           order_id: orderData.orderId,
           handler: async (response: any) => {
-            setPaymentStep('Verifying payment signature...');
-            const verifyRes = await paymentsApi.verifyPayment({
-              razorpayPaymentId: response.razorpay_payment_id || `pay_${Date.now()}`,
-              razorpayOrderId: response.razorpay_order_id || orderData.orderId,
-            });
+            if (!response.razorpay_payment_id || !response.razorpay_signature) {
+              setErrorMessage('Incomplete payment confirmation received from gateway.');
+              setSubmitting(false);
+              return;
+            }
 
-            if (verifyRes.success) {
-              setPaymentSuccess(true);
-              await refreshUser();
-            } else {
-              setErrorMessage(t('errors.general'));
+            setPaymentStep('Verifying payment signature with server...');
+            try {
+              const verifyRes = await paymentsApi.verifyPayment({
+                razorpayPaymentId: response.razorpay_payment_id,
+                razorpayOrderId: response.razorpay_order_id || orderData.orderId,
+                razorpaySignature: response.razorpay_signature,
+              });
+
+              if (verifyRes.success) {
+                setPaymentSuccess(true);
+                await refreshUser();
+              } else {
+                setErrorMessage(t('errors.general'));
+              }
+            } catch (vErr: any) {
+              setErrorMessage(vErr.message || 'Payment verification failed');
             }
             setSubmitting(false);
           },
@@ -94,26 +105,11 @@ export const PricingModal: React.FC<PricingModalProps> = ({ isOpen, onClose }) =
         const rzp = new (window as any).Razorpay(options);
         rzp.open();
       } else {
-        // Fast, direct Indian payment gateway simulation
-        setPaymentStep('Connecting to UPI / Payment Gateway...');
-        await new Promise((r) => setTimeout(r, 600));
-
-        setPaymentStep('Processing transaction of ₹299.00...');
-        await new Promise((r) => setTimeout(r, 600));
-
-        setPaymentStep('Activating your Pro Mentor plan...');
-        const verifyRes = await paymentsApi.verifyPayment({
-          razorpayPaymentId: `pay_upi_${Date.now()}_${Math.random().toString(36).slice(2, 6)}`,
-          razorpayOrderId: orderData.orderId,
-        });
-
-        if (verifyRes.success) {
-          setPaymentSuccess(true);
-          await refreshUser();
-        } else {
-          setErrorMessage(t('errors.general'));
-        }
         setSubmitting(false);
+        setPaymentStep('');
+        setErrorMessage(
+          'Online payment gateway is currently in test configuration. Live transactions require merchant gateway approval. Please contact support.'
+        );
       }
     } catch (err: any) {
       console.error('Payment checkout error', err);
