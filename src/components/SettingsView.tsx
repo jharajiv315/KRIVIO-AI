@@ -4,6 +4,7 @@ import { useTheme } from '../context/ThemeContext';
 import { useI18n } from '../i18n/LanguageContext';
 import { LanguageSelector } from './LanguageSelector';
 import { authApi } from '../services/api';
+import { usePwa } from '../hooks/usePwa';
 import {
   Settings,
   Moon,
@@ -15,12 +16,15 @@ import {
   CheckCircle2,
   KeyRound,
   AlertCircle,
+  Smartphone,
+  Download,
 } from 'lucide-react';
 
 export const SettingsView: React.FC = () => {
   const { user } = useAuth();
   const { theme, toggleTheme } = useTheme();
   const { t } = useI18n();
+  const pwa = usePwa();
 
   const [currentPassword, setCurrentPassword] = useState('');
   const [newPassword, setNewPassword] = useState('');
@@ -143,6 +147,44 @@ export const SettingsView: React.FC = () => {
               </span>
             </div>
           </div>
+        </div>
+      </div>
+
+      {/* Card 3: App Installation & Offline Capabilities */}
+      <div className="bg-white dark:bg-[#13251B] p-5 sm:p-6 rounded-3xl border border-[#0F5132]/15 dark:border-emerald-800/60 shadow-xs space-y-4 font-inter">
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+          <div className="space-y-1">
+            <h2 className="text-sm font-bold text-stone-900 dark:text-white font-poppins flex items-center gap-2">
+              <Smartphone className="w-4 h-4 text-[#0F5132] dark:text-emerald-400" /> Web App & Offline Experience
+            </h2>
+            <p className="text-xs text-stone-500 dark:text-emerald-300/70">
+              Install KRIVIO AI on your Android device or computer for instant access and reliable offline application-shell loading.
+            </p>
+          </div>
+
+          {pwa.isInstalled ? (
+            <div className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-[#0F5132]/10 dark:bg-emerald-950 text-[#0F5132] dark:text-[#34D399] font-poppins text-xs font-bold shrink-0">
+              <CheckCircle2 className="w-4 h-4" />
+              <span>Installed (Standalone)</span>
+            </div>
+          ) : pwa.isInstallable ? (
+            <button
+              onClick={() => pwa.installApp()}
+              className="inline-flex items-center justify-center gap-2 px-4 py-2.5 bg-[#0F5132] hover:bg-[#0B3D26] text-white font-poppins font-bold text-xs rounded-xl shadow-xs transition-all active:scale-95 cursor-pointer shrink-0"
+            >
+              <Download className="w-4 h-4 text-[#D4AF37]" />
+              <span>Install KRIVIO App</span>
+            </button>
+          ) : pwa.isIos ? (
+            <div className="p-2.5 bg-stone-50 dark:bg-[#0E2016] rounded-xl border border-stone-200/80 dark:border-emerald-900/40 text-[11px] text-stone-600 dark:text-emerald-300 font-inter max-w-xs">
+              To install on iPhone/iPad: Tap <strong>Share</strong> in Safari and select <strong>"Add to Home Screen"</strong>.
+            </div>
+          ) : (
+            <div className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-stone-100 dark:bg-[#183023] text-stone-600 dark:text-emerald-300 font-poppins text-xs font-semibold shrink-0">
+              <ShieldCheck className="w-4 h-4 text-[#0F5132] dark:text-emerald-400" />
+              <span>Offline Shell Ready</span>
+            </div>
+          )}
         </div>
       </div>
 
