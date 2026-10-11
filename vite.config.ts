@@ -57,7 +57,7 @@ export default defineConfig(() => {
           navigateFallbackDenylist: [
             /^\/api\//,
             /^\/diagnostic/,
-            /\?.*token=/,
+            /[?&](token|reset_token|access_token|refresh_token)=/i,
           ],
           runtimeCaching: [
             {
