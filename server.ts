@@ -69,10 +69,10 @@ if (GEMINI_KEY) {
   });
 }
 
-// CORS whitelist patterns
+// CORS whitelist patterns (Strictly bounded to KRIVIO production and preview domains)
 const ALLOWED_ORIGIN_PATTERNS = [
-  /^https:\/\/[a-z0-9-]+\.vercel\.app$/,
-  /^https:\/\/krivio-ai\.vercel\.app$/,
+  /^https:\/\/krivio-ai(-[a-z0-9-]+)?\.vercel\.app$/,
+  /^https:\/\/krivio(-[a-z0-9-]+)?\.vercel\.app$/,
   /^http:\/\/localhost(:\d+)?$/,
   /^http:\/\/127\.0\.0\.1(:\d+)?$/
 ];
@@ -404,38 +404,88 @@ const optionalAuthenticateToken = async (req: AuthenticatedRequest, res: Respons
 
 app.post('/api/auth/supabase-sync', async (req: Request, res: Response) => {
   try {
-    const { supabase_user_id, email, full_name, name, profile_image, avatar_url, phone_number, role, preferred_language } = req.body;
-    const subId = supabase_user_id;
-    const userEmail = email ? email.toLowerCase().trim() : '';
-    const userName = full_name || name || (userEmail ? userEmail.split('@')[0] : 'Artisan');
-    const userAvatar = profile_image || avatar_url || '';
-    const userRole = role || 'artisan';
-    const userLang = preferred_language || 'en';
+    const authHeader = req.headers.authorization;
+    const bearerToken = authHeader?.startsWith('Bearer ') ? authHeader.slice(7).trim() : '';
+    const accessToken = bearerToken || (req.body.access_token ? String(req.body.access_token).trim() : '');
 
-    if (!subId && !userEmail) {
-      res.status(400).json({ error: 'supabase_user_id or email is required' });
+    if (!accessToken) {
+      res.status(401).json({ error: 'Supabase access token is required for identity synchronization' });
       return;
     }
 
+    let verifiedSubId = '';
+    let verifiedEmail = '';
+    let meta: Record<string, any> = {};
+
+    // 1. Verify locally if SUPABASE_JWT_SECRET is configured
+    if (SUPABASE_JWT_SECRET) {
+      try {
+        const decoded = jwt.verify(accessToken, SUPABASE_JWT_SECRET) as any;
+        verifiedSubId = decoded.sub || decoded.id;
+        verifiedEmail = decoded.email ? decoded.email.toLowerCase().trim() : '';
+        meta = decoded.user_metadata || {};
+      } catch (jwtErr) {
+        // Fall through to server client verification
+      }
+    }
+
+    // 2. Validate against official Supabase auth server
+    if (!verifiedSubId) {
+      const { data: sbData, error: sbError } = await supabaseServerClient.auth.getUser(accessToken);
+      if (sbError || !sbData?.user) {
+        res.status(401).json({ error: 'Invalid, expired, or rejected Supabase authentication token' });
+        return;
+      }
+      verifiedSubId = sbData.user.id;
+      verifiedEmail = sbData.user.email ? sbData.user.email.toLowerCase().trim() : '';
+      meta = sbData.user.user_metadata || {};
+    }
+
+    if (!verifiedSubId) {
+      res.status(401).json({ error: 'Failed to verify cryptographic identity claims' });
+      return;
+    }
+
+    const { full_name, name, profile_image, avatar_url, phone_number, preferred_language } = req.body;
+    const userName = meta.full_name || meta.name || full_name || name || (verifiedEmail ? verifiedEmail.split('@')[0] : 'Artisan');
+    const userAvatar = meta.avatar_url || meta.picture || profile_image || avatar_url || '';
+    const userPhone = meta.phone || phone_number || '';
+    const userLang = preferred_language || meta.preferred_language || 'en';
+
     let existingRes = await queryPg(
-      `SELECT * FROM users WHERE supabase_user_id = $1 OR (email IS NOT NULL AND LOWER(email) = LOWER($2)) LIMIT 1`,
-      [subId || '', userEmail]
+      `SELECT * FROM users WHERE supabase_user_id = $1 LIMIT 1`,
+      [verifiedSubId]
     );
 
     let user = existingRes.rows[0];
 
+    // Link by verified email if an unlinked account already exists for this confirmed email
+    if (!user && verifiedEmail) {
+      const emailRes = await queryPg(
+        `SELECT * FROM users WHERE LOWER(email) = $1 LIMIT 1`,
+        [verifiedEmail]
+      );
+      const existingByEmail = emailRes.rows[0];
+      if (existingByEmail) {
+        await queryPg(`UPDATE users SET supabase_user_id = $1, updated_at = NOW() WHERE id = $2`, [verifiedSubId, existingByEmail.id]);
+        user = existingByEmail;
+        user.supabase_user_id = verifiedSubId;
+      }
+    }
+
+    // Create new user if not found (assign strictly 'artisan' role, preventing client role escalation)
     if (!user) {
       const newId = `usr_${Date.now()}_${Math.random().toString(36).slice(2, 7)}`;
       const insertRes = await queryPg(
         `INSERT INTO users (id, supabase_user_id, full_name, email, profile_image, phone_number, role, preferred_language, is_active, is_verified, created_at, updated_at)
-         VALUES ($1, $2, $3, $4, $5, $6, $7, $8, true, true, NOW(), NOW())
+         VALUES ($1, $2, $3, $4, $5, $6, 'artisan', $7, true, true, NOW(), NOW())
          RETURNING *`,
-        [newId, subId, userName, userEmail, userAvatar, phone_number || '', userRole, userLang]
+        [newId, verifiedSubId, userName, verifiedEmail, userAvatar, userPhone, userLang]
       );
       user = insertRes.rows[0];
-    } else if (subId && !user.supabase_user_id) {
-      await queryPg(`UPDATE users SET supabase_user_id = $1, updated_at = NOW() WHERE id = $2`, [subId, user.id]);
-      user.supabase_user_id = subId;
+    } else if (verifiedSubId && !user.supabase_user_id) {
+      await queryPg(`UPDATE users SET supabase_user_id = $1, updated_at = NOW() WHERE id = $2`, [verifiedSubId, user.id]);
+      user.supabase_user_id = verifiedSubId;
     }
 
     const token = jwt.sign(
@@ -2826,20 +2876,39 @@ app.post('/api/storefront/inquiry', async (req: Request, res: Response) => {
   try {
     const { userId, productTitle, quantity = 1, totalAmount = 0, city = '', pincode = '', buyerName = 'Buyer', inquiryType = 'Direct Order' } = req.body;
 
-    if (userId) {
-      const locStr = city ? ` for delivery to ${city}${pincode ? ` (${pincode})` : ''}` : '';
-      await queryPg(
-        `INSERT INTO activities (id, user_id, title, description, event_type, created_at)
-         VALUES ($1, $2, $3, $4, $5, NOW())`,
-        [
-          `act_${Date.now()}`,
-          userId,
-          `WhatsApp ${inquiryType}: ${productTitle || 'Artisan Craft'}`,
-          `${buyerName} inquired: Qty ${quantity} (₹${totalAmount})${locStr}.`,
-          'whatsapp_inquiry'
-        ]
-      ).catch(() => {});
+    if (!userId || typeof userId !== 'string') {
+      res.status(400).json({ error: 'Storefront owner user ID is required' });
+      return;
     }
+
+    // Verify target artisan exists
+    const userCheck = await queryPg(`SELECT id, is_active FROM users WHERE id = $1 LIMIT 1`, [userId]);
+    if (!userCheck.rows[0]) {
+      res.status(404).json({ error: 'Artisan storefront owner not found' });
+      return;
+    }
+
+    const cleanTitle = String(productTitle || 'Artisan Craft').slice(0, 100).trim();
+    const cleanBuyer = String(buyerName || 'Buyer').slice(0, 60).trim();
+    const cleanCity = String(city || '').slice(0, 60).trim();
+    const cleanPincode = String(pincode || '').slice(0, 10).trim();
+    const cleanQty = Math.max(1, Math.min(10000, Number(quantity) || 1));
+    const cleanTotal = Math.max(0, Math.min(10000000, Number(totalAmount) || 0));
+    const validInquiryTypes = ['Direct Order', 'Custom Craft', 'Bulk Order', 'General Inquiry', 'Bulk Inquiry'];
+    const cleanType = validInquiryTypes.includes(inquiryType) ? inquiryType : 'Direct Order';
+
+    const locStr = cleanCity ? ` for delivery to ${cleanCity}${cleanPincode ? ` (${cleanPincode})` : ''}` : '';
+    await queryPg(
+      `INSERT INTO activities (id, user_id, title, description, event_type, created_at)
+       VALUES ($1, $2, $3, $4, $5, NOW())`,
+      [
+        `act_${Date.now()}_${Math.random().toString(36).slice(2, 6)}`,
+        userId,
+        `WhatsApp ${cleanType}: ${cleanTitle}`,
+        `${cleanBuyer} inquired: Qty ${cleanQty} (₹${cleanTotal})${locStr}.`,
+        'whatsapp_inquiry'
+      ]
+    ).catch(() => {});
 
     res.json({ success: true, message: 'Inquiry tracked successfully' });
   } catch (err) {
@@ -2867,13 +2936,16 @@ app.get('/api/subscriptions', authenticateToken, async (req: AuthenticatedReques
 });
 
 app.post('/api/payments/create-order', authenticateToken, async (req: AuthenticatedRequest, res: Response) => {
-  const { plan = 'pro', amount = 299 } = req.body;
+  const plan = 'pro';
+  const amount = 299; // Server authoritative pricing: INR 299
+  const keyId = process.env.RAZORPAY_KEY_ID || '';
+
   res.json({
     id: `order_${Date.now()}`,
     orderId: `order_${Date.now()}`,
     amount: amount * 100,
     currency: 'INR',
-    keyId: process.env.RAZORPAY_KEY_ID || 'rzp_test_krivio123',
+    keyId: keyId || 'rzp_test_krivio123',
     plan
   });
 });
@@ -2883,24 +2955,27 @@ app.post('/api/payments/verify', authenticateToken, async (req: AuthenticatedReq
     const userId = req.user!.id;
     const { razorpayPaymentId, razorpayOrderId, razorpaySignature } = req.body;
 
-    if (!razorpayPaymentId) {
-      res.status(400).json({ error: 'Missing payment transaction ID' });
+    if (!razorpayPaymentId || !razorpayOrderId || !razorpaySignature) {
+      res.status(400).json({ error: 'Missing payment signature, payment ID, or order ID for verification.' });
       return;
     }
 
     const secret = process.env.RAZORPAY_KEY_SECRET;
-    if (secret && razorpaySignature && razorpayOrderId) {
-      const expectedSignature = crypto
-        .createHmac('sha256', secret)
-        .update(`${razorpayOrderId}|${razorpayPaymentId}`)
-        .digest('hex');
+    if (!secret || secret === 'krivio_razorpay_secret_123') {
+      res.status(503).json({ error: 'Payment gateway configuration is currently unavailable for verification.' });
+      return;
+    }
 
-      if (expectedSignature !== razorpaySignature) {
-        res.status(400).json({ error: 'Invalid payment signature. Verification failed.' });
-        return;
-      }
-    } else if (process.env.NODE_ENV === 'production' && !razorpaySignature) {
-      res.status(400).json({ error: 'Missing payment signature for verification.' });
+    const expectedSignature = crypto
+      .createHmac('sha256', secret)
+      .update(`${razorpayOrderId}|${razorpayPaymentId}`)
+      .digest('hex');
+
+    const expectedBuf = Buffer.from(expectedSignature, 'utf-8');
+    const signatureBuf = Buffer.from(String(razorpaySignature), 'utf-8');
+
+    if (expectedBuf.length !== signatureBuf.length || !crypto.timingSafeEqual(expectedBuf, signatureBuf)) {
+      res.status(400).json({ error: 'Invalid payment signature. Verification failed.' });
       return;
     }
 
@@ -2909,7 +2984,7 @@ app.post('/api/payments/verify', authenticateToken, async (req: AuthenticatedReq
        VALUES ($1, $2, 'pro', 'active', $3, NOW(), NOW() + INTERVAL '30 days')
        ON CONFLICT (user_id) DO UPDATE SET
         plan = 'pro', status = 'active', razorpay_payment_id = $3, start_date = NOW(), end_date = NOW() + INTERVAL '30 days'`,
-      [`sub_${Date.now()}`, userId, razorpayPaymentId || '']
+      [`sub_${Date.now()}`, userId, razorpayPaymentId]
     );
 
     res.json({

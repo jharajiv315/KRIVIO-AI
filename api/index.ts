@@ -77,25 +77,25 @@ export default async function handler(req: IncomingMessage, res: ServerResponse)
     } else if (app && typeof app.handle === 'function') {
       return app.handle(req, res);
     } else {
+      console.error('[Serverless Error]: Could not extract Express app:', errors);
       res.statusCode = 500;
       res.setHeader('Content-Type', 'application/json');
       res.end(
         JSON.stringify({
           error: 'SERVERLESS_MODULE_NOT_RESOLVED',
-          details: 'Could not extract Express application function in serverless runtime',
-          resolutionErrors: errors,
+          message: 'An internal server configuration error occurred while routing the request.',
         })
       );
       return;
     }
   } catch (fatalErr: any) {
+    console.error('[Serverless Fatal Error]:', fatalErr?.message || fatalErr, fatalErr?.stack);
     res.statusCode = 500;
     res.setHeader('Content-Type', 'application/json');
     res.end(
       JSON.stringify({
-        error: 'SERVERLESS_INVOCATION_CRASH',
-        message: fatalErr?.message || String(fatalErr),
-        stack: fatalErr?.stack,
+        error: 'INTERNAL_SERVER_ERROR',
+        message: 'An unexpected runtime error occurred.',
       })
     );
   }
