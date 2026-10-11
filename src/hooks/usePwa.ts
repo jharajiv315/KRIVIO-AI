@@ -1,5 +1,4 @@
-import { useState, useEffect, useCallback, useRef } from 'react';
-// @ts-ignore - virtual module provided by vite-plugin-pwa
+import { useState, useEffect, useCallback } from 'react';
 import { registerSW } from 'virtual:pwa-register';
 
 interface BeforeInstallPromptEvent extends Event {
@@ -18,124 +17,183 @@ export interface UsePwaReturn {
   needRefresh: boolean;
   isIos: boolean;
   installApp: () => Promise<boolean>;
-  updateApp: () => void;
+  updateApp: (force?: boolean) => void;
   dismissUpdate: () => void;
 }
 
-export function usePwa(): UsePwaReturn {
-  const [deferredPrompt, setDeferredPrompt] = useState<BeforeInstallPromptEvent | null>(null);
-  const [isInstallable, setIsInstallable] = useState(false);
-  const [isInstalled, setIsInstalled] = useState(false);
-  const [isOffline, setIsOffline] = useState(!navigator.onLine);
-  const [needRefresh, setNeedRefresh] = useState(false);
-  const [isIos, setIsIos] = useState(false);
+// ---------------------------------------------------------------------------
+// Single Managed PWA Manager (Singleton)
+// Guarantees exactly one service worker registration, zero duplicate intervals,
+// shared installation prompt state, and clean lifecycle management across all
+// React mounts and Strict Mode re-mounts.
+// ---------------------------------------------------------------------------
 
-  const updateSwRef = useRef<((reloadPage?: boolean) => Promise<void>) | null>(null);
+class PwaManager {
+  private deferredPrompt: BeforeInstallPromptEvent | null = null;
+  private isInstallable = false;
+  private isInstalled = false;
+  private isOffline = typeof navigator !== 'undefined' ? !navigator.onLine : false;
+  private needRefresh = false;
+  private isIos = false;
 
-  // 1. Detect Standalone Mode and iOS device
-  useEffect(() => {
-    const isStandalone =
-      window.matchMedia('(display-mode: standalone)').matches ||
-      (window.navigator as any).standalone === true ||
-      document.referrer.includes('android-app://');
+  private updateSwFn: ((reloadPage?: boolean) => Promise<void>) | null = null;
+  private periodicUpdateTimer: ReturnType<typeof setInterval> | null = null;
+  private initialized = false;
 
-    setIsInstalled(isStandalone);
+  private listeners = new Set<() => void>();
+  private dirtyCheckers = new Set<() => boolean>();
 
-    const userAgent = window.navigator.userAgent.toLowerCase();
-    const isIosDevice =
-      /iphone|ipad|ipod/.test(userAgent) ||
-      (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
-    setIsIos(isIosDevice);
-
-    const mediaQuery = window.matchMedia('(display-mode: standalone)');
-    const handleDisplayModeChange = (e: MediaQueryListEvent) => {
-      setIsInstalled(e.matches);
+  public getState() {
+    return {
+      isInstallable: this.isInstallable && !this.isInstalled,
+      isInstalled: this.isInstalled,
+      isOffline: this.isOffline,
+      needRefresh: this.needRefresh,
+      isIos: this.isIos,
     };
-    mediaQuery.addEventListener('change', handleDisplayModeChange);
-    return () => mediaQuery.removeEventListener('change', handleDisplayModeChange);
-  }, []);
+  }
 
-  // 2. Online / Offline Connectivity Listeners
-  useEffect(() => {
-    const handleOnline = () => setIsOffline(false);
-    const handleOffline = () => setIsOffline(true);
-
-    window.addEventListener('online', handleOnline);
-    window.addEventListener('offline', handleOffline);
-
+  public subscribe(listener: () => void): () => void {
+    this.listeners.add(listener);
     return () => {
-      window.removeEventListener('online', handleOnline);
-      window.removeEventListener('offline', handleOffline);
+      this.listeners.delete(listener);
     };
-  }, []);
+  }
 
-  // 3. Native Installation Prompt Interception
-  useEffect(() => {
-    const handleBeforeInstallPrompt = (e: Event) => {
-      // Prevent browser mini-infobar on mobile
-      e.preventDefault();
-      setDeferredPrompt(e as BeforeInstallPromptEvent);
-      setIsInstallable(true);
-    };
-
-    const handleAppInstalled = () => {
-      setDeferredPrompt(null);
-      setIsInstallable(false);
-      setIsInstalled(true);
-    };
-
-    window.addEventListener('beforeinstallprompt', handleBeforeInstallPrompt);
-    window.addEventListener('appinstalled', handleAppInstalled);
-
+  public registerDirtyChecker(checker: () => boolean): () => void {
+    this.dirtyCheckers.add(checker);
     return () => {
-      window.removeEventListener('beforeinstallprompt', handleBeforeInstallPrompt);
-      window.removeEventListener('appinstalled', handleAppInstalled);
+      this.dirtyCheckers.delete(checker);
     };
-  }, []);
+  }
 
-  // 4. Service Worker Registration with controlled update prompt
-  useEffect(() => {
-    if ('serviceWorker' in navigator && typeof window !== 'undefined') {
+  public hasUnsavedWork(): boolean {
+    // 1. Check custom registered dirty checkers
+    for (const checker of this.dirtyCheckers) {
       try {
-        const updateSW = registerSW({
+        if (checker()) return true;
+      } catch {}
+    }
+
+    // 2. DOM-level heuristic: check if any open modal/dialog or focused dirty form exists
+    if (typeof document !== 'undefined') {
+      const activeEl = document.activeElement;
+      if (activeEl && (activeEl.tagName === 'INPUT' || activeEl.tagName === 'TEXTAREA')) {
+        const val = (activeEl as HTMLInputElement).value;
+        if (val && val.trim().length > 0) return true;
+      }
+      // Check for active open product modals or full-screen editor overlays
+      const openModals = document.querySelectorAll('[role="dialog"], .fixed.inset-0.z-50');
+      if (openModals.length > 0) return true;
+    }
+
+    return false;
+  }
+
+  private notify() {
+    for (const listener of this.listeners) {
+      listener();
+    }
+  }
+
+  public init() {
+    if (this.initialized || typeof window === 'undefined') {
+      return;
+    }
+    this.initialized = true;
+
+    // Detect standalone mode
+    const checkStandalone = () => {
+      return (
+        window.matchMedia('(display-mode: standalone)').matches ||
+        (window.navigator as any).standalone === true ||
+        document.referrer.includes('android-app://')
+      );
+    };
+    this.isInstalled = checkStandalone();
+
+    // Detect iOS
+    const ua = window.navigator.userAgent.toLowerCase();
+    this.isIos =
+      /iphone|ipad|ipod/.test(ua) ||
+      (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
+
+    // Standalone change listener
+    const mediaQuery = window.matchMedia('(display-mode: standalone)');
+    mediaQuery.addEventListener('change', (e) => {
+      this.isInstalled = e.matches;
+      this.notify();
+    });
+
+    // Online / Offline listeners
+    window.addEventListener('online', () => {
+      this.isOffline = false;
+      this.notify();
+    });
+    window.addEventListener('offline', () => {
+      this.isOffline = true;
+      this.notify();
+    });
+
+    // Install prompt interception
+    window.addEventListener('beforeinstallprompt', (e: Event) => {
+      e.preventDefault();
+      this.deferredPrompt = e as BeforeInstallPromptEvent;
+      this.isInstallable = true;
+      this.notify();
+    });
+
+    window.addEventListener('appinstalled', () => {
+      this.deferredPrompt = null;
+      this.isInstallable = false;
+      this.isInstalled = true;
+      this.notify();
+    });
+
+    // Register service worker using virtual:pwa-register (Single instance)
+    if ('serviceWorker' in navigator) {
+      try {
+        this.updateSwFn = registerSW({
           immediate: true,
-          onNeedRefresh() {
-            setNeedRefresh(true);
+          onNeedRefresh: () => {
+            this.needRefresh = true;
+            this.notify();
           },
-          onOfflineReady() {
-            // App shell is precached and ready to work offline
+          onOfflineReady: () => {
+            // App shell ready
           },
-          onRegisteredSW(swUrl: string, registration?: ServiceWorkerRegistration) {
-            // Periodically check for updates (every 60 minutes)
+          onRegisteredSW: (_swUrl: string, registration?: ServiceWorkerRegistration) => {
             if (registration) {
-              setInterval(() => {
+              // Clear any existing interval before scheduling a single 60m periodic check
+              if (this.periodicUpdateTimer) {
+                clearInterval(this.periodicUpdateTimer);
+              }
+              this.periodicUpdateTimer = setInterval(() => {
                 registration.update().catch(() => {});
               }, 60 * 60 * 1000);
             }
           },
-          onRegisterError(error: any) {
-            console.warn('[PWA] Service worker registration failed:', error);
+          onRegisterError: (error: any) => {
+            console.warn('[PWA] Service worker registration error:', error);
           },
         });
-
-        updateSwRef.current = updateSW;
       } catch (err) {
-        console.warn('[PWA] Error initializing registerSW:', err);
+        console.warn('[PWA] Service worker registration initialization failed:', err);
       }
     }
-  }, []);
+  }
 
-  // Action: Trigger Install Prompt
-  const installApp = useCallback(async (): Promise<boolean> => {
-    if (!deferredPrompt) {
+  public async installApp(): Promise<boolean> {
+    if (!this.deferredPrompt) {
       return false;
     }
     try {
-      await deferredPrompt.prompt();
-      const choice = await deferredPrompt.userChoice;
+      await this.deferredPrompt.prompt();
+      const choice = await this.deferredPrompt.userChoice;
       if (choice.outcome === 'accepted') {
-        setDeferredPrompt(null);
-        setIsInstallable(false);
+        this.deferredPrompt = null;
+        this.isInstallable = false;
+        this.notify();
         return true;
       }
       return false;
@@ -143,29 +201,66 @@ export function usePwa(): UsePwaReturn {
       console.warn('[PWA] Error executing install prompt:', err);
       return false;
     }
-  }, [deferredPrompt]);
+  }
 
-  // Action: Trigger Controlled Update Reload
-  const updateApp = useCallback(() => {
-    if (updateSwRef.current) {
-      updateSwRef.current(true);
+  public updateApp(force = false) {
+    if (!force && this.hasUnsavedWork()) {
+      const confirmed = window.confirm(
+        'You have an active workspace session or unsaved edits. Are you sure you want to reload now to apply the update?'
+      );
+      if (!confirmed) {
+        return;
+      }
+    }
+
+    if (this.updateSwFn) {
+      this.updateSwFn(true);
     } else {
       window.location.reload();
     }
+  }
+
+  public dismissUpdate() {
+    this.needRefresh = false;
+    this.notify();
+  }
+}
+
+// Module-level singleton
+const pwaManager = new PwaManager();
+
+export function usePwa(): UsePwaReturn {
+  const [state, setState] = useState(() => pwaManager.getState());
+
+  useEffect(() => {
+    pwaManager.init();
+    // Update local state immediately on mount
+    setState(pwaManager.getState());
+    // Subscribe to shared state transitions
+    const unsubscribe = pwaManager.subscribe(() => {
+      setState(pwaManager.getState());
+    });
+    return unsubscribe;
+  }, []);
+
+  const installApp = useCallback(async () => {
+    return pwaManager.installApp();
+  }, []);
+
+  const updateApp = useCallback((force = false) => {
+    pwaManager.updateApp(force);
   }, []);
 
   const dismissUpdate = useCallback(() => {
-    setNeedRefresh(false);
+    pwaManager.dismissUpdate();
   }, []);
 
   return {
-    isInstallable: isInstallable && !isInstalled,
-    isInstalled,
-    isOffline,
-    needRefresh,
-    isIos,
+    ...state,
     installApp,
     updateApp,
     dismissUpdate,
   };
 }
+
+export { pwaManager };
