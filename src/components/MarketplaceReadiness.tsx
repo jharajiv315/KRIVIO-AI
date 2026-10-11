@@ -100,9 +100,9 @@ export const MarketplaceReadiness: React.FC = () => {
         },
         {
           id: 'az_bank',
-          label: 'Linked Direct Payout Bank Account Details',
+          label: 'Owner Contact & Order Notification Phone Number',
           check: Boolean(businessProfile?.phoneNumber),
-          hint: 'Ensure your owner contact details and WhatsApp are up to date.',
+          hint: 'Ensure your owner contact phone and WhatsApp number are saved in Business Profile.',
         },
       ],
     },
@@ -112,9 +112,9 @@ export const MarketplaceReadiness: React.FC = () => {
       rules: [
         {
           id: 'fk_shg',
-          label: 'Artisan / SHG Certificate Proof',
-          check: Boolean(businessProfile?.businessRegistration || businessProfile?.businessName),
-          hint: 'Registered SHG or artisan certificate allows 0% commission waiver.',
+          label: 'Artisan Business Registration / SHG Number',
+          check: Boolean(businessProfile?.businessRegistration),
+          hint: 'Enter your SHG certificate number or Udyam registration in Business Profile.',
         },
         {
           id: 'fk_stock',

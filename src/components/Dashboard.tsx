@@ -225,7 +225,7 @@ export const Dashboard: React.FC<DashboardProps> = ({ currentTab, setCurrentTab,
                     {t('dashboard.welcome')}, {user.name || user.full_name || 'Entrepreneur'}!
                   </h1>
                   <p className="text-xs sm:text-sm text-emerald-100/80 max-w-xl font-inter">
-                    {user.businessName || 'Your Enterprise'} — <strong className="text-[#D4AF37] font-semibold">{stats?.healthScore || 80}% {t('dashboard.marketplaceReady')}</strong>
+                    {user.businessName || 'Your Enterprise'} — <strong className="text-[#D4AF37] font-semibold">{stats?.healthScore ?? 0}% {t('dashboard.marketplaceReady')}</strong>
                   </p>
                 </div>
 

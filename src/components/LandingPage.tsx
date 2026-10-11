@@ -154,7 +154,7 @@ export const LandingPage: React.FC<LandingPageProps> = ({ setCurrentTab, openPri
               <div className="pt-4 border-t border-stone-200/80 dark:border-emerald-900/40 grid grid-cols-1 sm:grid-cols-3 gap-3 text-xs text-stone-600 dark:text-emerald-200/80">
                 <div className="flex items-center gap-2 justify-center lg:justify-start">
                   <ShieldCheck className="w-4 h-4 text-[#0F5132] dark:text-emerald-400 shrink-0" />
-                  <span className="font-medium">100% Data Privacy</span>
+                  <span className="font-medium">Artisan Data Ownership</span>
                 </div>
                 <div className="flex items-center gap-2 justify-center lg:justify-start">
                   <Award className="w-4 h-4 text-[#0F5132] dark:text-emerald-400 shrink-0" />
@@ -308,7 +308,7 @@ export const LandingPage: React.FC<LandingPageProps> = ({ setCurrentTab, openPri
               </div>
               <div className="pt-3 border-t border-stone-100 dark:border-emerald-900/40 text-[11px] font-semibold text-[#0F5132] dark:text-emerald-300 font-poppins flex items-center gap-1.5">
                 <Mic className="w-3.5 h-3.5" />
-                <span>Zero typing or English needed</span>
+                <span>Voice-guided with optional typing</span>
               </div>
             </div>
 
@@ -322,7 +322,7 @@ export const LandingPage: React.FC<LandingPageProps> = ({ setCurrentTab, openPri
                   AI Calculates Fair Prices & Story
                 </h3>
                 <p className="text-xs text-stone-600 dark:text-emerald-200/80 leading-relaxed font-inter">
-                  KRIVIO AI calculates your exact Cost of Goods Sold (COGS), protects fair artisan wages, assigns HSN codes, and writes an authentic craft story for buyers.
+                  KRIVIO AI calculates your estimated Cost of Goods Sold (COGS), guides fair artisan wages, suggests HSN classifications, and writes an authentic craft story for buyers.
                 </p>
               </div>
               <div className="pt-3 border-t border-stone-100 dark:border-emerald-900/40 text-[11px] font-semibold text-[#0F5132] dark:text-emerald-300 font-poppins flex items-center gap-1.5">
@@ -423,7 +423,7 @@ export const LandingPage: React.FC<LandingPageProps> = ({ setCurrentTab, openPri
                   Complete Data Ownership
                 </h4>
                 <p className="text-xs text-stone-600 dark:text-emerald-200/80 leading-relaxed font-inter">
-                  Your craft motifs, customer data, and sales history stay 100% private to your artisan account.
+                  Your craft motifs, customer data, and catalog records are owned solely by your artisan account.
                 </p>
               </div>
             </div>
