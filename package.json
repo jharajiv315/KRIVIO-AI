@@ -10,6 +10,7 @@
     "start": "node dist/server.cjs",
     "clean": "rm -rf dist server.js",
     "lint": "tsc --noEmit",
+    "pwa:icons": "node scripts/generate-pwa-icons.mjs",
     "test": "tsx tests/user_isolation.test.ts && tsx tests/marketplace_adapters.test.ts && tsx tests/api_integration.test.ts && tsx tests/auth_forensics.test.ts",
     "test:ai": "tsx tests/ai_golden_suite.ts",
     "test:all": "npm run test && npm run test:ai"
@@ -34,6 +35,7 @@
     "vite": "^6.2.3"
   },
   "devDependencies": {
+    "@resvg/resvg-js": "^2.6.2",
     "@types/bcryptjs": "^3.0.0",
     "@types/express": "^4.17.21",
     "@types/jsonwebtoken": "^9.0.10",
@@ -44,6 +46,7 @@
     "tailwindcss": "^4.1.14",
     "tsx": "^4.21.0",
     "typescript": "~5.8.2",
-    "vite": "^6.2.3"
+    "vite": "^6.2.3",
+    "vite-plugin-pwa": "^2.0.0"
   }
 }
