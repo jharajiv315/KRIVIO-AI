@@ -18,6 +18,8 @@ import {
   Upload,
   Camera,
   Image as ImageIcon,
+  WifiOff,
+  RefreshCw,
 } from 'lucide-react';
 import {
   getProductThumbnail,
@@ -65,10 +67,12 @@ export const ProductStudio: React.FC = () => {
   const [saving, setSaving] = useState(false);
   const [formError, setFormError] = useState('');
   const [warningMsg, setWarningMsg] = useState('');
+  const [fetchError, setFetchError] = useState<string | null>(null);
 
   const fetchProducts = async () => {
     try {
       setLoading(true);
+      setFetchError(null);
       const data = await productsApi.getAll({
         search: searchTerm,
         category: categoryFilter,
@@ -76,8 +80,9 @@ export const ProductStudio: React.FC = () => {
         sort: sortOption,
       });
       setProducts(data.products || []);
-    } catch (err) {
+    } catch (err: any) {
       console.error('Failed to fetch products', err);
+      setFetchError(err?.message || 'Failed to fetch catalog');
     } finally {
       setLoading(false);
     }
@@ -470,26 +475,49 @@ export const ProductStudio: React.FC = () => {
           ))}
         </div>
       ) : products.length === 0 ? (
-        <div className="text-center py-16 bg-white dark:bg-[#13251B] rounded-3xl border border-[#0F5132]/15 dark:border-emerald-800/60 space-y-5">
-          <div className="w-14 h-14 rounded-full bg-[#0F5132]/10 dark:bg-emerald-950 text-[#0F5132] dark:text-[#34D399] mx-auto flex items-center justify-center">
-            <Package className="w-7 h-7" />
+        fetchError || (!navigator.onLine && products.length === 0) ? (
+          <div className="text-center py-16 bg-white dark:bg-[#13251B] rounded-3xl border border-amber-500/20 dark:border-amber-700/40 space-y-5">
+            <div className="w-14 h-14 rounded-full bg-amber-500/10 dark:bg-amber-950 text-amber-600 dark:text-amber-400 mx-auto flex items-center justify-center">
+              <WifiOff className="w-7 h-7" />
+            </div>
+            <div className="space-y-1">
+              <h3 className="text-base font-bold text-stone-900 dark:text-white font-poppins">
+                Catalog Data Unavailable Offline
+              </h3>
+              <p className="text-xs text-stone-500 dark:text-emerald-300/70 max-w-md mx-auto font-inter">
+                Your saved products are safe in your account. Reconnect to the internet to load and synchronize your catalog.
+              </p>
+            </div>
+            <button
+              onClick={() => fetchProducts()}
+              className="px-5 py-2.5 bg-stone-900 hover:bg-stone-800 text-amber-400 dark:bg-stone-800 dark:hover:bg-stone-700 font-bold text-xs rounded-xl shadow-xs transition-all inline-flex items-center gap-2 font-poppins cursor-pointer"
+            >
+              <RefreshCw className="w-4 h-4 text-amber-400" />
+              <span>Retry Connection</span>
+            </button>
           </div>
-          <div className="space-y-1">
-            <h3 className="text-base font-bold text-stone-900 dark:text-white font-poppins">
-              {t('product.emptyStateTitle')}
-            </h3>
-            <p className="text-xs text-stone-500 dark:text-emerald-300/70 max-w-sm mx-auto font-inter">
-              {t('product.emptyStateSubtitle')}
-            </p>
+        ) : (
+          <div className="text-center py-16 bg-white dark:bg-[#13251B] rounded-3xl border border-[#0F5132]/15 dark:border-emerald-800/60 space-y-5">
+            <div className="w-14 h-14 rounded-full bg-[#0F5132]/10 dark:bg-emerald-950 text-[#0F5132] dark:text-[#34D399] mx-auto flex items-center justify-center">
+              <Package className="w-7 h-7" />
+            </div>
+            <div className="space-y-1">
+              <h3 className="text-base font-bold text-stone-900 dark:text-white font-poppins">
+                {t('product.emptyStateTitle')}
+              </h3>
+              <p className="text-xs text-stone-500 dark:text-emerald-300/70 max-w-sm mx-auto font-inter">
+                {t('product.emptyStateSubtitle')}
+              </p>
+            </div>
+            <button
+              onClick={openNewProductModal}
+              className="px-6 py-2.5 bg-[#0F5132] hover:bg-[#0B3D26] text-white font-bold text-xs rounded-xl shadow-md transition-all inline-flex items-center gap-2 font-poppins cursor-pointer active:scale-98"
+            >
+              <Plus className="w-4 h-4" />
+              <span>{t('product.addProduct')}</span>
+            </button>
           </div>
-          <button
-            onClick={openNewProductModal}
-            className="px-6 py-2.5 bg-[#0F5132] hover:bg-[#0B3D26] text-white font-bold text-xs rounded-xl shadow-md transition-all inline-flex items-center gap-2 font-poppins cursor-pointer active:scale-98"
-          >
-            <Plus className="w-4 h-4" />
-            <span>{t('product.addProduct')}</span>
-          </button>
-        </div>
+        )
       ) : (
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5 sm:gap-6">
           {products.map((p) => (
