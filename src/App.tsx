@@ -12,6 +12,8 @@ import { ResetPassword } from './components/ResetPassword';
 import { getStoredToken } from './services/api';
 
 import { NotFound } from './components/NotFound';
+import { usePwa } from './hooks/usePwa';
+import { PwaStatusBanner } from './components/PwaStatusBanner';
 
 // Lazily imported studio and heavy feature components for optimized initial loading performance
 const Dashboard = lazy(() => import('./components/Dashboard').then(m => ({ default: m.Dashboard })));
@@ -45,6 +47,7 @@ const LoadingFallback: React.FC = () => (
 );
 
 const MainContent: React.FC = () => {
+  const pwa = usePwa();
   const { openAuthModal, user } = useAuth();
   const [currentTab, setCurrentTab] = useState<string>(() => {
     const params = new URLSearchParams(window.location.search);
@@ -115,21 +118,25 @@ const MainContent: React.FC = () => {
 
   if (currentTab === 'public-store') {
     return (
-      <PublicStorefront
-        userId={publicStoreId || ''}
-        onNavigateHome={() => {
-          // Clear search params cleanly
-          window.history.pushState({}, '', window.location.pathname);
-          setCurrentTab('landing');
-        }}
-        onOpenAuth={openAuthModal}
-      />
+      <div className="min-h-screen flex flex-col">
+        <PwaStatusBanner pwa={pwa} />
+        <PublicStorefront
+          userId={publicStoreId || ''}
+          onNavigateHome={() => {
+            // Clear search params cleanly
+            window.history.pushState({}, '', window.location.pathname);
+            setCurrentTab('landing');
+          }}
+          onOpenAuth={openAuthModal}
+        />
+      </div>
     );
   }
 
   if (currentTab === 'reset-password') {
     return (
       <div className="min-h-screen flex flex-col bg-[#F8F9F5] dark:bg-[#0B1911] text-[#1A1A1A] dark:text-[#E2F1E7] transition-colors font-inter selection:bg-[#0F5132] selection:text-white">
+        <PwaStatusBanner pwa={pwa} />
         <Navbar
           currentTab={currentTab}
           setCurrentTab={setCurrentTab}
@@ -151,6 +158,7 @@ const MainContent: React.FC = () => {
   if (currentTab === 'not-found') {
     return (
       <div className="min-h-screen flex flex-col bg-[#F8F9F5] dark:bg-[#0B1911] text-[#1A1A1A] dark:text-[#E2F1E7] transition-colors font-inter selection:bg-[#0F5132] selection:text-white">
+        <PwaStatusBanner pwa={pwa} />
         <Navbar
           currentTab={currentTab}
           setCurrentTab={setCurrentTab}
@@ -173,6 +181,7 @@ const MainContent: React.FC = () => {
 
   return (
     <div className="min-h-screen flex flex-col bg-[#F8F9F5] dark:bg-[#0B1911] text-[#1A1A1A] dark:text-[#E2F1E7] transition-colors font-inter selection:bg-[#0F5132] selection:text-white">
+      <PwaStatusBanner pwa={pwa} />
       {!isWorkspace && (
         <Navbar
           currentTab={currentTab}
