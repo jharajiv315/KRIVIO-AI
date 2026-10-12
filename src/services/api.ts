@@ -828,11 +828,28 @@ export const quotationsApi = {
   },
 };
 
+export const plansApi = {
+  getPlans: async () => {
+    const res = await fetch(`${API_BASE}/api/plans`);
+    if (!res.ok) throw new Error('Failed to load plans');
+    return await res.json();
+  },
+};
+
+export const subscriptionsApi = {
+  getSubscription: async () => {
+    return await fetchWithAuth('/api/subscriptions');
+  },
+  getUsage: async () => {
+    return await fetchWithAuth('/api/subscriptions/usage');
+  },
+};
+
 export const paymentsApi = {
-  createOrder: async (plan: string = 'pro', amount: number = 299): Promise<PaymentOrder> => {
+  createOrder: async (plan: string = 'artisan_pro'): Promise<PaymentOrder> => {
     return await fetchWithAuth('/api/payments/create-order', {
       method: 'POST',
-      body: JSON.stringify({ plan, amount }),
+      body: JSON.stringify({ plan }),
     });
   },
 
@@ -840,7 +857,7 @@ export const paymentsApi = {
     razorpayPaymentId: string;
     razorpayOrderId: string;
     razorpaySignature: string;
-  }): Promise<{ success: boolean; subscriptionPlan: string; message: string }> => {
+  }): Promise<{ success: boolean; subscriptionPlan: string; message: string; startDate?: string; endDate?: string; usage?: any }> => {
     return await fetchWithAuth('/api/payments/verify', {
       method: 'POST',
       body: JSON.stringify(data),
