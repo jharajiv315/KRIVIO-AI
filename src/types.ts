@@ -141,11 +141,15 @@ export interface ChannelRecommendation {
 }
 
 export interface PaymentOrder {
+  id?: string;
   orderId: string;
+  internalOrderId?: string;
   amount: number;
   currency: string;
-  plan: 'pro';
+  plan: string;
   keyId: string;
+  durationDays?: number;
+  renewalMode?: string;
 }
 
 export interface GovernmentScheme {
