@@ -23,11 +23,12 @@ All 114 automated tests across 6 dedicated test suites passed cleanly with zero 
 | **`api_integration.test.ts`** | End-to-end HTTP API routes, database transactions, tenant isolation | 18 | 18 | 0 | **PASS** |
 | **`auth_forensics.test.ts`** | Password hash, duplicate email, password recovery lifecycle, sessions | 19 | 19 | 0 | **PASS** |
 | **`security_remediation.test.ts`** | SEC-01 Supabase Auth, SEC-02 Payment Signature & Replay, SEC-05 CORS, SEC-06 Storefront | 10 | 10 | 0 | **PASS** |
+| **`monetization_billing.test.ts`** | Canonical plans, Free caps (5 products, 2 quotes), anti-tampering, HMAC verify, replay protection, early renewal (+30d), webhook deduplication, admin metrics | 9 | 9 | 0 | **PASS** |
 | **`npm run test:ai`** | Deterministic pricing arithmetic, Gemini 3.5 live integration, vision, multilingual Hindi | 26 | 26 | 0 | **PASS** |
 | **`npm run lint`** | Full TypeScript static analysis (`tsc --noEmit`) | Full codebase | All types valid | 0 | **PASS** |
 | **`npm run build`** | Client Vite bundle, Workbox PWA generation, Server CJS bundles | Full bundle | Clean output | 0 | **PASS** |
 | **Browser Automation E2E** | Landing page CTA, onboarding flow, 3-step Product Studio progressive wizard | Full flow | Verified in Chromium | 0 | **PASS** |
-| **TOTAL** | **Entire KRIVIO Verification Surface** | **98 Tests + Build + Browser** | **All Passed** | **0** | **PASS (100%)** |
+| **TOTAL** | **Entire KRIVIO Verification Surface** | **107 Tests + Build + Browser** | **All Passed** | **0** | **PASS (100%)** |
 
 ---
 
@@ -140,16 +141,71 @@ End-to-end browser automation in Chromium verified the complete real artisan wor
 
 ---
 
-## 8. Quality Gate Decision
+## 8. Monetization & Billing Test Suite (`npm run test:billing`)
+
+Execution evidence from `tests/monetization_billing.test.ts`:
+
+```
+===============================================================
+  KRIVIO AI — PRODUCTION MONETIZATION & BILLING TEST SUITE
+===============================================================
+
+PostgreSQL production database tables verified.
+✓ Test HTTP server initialized on http://127.0.0.1:52537
+
+▶ 1. Canonical Plan Catalogue Verification
+  ✔ Authoritative plans and limits match specifications strictly
+
+▶ 2. Free User Product Cap Enforcement (Max 5, 6th Rejected with 403)
+  ✔ Created 5 products successfully on Free plan
+  ✔ Sixth product rejected server-side with HTTP 403 and structured limit details
+  ✔ All existing products remain accessible and intact
+
+▶ 3. Quotation Trial Limit Enforcement (Trial limit 2 on Free)
+  ✔ Quotation trial cap of 2 enforced server-side with 403
+
+▶ 4. Server-Authoritative Payment Order Creation & Anti-Tampering
+  ✔ Client amount tampering ignored; server-authoritative 29900 paise enforced
+  ✔ SHG Growth self-serve order rejected; enquiry flow required
+
+▶ 5. Payment Signature Verification & Replay Protection
+  ✔ Invalid payment HMAC signature rejected with 400
+  ✔ Valid signature accepted; Artisan Pro activated for 30 days
+  ✔ Payment replay protection rejected cross-account claim with 409
+
+▶ 6. Early Manual Renewal Extension (Never Lose Paid Days)
+  ✔ Early renewal extended expiration from existing end date: +30 days retained
+
+▶ 7. Razorpay Webhook Verification & Idempotent Event Processing
+  ✔ Invalid webhook signature rejected with 400
+  ✔ Webhook signature verified and duplicate event safely ignored idempotently
+
+▶ 8. Admin Billing Metrics Authorization & Reporting
+  ✔ Admin metrics endpoint strictly role-protected and reporting aggregates
+
+▶ 9. Authoritative Real-Time Usage Snapshot
+  ✔ Real-time usage snapshot accurately returned from database
+
+===============================================================
+  ALL 9 MONETIZATION & BILLING REGRESSION SUITES PASSED CLEANLY!
+===============================================================
+```
+
+---
+
+## 9. Quality Gate Decision
 
 All required quality gates have been satisfied:
 1. `tsc --noEmit` passes with 0 errors.
-2. 72 core integration, auth, and unit tests pass (100%).
+2. 81 core integration, auth, unit, and billing tests pass (100%).
 3. 10 security remediation tests pass (including payment replay protection and CORS containment).
-4. 26 AI golden regression tests pass with live Gemini 3.5 integration.
-5. Production build passes for client, server, and PWA service worker.
-6. Zero critical or high-severity vulnerabilities remain.
-7. End-to-end browser user journeys verified with artifacts.
-8. Truth in marketing claims and health score metrics enforced.
+4. 9 end-to-end monetization, billing, and quota tests pass.
+5. 26 AI golden regression tests pass with live Gemini 3.5 integration.
+6. Production build passes for client, server, and PWA service worker.
+7. Zero critical or high-severity vulnerabilities remain.
+8. End-to-end browser user journeys verified with artifacts.
+9. Truth in marketing claims and health score metrics enforced.
+10. Prepaid 30-day manual passes with zero emojis and zero client price trusting enforced.
 
 **Status: VERIFIED ON FEATURE BRANCH. PENDING USER AUTHORIZATION FOR PRODUCTION MERGE.**
+

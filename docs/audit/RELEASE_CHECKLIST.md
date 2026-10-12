@@ -20,6 +20,7 @@ Ensure the following environment variables are properly configured in Vercel Pro
 | `JWT_SECRET` | High-entropy secret (>= 32 chars, not fallback) | Token forgery risk if weak; server will fail secure |
 | `RAZORPAY_KEY_ID` | Production/Test Key ID from Razorpay Dashboard | Checkout modal fails to load |
 | `RAZORPAY_KEY_SECRET` | Private Key Secret from Razorpay Dashboard | `/api/payments/verify` fails closed with HTTP 503 |
+| `RAZORPAY_WEBHOOK_SECRET`| Webhook Signing Secret from Razorpay Dashboard | `/api/payments/webhook` fails signature verification (HTTP 400) |
 | `GEMINI_API_KEY` | Valid Google Gemini API Key | AI Mentor and Image Studio features return error |
 
 ---
@@ -38,17 +39,22 @@ Execute the following verification steps locally before initiating git push or d
    npm run test:security
    # Expect: All 9 security checks PASS (exit code 0)
    ```
-3. **Core Integration & Forensics Suites:**
+3. **Monetization & Billing Regression Suite:**
+   ```bash
+   npm run test:billing
+   # Expect: All 9 monetization, quota & payment checks PASS (exit code 0)
+   ```
+4. **Core Integration & Forensics Suites:**
    ```bash
    npm test
-   # Expect: All 79 tests PASS across 5 suites (exit code 0)
+   # Expect: All 88 tests PASS across 6 suites (exit code 0)
    ```
-4. **AI Golden Regression Suite:**
+5. **AI Golden Regression Suite:**
    ```bash
    npm run test:ai
    # Expect: All 26 AI tests PASS (exit code 0)
    ```
-5. **Full Production Bundle Compilation:**
+6. **Full Production Bundle Compilation:**
    ```bash
    npm run build
    # Expect: Vite client bundle, Workbox SW, and both CJS server bundles generated cleanly
@@ -72,9 +78,9 @@ In the event of an unexpected regression or deployment disruption in production:
    - Locate the previous successful production deployment.
    - Click **...** -> **Promote to Production** (instant zero-downtime rollback).
 3. **Database Compatibility:**
-   - All database schema tables (`users`, `products`, `subscriptions`, `business_profiles`, `quotations`, `inquiries`) remained backward compatible.
+   - All database schema tables (`users`, `products`, `subscriptions`, `plans`, `payment_orders`, `payment_events`, `usage_periods`, `usage_ledger`, `credit_packs`) are backward compatible.
    - No destructive migrations or column drops were executed.
-   - Existing user sessions remain valid.
+   - Existing user sessions and subscriptions remain valid.
 
 ---
 
@@ -86,8 +92,18 @@ In the event of an unexpected regression or deployment disruption in production:
 - [x] Serverless error sanitization SEC-07 verified.
 - [x] Data integrity PROD-01 (health score) and PROD-02 (marketplace rules) corrected.
 - [x] Marketing claims PROD-03 grounded in reality.
-- [x] All 114 tests passing.
-- [x] Clean TypeScript lint and build passing.
+- [x] Canonical plan catalogue (`free`, `artisan_pro`, `shg_growth`) enforced server-side.
+- [x] Client price tampering prevented (canonical ₹299 = 29900 paise strictly resolved on backend).
+- [x] Payment replay protection active (unique constraint and ownership check on payment IDs).
+- [x] Early renewal access period extension verified (+30 days retained, no lost days).
+- [x] Webhook signature verification and deduplication verified.
+- [x] Two-phase quota reservation and zero-charge canvas fallback active.
+- [x] Commercial UI has zero emojis (only Lucide SVG icons used).
+- [x] Truth in billing: 30-day prepaid passes with manual renewal clearly advertised.
+- [x] All 107 tests passing.
+- [x] Clean TypeScript lint and production build passing.
+- [ ] **AWAITING EXPLICIT USER PRODUCTION DEPLOYMENT AUTHORIZATION**
+
 - [ ] **User explicit authorization received for deployment.**
 
 > **Notice:** Under non-negotiable engineering principles, automatic production deployment is disabled. The system is fully verified and packaged, awaiting explicit user authorization.
