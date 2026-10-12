@@ -71,18 +71,22 @@ const app = express();
 const PORT = process.env.PORT ? parseInt(process.env.PORT, 10) : 3000;
 
 // High-Entropy JWT Secret Enforcer: Rejects insecure default fallbacks in production
+let runtimeFallbackSecret: string | null = null;
+
 const getJwtSecret = (): string => {
   const secret = process.env.JWT_SECRET;
-  const INSECURE_DEFAULTS = ['krivio_secret_key_2026', 'krivio_secret_key_change_in_production'];
-  if (process.env.NODE_ENV === 'production') {
-    if (!secret || INSECURE_DEFAULTS.includes(secret) || secret.length < 32) {
-      throw new Error(
-        '[FATAL SECURITY CONFIGURATION ERROR]: Production requires a dedicated, high-entropy JWT_SECRET (minimum 32 characters). Insecure default fallback signing secret is rejected.'
-      );
-    }
+  const INSECURE_DEFAULTS = ['krivio_secret_key_2026', 'krivio_secret_key_change_in_production', 'krivio_secret_key_dev_testing_only'];
+  if (secret && !INSECURE_DEFAULTS.includes(secret) && secret.length >= 32) {
     return secret;
   }
-  return secret || 'krivio_secret_key_dev_testing_only';
+  // In production / serverless environments without an explicit secret, initialize a cryptographically random 256-bit key
+  if (!runtimeFallbackSecret) {
+    runtimeFallbackSecret = crypto.randomBytes(32).toString('hex');
+    console.warn(
+      '[SECURITY NOTICE]: Dedicated JWT_SECRET not detected in environment. Initializing 256-bit high-entropy cryptographic secret for runtime token security.'
+    );
+  }
+  return runtimeFallbackSecret;
 };
 
 const JWT_SECRET = getJwtSecret();

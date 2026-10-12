@@ -5419,18 +5419,20 @@ var quotationService = new QuotationService(pgPool);
 var entitlementService = new EntitlementService(pgPool);
 var app = (0, import_express.default)();
 var PORT = process.env.PORT ? parseInt(process.env.PORT, 10) : 3e3;
+var runtimeFallbackSecret = null;
 var getJwtSecret = () => {
   const secret = process.env.JWT_SECRET;
-  const INSECURE_DEFAULTS = ["krivio_secret_key_2026", "krivio_secret_key_change_in_production"];
-  if (process.env.NODE_ENV === "production") {
-    if (!secret || INSECURE_DEFAULTS.includes(secret) || secret.length < 32) {
-      throw new Error(
-        "[FATAL SECURITY CONFIGURATION ERROR]: Production requires a dedicated, high-entropy JWT_SECRET (minimum 32 characters). Insecure default fallback signing secret is rejected."
-      );
-    }
+  const INSECURE_DEFAULTS = ["krivio_secret_key_2026", "krivio_secret_key_change_in_production", "krivio_secret_key_dev_testing_only"];
+  if (secret && !INSECURE_DEFAULTS.includes(secret) && secret.length >= 32) {
     return secret;
   }
-  return secret || "krivio_secret_key_dev_testing_only";
+  if (!runtimeFallbackSecret) {
+    runtimeFallbackSecret = import_crypto2.default.randomBytes(32).toString("hex");
+    console.warn(
+      "[SECURITY NOTICE]: Dedicated JWT_SECRET not detected in environment. Initializing 256-bit high-entropy cryptographic secret for runtime token security."
+    );
+  }
+  return runtimeFallbackSecret;
 };
 var JWT_SECRET = getJwtSecret();
 var SUPABASE_JWT_SECRET = process.env.SUPABASE_JWT_SECRET || "";
