@@ -1,19 +1,21 @@
 import type { IncomingMessage, ServerResponse } from 'http';
+import app, { ensureDbInitialized } from '../server';
 
-function extractApp(mod: any) {
-  if (!mod) return null;
-  if (typeof mod === 'function') return mod;
-  if (mod.default && typeof mod.default === 'function') return mod.default;
-  if (mod.default?.default && typeof mod.default.default === 'function') return mod.default.default;
-  if (mod.app && typeof mod.app === 'function') return mod.app;
-  if (mod.default?.app && typeof mod.default.app === 'function') return mod.default.app;
-  return null;
+let dbInitPromise: Promise<void> | null = null;
+
+function ensureDb() {
+  if (!dbInitPromise && typeof ensureDbInitialized === 'function') {
+    dbInitPromise = ensureDbInitialized().catch((err: any) => {
+      console.warn('[Vercel Serverless DB Warmup Warning]:', err?.message || err);
+    });
+  }
+  return dbInitPromise;
 }
 
 export default async function handler(req: IncomingMessage, res: ServerResponse) {
   const url = req.url || '';
 
-  // 1. Production Health & Environment Diagnostic Route (No heavy imports needed)
+  // 1. Production Health & Environment Diagnostic Route (Fast ping)
   if (url.includes('/api/ping') || url.endsWith('/ping')) {
     res.statusCode = 200;
     res.setHeader('Content-Type', 'application/json');
@@ -36,67 +38,41 @@ export default async function handler(req: IncomingMessage, res: ServerResponse)
     return;
   }
 
-  // 2. Delegate to main Express application with robust error isolation
+  // 2. Ensure DB tables initialized once per serverless instance
   try {
-    let app: any = null;
-    const errors: Record<string, string> = {};
+    ensureDb();
+  } catch (dbErr) {
+    console.warn('[Vercel Serverless DB Warmup Warning]:', dbErr);
+  }
 
-    // Primary: Co-located server.cjs inside api/ (guaranteed zero path resolution & ESM directory issues)
-    try {
-      // @ts-ignore
-      const mod = await import('./server.cjs');
-      app = extractApp(mod);
-    } catch (e: any) {
-      errors['./server.cjs'] = e?.message || String(e);
-    }
-
-    // Fallback 1: Pre-bundled CommonJS in dist/
-    if (!app) {
-      try {
-        // @ts-ignore
-        const mod = await import('../dist/server.cjs');
-        app = extractApp(mod);
-      } catch (e: any) {
-        errors['../dist/server.cjs'] = e?.message || String(e);
-      }
-    }
-
-    // Fallback 2: Direct source TypeScript/ESM
-    if (!app) {
-      try {
-        // @ts-ignore
-        const mod = await import('../server');
-        app = extractApp(mod);
-      } catch (e: any) {
-        errors['../server'] = e?.message || String(e);
-      }
-    }
-
+  // 3. Delegate to main Express application
+  try {
     if (typeof app === 'function') {
-      return app(req, res);
-    } else if (app && typeof app.handle === 'function') {
-      return app.handle(req, res);
+      return (app as any)(req, res);
+    } else if (app && typeof (app as any).handle === 'function') {
+      return (app as any).handle(req, res);
     } else {
-      console.error('[Serverless Error]: Could not extract Express app:', errors);
       res.statusCode = 500;
       res.setHeader('Content-Type', 'application/json');
       res.end(
         JSON.stringify({
-          error: 'SERVERLESS_MODULE_NOT_RESOLVED',
-          message: 'An internal server configuration error occurred while routing the request.',
+          error: 'SERVERLESS_APP_NOT_CALLABLE',
+          message: 'The Express application instance could not be invoked.',
         })
       );
-      return;
     }
   } catch (fatalErr: any) {
-    console.error('[Serverless Fatal Error]:', fatalErr?.message || fatalErr, fatalErr?.stack);
-    res.statusCode = 500;
-    res.setHeader('Content-Type', 'application/json');
-    res.end(
-      JSON.stringify({
-        error: 'INTERNAL_SERVER_ERROR',
-        message: 'An unexpected runtime error occurred.',
-      })
-    );
+    console.error('[Serverless Fatal Error]:', fatalErr?.message || fatalErr);
+    if (!res.headersSent) {
+      res.statusCode = 500;
+      res.setHeader('Content-Type', 'application/json');
+      res.end(
+        JSON.stringify({
+          error: 'INTERNAL_SERVER_ERROR',
+          message: fatalErr?.message || 'An unexpected runtime error occurred.',
+        })
+      );
+    }
   }
 }
+
