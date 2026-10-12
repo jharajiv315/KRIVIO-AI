@@ -214,6 +214,30 @@ async function runSecurityRemediationSuite() {
     // Restore valid secret
     process.env.RAZORPAY_KEY_SECRET = 'valid_test_secret_for_remediation_suite_2026';
 
+    // 2.6 Replay Protection: User B attempting to claim User A's payment ID must be rejected (409)
+    const userBRegRes = await makeRequest('/api/auth/register', {
+      method: 'POST',
+      body: {
+        name: 'Payment Attacker User B',
+        email: `pay_attacker_${Date.now()}@krivio.org`,
+        password: 'SecurePass_2026!',
+      },
+    });
+    assert.ok(userBRegRes.status === 200 || userBRegRes.status === 201);
+    const userBToken = userBRegRes.data.token;
+
+    const replayPayRes = await makeRequest('/api/payments/verify', {
+      method: 'POST',
+      token: userBToken,
+      body: {
+        razorpayPaymentId: payId,
+        razorpayOrderId: orderId,
+        razorpaySignature: validSignature,
+      },
+    });
+    assert.strictEqual(replayPayRes.status, 409, 'Replay of payment ID by another user must be rejected with 409');
+    console.log('  ✔ Payment replay protection rejected cross-account claim (409)');
+
     // -------------------------------------------------------------------------
     // TEST SUITE 3: SEC-05 CORS Whitelist Containment
     // -------------------------------------------------------------------------
@@ -287,7 +311,7 @@ async function runSecurityRemediationSuite() {
     console.log('  ✔ Successfully logs validated inquiry for active artisan (200)');
 
     console.log('\n======================================================');
-    console.log('  ALL 9 SECURITY REMEDIATION TESTS PASSED CLEANLY!');
+    console.log('  ALL 10 SECURITY REMEDIATION TESTS PASSED CLEANLY!');
     console.log('======================================================\n');
   } finally {
     if (server) server.close();

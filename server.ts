@@ -33,9 +33,22 @@ const isRemoteDb = Boolean(
   !process.env.DATABASE_URL.includes('127.0.0.1')
 );
 
+// Database TLS Configuration: Supports CA certificate verification when configured
+const getDbSslConfig = () => {
+  if (!isRemoteDb) return false;
+  if (process.env.DATABASE_CA_CERT) {
+    return {
+      rejectUnauthorized: true,
+      ca: process.env.DATABASE_CA_CERT,
+    };
+  }
+  const rejectUnauthorized = process.env.DATABASE_SSL_REJECT_UNAUTHORIZED === 'true';
+  return { rejectUnauthorized };
+};
+
 const pgPool = new Pool({
   connectionString: process.env.DATABASE_URL || 'postgresql://postgres:postgres@localhost:5432/krivio_db',
-  ssl: isRemoteDb ? { rejectUnauthorized: false } : false
+  ssl: getDbSslConfig()
 });
 
 // Guard against unhandled idle client errors terminating the server/lambda process
@@ -47,7 +60,23 @@ const quotationService = new QuotationService(pgPool);
 
 const app = express();
 const PORT = process.env.PORT ? parseInt(process.env.PORT, 10) : 3000;
-const JWT_SECRET = process.env.JWT_SECRET || 'krivio_secret_key_2026';
+
+// High-Entropy JWT Secret Enforcer: Rejects insecure default fallbacks in production
+const getJwtSecret = (): string => {
+  const secret = process.env.JWT_SECRET;
+  const INSECURE_DEFAULTS = ['krivio_secret_key_2026', 'krivio_secret_key_change_in_production'];
+  if (process.env.NODE_ENV === 'production') {
+    if (!secret || INSECURE_DEFAULTS.includes(secret) || secret.length < 32) {
+      throw new Error(
+        '[FATAL SECURITY CONFIGURATION ERROR]: Production requires a dedicated, high-entropy JWT_SECRET (minimum 32 characters). Insecure default fallback signing secret is rejected.'
+      );
+    }
+    return secret;
+  }
+  return secret || 'krivio_secret_key_dev_testing_only';
+};
+
+const JWT_SECRET = getJwtSecret();
 const SUPABASE_JWT_SECRET = process.env.SUPABASE_JWT_SECRET || '';
 
 // Initialize Supabase Server Client for authenticating OAuth tokens
@@ -467,6 +496,12 @@ app.post('/api/auth/supabase-sync', async (req: Request, res: Response) => {
       );
       const existingByEmail = emailRes.rows[0];
       if (existingByEmail) {
+        if (existingByEmail.supabase_user_id && existingByEmail.supabase_user_id !== verifiedSubId) {
+          res.status(409).json({
+            error: 'This email is already associated with a different authenticated Supabase account. Account reassignment is rejected.'
+          });
+          return;
+        }
         await queryPg(`UPDATE users SET supabase_user_id = $1, updated_at = NOW() WHERE id = $2`, [verifiedSubId, existingByEmail.id]);
         user = existingByEmail;
         user.supabase_user_id = verifiedSubId;
@@ -2939,7 +2974,62 @@ app.post('/api/payments/create-order', authenticateToken, async (req: Authentica
   const plan = 'pro';
   const amount = 299; // Server authoritative pricing: INR 299
   const keyId = process.env.RAZORPAY_KEY_ID || '';
+  const keySecret = process.env.RAZORPAY_KEY_SECRET || '';
 
+  const isRazorpayConfigured = Boolean(
+    keyId &&
+    keyId !== 'rzp_test_krivio123' &&
+    keySecret &&
+    keySecret !== 'krivio_razorpay_secret_123'
+  );
+
+  // In production, keep checkout safely unavailable if merchant gateway is not verified
+  if (!isRazorpayConfigured && process.env.NODE_ENV === 'production') {
+    res.status(503).json({
+      error: 'Online checkout is currently unavailable. Please contact support or try again later.'
+    });
+    return;
+  }
+
+  // Attempt to create authoritative order through Razorpay API if credentials are provided
+  if (isRazorpayConfigured) {
+    try {
+      const basicAuth = Buffer.from(`${keyId}:${keySecret}`).toString('base64');
+      const orderResp = await fetch('https://api.razorpay.com/v1/orders', {
+        method: 'POST',
+        headers: {
+          'Authorization': `Basic ${basicAuth}`,
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({
+          amount: amount * 100,
+          currency: 'INR',
+          receipt: `rcpt_${req.user!.id}_${Date.now()}`.slice(0, 40),
+          notes: {
+            userId: req.user!.id,
+            plan
+          }
+        })
+      });
+
+      if (orderResp.ok) {
+        const orderData = await orderResp.json() as any;
+        res.json({
+          id: orderData.id,
+          orderId: orderData.id,
+          amount: orderData.amount,
+          currency: orderData.currency,
+          keyId,
+          plan
+        });
+        return;
+      }
+    } catch (orderErr) {
+      console.warn('[Razorpay API Warning]: Could not reach upstream Razorpay Orders API:', orderErr);
+    }
+  }
+
+  // Development/Test fallback with deterministic identifier
   res.json({
     id: `order_${Date.now()}`,
     orderId: `order_${Date.now()}`,
@@ -2976,6 +3066,16 @@ app.post('/api/payments/verify', authenticateToken, async (req: AuthenticatedReq
 
     if (expectedBuf.length !== signatureBuf.length || !crypto.timingSafeEqual(expectedBuf, signatureBuf)) {
       res.status(400).json({ error: 'Invalid payment signature. Verification failed.' });
+      return;
+    }
+
+    // Replay Protection: Check if this payment ID was already applied to another user account
+    const existingPayment = await queryPg(
+      `SELECT user_id FROM subscriptions WHERE razorpay_payment_id = $1 LIMIT 1`,
+      [razorpayPaymentId]
+    );
+    if (existingPayment.rows.length > 0 && existingPayment.rows[0].user_id !== userId) {
+      res.status(409).json({ error: 'This payment transaction ID has already been applied to another account.' });
       return;
     }
 
