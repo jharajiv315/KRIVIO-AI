@@ -41,7 +41,7 @@ var import_genai3 = require("@google/genai");
 var import_pg = require("pg");
 var import_bcryptjs = __toESM(require("bcryptjs"), 1);
 var import_dotenv = __toESM(require("dotenv"), 1);
-var import_crypto = __toESM(require("crypto"), 1);
+var import_crypto2 = __toESM(require("crypto"), 1);
 var import_supabase_js = require("@supabase/supabase-js");
 
 // src/server/image_operations/registry.ts
@@ -4706,6 +4706,691 @@ function getContextualCraftImage(product) {
   return generalCrafts[index % generalCrafts.length];
 }
 
+// src/server/billing/entitlement_service.ts
+var import_crypto = __toESM(require("crypto"), 1);
+
+// src/config/plans.ts
+var PLAN_CATALOGUE = {
+  free: {
+    code: "free",
+    name: "Artisan Free",
+    subtitle: "For entrepreneurs beginning their digital journey.",
+    pricePaise: 0,
+    priceInr: 0,
+    currency: "INR",
+    durationDays: 30,
+    renewalMode: "manual",
+    isSelfServe: true,
+    ctaText: "Get Started Free",
+    limits: {
+      maxProducts: 5,
+      aiTextOperations: 10,
+      aiImageOperations: 0,
+      quotationsTrialLimit: 2,
+      maxSeats: 1
+    },
+    featureFlags: {
+      imageStudioCanvasOnly: true,
+      advancedExport: false,
+      professionalQuotations: false,
+      b2bQuotes: false,
+      brandedStorefront: true,
+      usageDashboard: true,
+      sharedWorkspace: false
+    },
+    featureList: [
+      "Up to 5 stored products",
+      "10 AI text and mentor requests per month",
+      "Studio composition canvas tools",
+      "Basic product catalogue export",
+      "Deterministic fair-price calculator",
+      "Government scheme guidance",
+      "Public storefront access",
+      "Limited trial of quotation tools (2 quotes)"
+    ],
+    version: 1
+  },
+  artisan_pro: {
+    code: "artisan_pro",
+    name: "Artisan Pro",
+    subtitle: "For artisans preparing products professionally and selling more regularly.",
+    pricePaise: 29900,
+    // ₹299.00
+    priceInr: 299,
+    currency: "INR",
+    durationDays: 30,
+    renewalMode: "manual",
+    isSelfServe: true,
+    ctaText: "Choose Artisan Pro",
+    limits: {
+      maxProducts: 100,
+      aiTextOperations: 75,
+      aiImageOperations: 5,
+      quotationsTrialLimit: -1,
+      // Unlimited
+      maxSeats: 1
+    },
+    featureFlags: {
+      imageStudioCanvasOnly: false,
+      advancedExport: true,
+      professionalQuotations: true,
+      b2bQuotes: true,
+      brandedStorefront: true,
+      usageDashboard: true,
+      sharedWorkspace: false
+    },
+    featureList: [
+      "Prepare up to 100 products",
+      "75 AI text and mentor requests per 30 days",
+      "5 AI product image generations per period",
+      "Full Image Studio & composition suite",
+      "B2B quotation generation & PDF downloads",
+      "Destination-specific export formats (ONDC, GeM, Amazon)",
+      "Branded storefront capabilities",
+      "Usage dashboard and access history",
+      "Prepaid 30-day access, renew manually"
+    ],
+    version: 1
+  },
+  shg_growth: {
+    code: "shg_growth",
+    name: "SHG Growth",
+    subtitle: "For collectives managing products and business activities together.",
+    pricePaise: 99900,
+    // ₹999.00
+    priceInr: 999,
+    currency: "INR",
+    durationDays: 30,
+    renewalMode: "manual",
+    isSelfServe: false,
+    // In accordance with spec: self-serve disabled until organization workspace is ready
+    ctaText: "Enquire About Group Access",
+    limits: {
+      maxProducts: 300,
+      aiTextOperations: 250,
+      aiImageOperations: 20,
+      quotationsTrialLimit: -1,
+      maxSeats: 3
+    },
+    featureFlags: {
+      imageStudioCanvasOnly: false,
+      advancedExport: true,
+      professionalQuotations: true,
+      b2bQuotes: true,
+      brandedStorefront: true,
+      usageDashboard: true,
+      sharedWorkspace: true
+    },
+    featureList: [
+      "Up to 300 organization-owned products",
+      "250 shared AI text and mentor requests",
+      "20 shared AI product image generations",
+      "Up to 3 authorized member seats",
+      "Shared group catalogue operations",
+      "Professional quotations and advanced exports",
+      "Dedicated group onboarding and support"
+    ],
+    version: 1
+  }
+};
+var CREDIT_PACKS = [
+  {
+    id: "pack_img_5",
+    name: "5 AI Image Generations",
+    resourceType: "ai_image",
+    quantity: 5,
+    pricePaise: 12900,
+    priceInr: 129,
+    purchaseEnabled: false,
+    description: "Supplemental pack of 5 generative AI image studio credits."
+  },
+  {
+    id: "pack_img_15",
+    name: "15 AI Image Generations",
+    resourceType: "ai_image",
+    quantity: 15,
+    pricePaise: 32900,
+    priceInr: 329,
+    purchaseEnabled: false,
+    description: "Supplemental pack of 15 generative AI image studio credits."
+  }
+];
+function getPlan(code) {
+  const normalized = code.toLowerCase().trim();
+  if (normalized === "pro" || normalized === "artisan_pro") {
+    return PLAN_CATALOGUE["artisan_pro"];
+  }
+  if (normalized === "shg_growth") {
+    return PLAN_CATALOGUE["shg_growth"];
+  }
+  return PLAN_CATALOGUE["free"];
+}
+function getAllPublicPlans() {
+  return [
+    PLAN_CATALOGUE["free"],
+    PLAN_CATALOGUE["artisan_pro"],
+    PLAN_CATALOGUE["shg_growth"]
+  ];
+}
+
+// src/server/billing/entitlement_service.ts
+var QuotaExceededError = class extends Error {
+  constructor(details) {
+    super(details.error);
+    this.name = "QuotaExceededError";
+    this.details = details;
+  }
+};
+var EntitlementService = class {
+  constructor(pool) {
+    this.pool = pool;
+  }
+  /**
+   * Resolves the authoritative subscription for a user.
+   * If an active Pro subscription has passed its end_date, it is treated as expired.
+   */
+  async getEffectiveSubscription(userId) {
+    try {
+      const res = await this.pool.query(
+        `SELECT id, user_id, plan, status, start_date, end_date, renewal_mode, razorpay_payment_id
+         FROM subscriptions
+         WHERE user_id = $1
+         LIMIT 1`,
+        [userId]
+      );
+      const now = /* @__PURE__ */ new Date();
+      if (res.rows.length === 0) {
+        return {
+          id: `sub_free_${userId}`,
+          userId,
+          plan: "free",
+          status: "active",
+          startDate: now.toISOString(),
+          endDate: null,
+          renewalMode: "manual",
+          isPro: false,
+          isExpired: false
+        };
+      }
+      const row = res.rows[0];
+      const rawPlan = (row.plan || "free").toLowerCase();
+      const planCode = rawPlan === "pro" || rawPlan === "artisan_pro" ? "artisan_pro" : "free";
+      const endDate = row.end_date ? new Date(row.end_date) : null;
+      const isExpired = endDate ? endDate.getTime() <= now.getTime() : false;
+      const effectivePlan = planCode === "artisan_pro" && !isExpired && row.status === "active" ? "artisan_pro" : "free";
+      return {
+        id: row.id,
+        userId: row.user_id,
+        plan: effectivePlan,
+        status: isExpired ? "expired" : row.status || "active",
+        startDate: row.start_date ? new Date(row.start_date).toISOString() : now.toISOString(),
+        endDate: endDate ? endDate.toISOString() : null,
+        renewalMode: row.renewal_mode || "manual",
+        razorpayPaymentId: row.razorpay_payment_id || void 0,
+        isPro: effectivePlan === "artisan_pro",
+        isExpired
+      };
+    } catch (err) {
+      console.warn("[EntitlementService] Subscription lookup error, falling back to free:", err.message);
+      const now = /* @__PURE__ */ new Date();
+      return {
+        id: `sub_fallback_${userId}`,
+        userId,
+        plan: "free",
+        status: "active",
+        startDate: now.toISOString(),
+        endDate: null,
+        renewalMode: "manual",
+        isPro: false,
+        isExpired: false
+      };
+    }
+  }
+  /**
+   * Retrieves or lazily initializes the active 30-day usage quota period for the user.
+   */
+  async getOrCreateCurrentUsagePeriod(userId, planCode) {
+    const plan = getPlan(planCode);
+    const now = /* @__PURE__ */ new Date();
+    const existing = await this.pool.query(
+      `SELECT * FROM usage_periods
+       WHERE user_id = $1 AND period_start <= NOW() AND period_end > NOW()
+       ORDER BY period_end DESC
+       LIMIT 1`,
+      [userId]
+    );
+    if (existing.rows.length > 0) {
+      return existing.rows[0];
+    }
+    const periodId = `period_${Date.now()}_${import_crypto.default.randomBytes(4).toString("hex")}`;
+    const periodStart = now;
+    const periodEnd = new Date(now.getTime() + 30 * 24 * 60 * 60 * 1e3);
+    const insertRes = await this.pool.query(
+      `INSERT INTO usage_periods (
+        id, user_id, billing_owner_id, plan_code, period_start, period_end,
+        ai_text_allowance, ai_text_committed, ai_text_reserved,
+        ai_image_allowance, ai_image_committed, ai_image_reserved
+      ) VALUES ($1, $2, $2, $3, $4, $5, $6, 0, 0, $7, 0, 0)
+      RETURNING *`,
+      [
+        periodId,
+        userId,
+        planCode,
+        periodStart.toISOString(),
+        periodEnd.toISOString(),
+        plan.limits.aiTextOperations,
+        plan.limits.aiImageOperations
+      ]
+    );
+    return insertRes.rows[0];
+  }
+  /**
+   * Gets an authoritative, real-time snapshot of the user's entitlements and quota consumption.
+   */
+  async getUsageSnapshot(userId) {
+    const sub = await this.getEffectiveSubscription(userId);
+    const plan = getPlan(sub.plan);
+    const period = await this.getOrCreateCurrentUsagePeriod(userId, sub.plan);
+    const prodRes = await this.pool.query(
+      `SELECT COUNT(*)::int as count FROM products WHERE user_id = $1`,
+      [userId]
+    );
+    const prodCount = prodRes.rows[0]?.count || 0;
+    const quoteRes = await this.pool.query(
+      `SELECT COUNT(*)::int as count FROM quotations WHERE user_id = $1`,
+      [userId]
+    );
+    const quoteCount = quoteRes.rows[0]?.count || 0;
+    const creditRes = await this.pool.query(
+      `SELECT COALESCE(SUM(quantity_granted - quantity_consumed), 0)::int as available
+       FROM credit_packs
+       WHERE user_id = $1 AND status = 'active'`,
+      [userId]
+    ).catch(() => ({ rows: [{ available: 0 }] }));
+    const extraImageCredits = creditRes.rows[0]?.available || 0;
+    const aiTextRemaining = Math.max(
+      0,
+      period.ai_text_allowance - (period.ai_text_committed + period.ai_text_reserved)
+    );
+    const aiImageRemaining = Math.max(
+      0,
+      period.ai_image_allowance - (period.ai_image_committed + period.ai_image_reserved)
+    ) + extraImageCredits;
+    const canCreateProduct = prodCount < plan.limits.maxProducts;
+    const canUseAiText = aiTextRemaining > 0;
+    const canUseAiImage = aiImageRemaining > 0;
+    const canCreateQuotation = plan.limits.quotationsTrialLimit === -1 || quoteCount < plan.limits.quotationsTrialLimit;
+    return {
+      plan,
+      subscription: sub,
+      periodStart: period.period_start,
+      periodEnd: period.period_end,
+      products: {
+        current: prodCount,
+        max: plan.limits.maxProducts,
+        remaining: Math.max(0, plan.limits.maxProducts - prodCount),
+        canCreate: canCreateProduct
+      },
+      aiText: {
+        committed: period.ai_text_committed,
+        reserved: period.ai_text_reserved,
+        allowance: period.ai_text_allowance,
+        remaining: aiTextRemaining,
+        canUse: canUseAiText
+      },
+      aiImage: {
+        committed: period.ai_image_committed,
+        reserved: period.ai_image_reserved,
+        allowance: period.ai_image_allowance,
+        extraCredits: extraImageCredits,
+        remaining: aiImageRemaining,
+        canUse: canUseAiImage
+      },
+      quotations: {
+        currentCount: quoteCount,
+        trialLimit: plan.limits.quotationsTrialLimit,
+        unlimited: plan.limits.quotationsTrialLimit === -1,
+        canCreate: canCreateQuotation
+      }
+    };
+  }
+  /**
+   * Enforces product creation quota server-side.
+   * Throws QuotaExceededError if the user is at or above their plan limit.
+   */
+  async assertCanCreateProduct(userId) {
+    const sub = await this.getEffectiveSubscription(userId);
+    const plan = getPlan(sub.plan);
+    const countRes = await this.pool.query(
+      `SELECT COUNT(*)::int as count FROM products WHERE user_id = $1`,
+      [userId]
+    );
+    const count = countRes.rows[0]?.count || 0;
+    if (count >= plan.limits.maxProducts) {
+      throw new QuotaExceededError({
+        error: `Product limit reached for ${plan.name}. You have stored ${count} of ${plan.limits.maxProducts} allowed products.`,
+        limitCode: "PRODUCT_LIMIT_REACHED",
+        resourceType: "product",
+        currentPlan: sub.plan,
+        limit: plan.limits.maxProducts,
+        currentCount: count,
+        upgradeAvailable: sub.plan === "free"
+      });
+    }
+  }
+  /**
+   * Enforces quotation trial quota server-side.
+   */
+  async assertCanCreateQuotation(userId) {
+    const sub = await this.getEffectiveSubscription(userId);
+    const plan = getPlan(sub.plan);
+    if (plan.limits.quotationsTrialLimit === -1) {
+      return;
+    }
+    const countRes = await this.pool.query(
+      `SELECT COUNT(*)::int as count FROM quotations WHERE user_id = $1`,
+      [userId]
+    );
+    const count = countRes.rows[0]?.count || 0;
+    if (count >= plan.limits.quotationsTrialLimit) {
+      throw new QuotaExceededError({
+        error: `Quotation trial limit reached (${plan.limits.quotationsTrialLimit} quotes). Upgrade to Artisan Pro for unlimited professional quotations.`,
+        limitCode: "QUOTA_EXHAUSTED",
+        resourceType: "quotation",
+        currentPlan: sub.plan,
+        limit: plan.limits.quotationsTrialLimit,
+        currentCount: count,
+        upgradeAvailable: true
+      });
+    }
+  }
+  /**
+   * Transactional Reservation Step:
+   * Atomically checks quota and increments reserved count before invoking external AI provider.
+   * Prevents race conditions and double-spending.
+   */
+  async reserveUsage(userId, resourceType, operationType, idempotencyKey) {
+    const sub = await this.getEffectiveSubscription(userId);
+    const plan = getPlan(sub.plan);
+    const period = await this.getOrCreateCurrentUsagePeriod(userId, sub.plan);
+    const client = await this.pool.connect();
+    try {
+      await client.query("BEGIN");
+      const colCommitted = resourceType === "ai_text" ? "ai_text_committed" : "ai_image_committed";
+      const colReserved = resourceType === "ai_text" ? "ai_text_reserved" : "ai_image_reserved";
+      const colAllowance = resourceType === "ai_text" ? "ai_text_allowance" : "ai_image_allowance";
+      const updateRes = await client.query(
+        `UPDATE usage_periods
+         SET ${colReserved} = ${colReserved} + 1, updated_at = NOW()
+         WHERE id = $1 AND (${colCommitted} + ${colReserved} + 1) <= ${colAllowance}
+         RETURNING id, ${colCommitted} as committed, ${colAllowance} as allowance, period_end`,
+        [period.id]
+      );
+      let reservationId = idempotencyKey || `res_${Date.now()}_${import_crypto.default.randomBytes(4).toString("hex")}`;
+      let isCreditPack = false;
+      let creditPackId = void 0;
+      if (updateRes.rows.length === 0) {
+        if (resourceType === "ai_image") {
+          const packRes = await client.query(
+            `SELECT id, quantity_granted, quantity_consumed
+             FROM credit_packs
+             WHERE user_id = $1 AND status = 'active' AND (quantity_granted - quantity_consumed) > 0
+             ORDER BY created_at ASC
+             LIMIT 1
+             FOR UPDATE`,
+            [userId]
+          );
+          if (packRes.rows.length > 0) {
+            isCreditPack = true;
+            creditPackId = packRes.rows[0].id;
+            await client.query(
+              `INSERT INTO usage_ledger (
+                id, user_id, billing_owner_id, usage_period_id, resource_type,
+                operation_type, request_id, units_reserved, units_committed, units_released,
+                status, created_at, updated_at
+              ) VALUES ($1, $2, $2, $3, $4, $5, $1, 1, 0, 0, 'reserved', NOW(), NOW())`,
+              [reservationId, userId, period.id, resourceType, operationType]
+            );
+            await client.query("COMMIT");
+            return { reservationId, periodId: period.id, isCreditPack, creditPackId };
+          }
+        }
+        await client.query("ROLLBACK");
+        const periodRow = await this.pool.query(`SELECT * FROM usage_periods WHERE id = $1`, [period.id]);
+        const pData = periodRow.rows[0] || period;
+        throw new QuotaExceededError({
+          error: resourceType === "ai_text" ? `You have reached your 30-day AI text assistance limit (${plan.limits.aiTextOperations} requests). Your allowance resets on ${new Date(pData.period_end).toLocaleDateString()}.` : `You have used your ${sub.plan === "free" ? "free" : "included"} AI image generation allowance.`,
+          limitCode: "QUOTA_EXHAUSTED",
+          resourceType,
+          currentPlan: sub.plan,
+          allowance: resourceType === "ai_text" ? plan.limits.aiTextOperations : plan.limits.aiImageOperations,
+          used: resourceType === "ai_text" ? pData.ai_text_committed : pData.ai_image_committed,
+          resetDate: pData.period_end,
+          upgradeAvailable: sub.plan === "free"
+        });
+      }
+      await client.query(
+        `INSERT INTO usage_ledger (
+          id, user_id, billing_owner_id, usage_period_id, resource_type,
+          operation_type, request_id, units_reserved, units_committed, units_released,
+          status, created_at, updated_at
+        ) VALUES ($1, $2, $2, $3, $4, $5, $1, 1, 0, 0, 'reserved', NOW(), NOW())`,
+        [reservationId, userId, period.id, resourceType, operationType]
+      );
+      await client.query("COMMIT");
+      return { reservationId, periodId: period.id };
+    } catch (err) {
+      await client.query("ROLLBACK").catch(() => {
+      });
+      throw err;
+    } finally {
+      client.release();
+    }
+  }
+  /**
+   * Finalize Step: Commit reserved quota exactly once upon verified output delivery.
+   */
+  async commitUsage(reservationId, modelUsed, estimatedCostUsd = 0) {
+    const client = await this.pool.connect();
+    try {
+      await client.query("BEGIN");
+      const ledgerRes = await client.query(
+        `SELECT * FROM usage_ledger WHERE id = $1 FOR UPDATE`,
+        [reservationId]
+      );
+      if (ledgerRes.rows.length === 0) {
+        await client.query("ROLLBACK");
+        return;
+      }
+      const ledger = ledgerRes.rows[0];
+      if (ledger.status === "committed") {
+        await client.query("ROLLBACK");
+        return;
+      }
+      const resourceType = ledger.resource_type;
+      const periodId = ledger.usage_period_id;
+      if (resourceType === "ai_text") {
+        await client.query(
+          `UPDATE usage_periods
+           SET ai_text_reserved = GREATEST(0, ai_text_reserved - 1),
+               ai_text_committed = ai_text_committed + 1,
+               updated_at = NOW()
+           WHERE id = $1`,
+          [periodId]
+        );
+      } else if (resourceType === "ai_image") {
+        await client.query(
+          `UPDATE usage_periods
+           SET ai_image_reserved = GREATEST(0, ai_image_reserved - 1),
+               ai_image_committed = ai_image_committed + 1,
+               updated_at = NOW()
+           WHERE id = $1`,
+          [periodId]
+        );
+      }
+      await client.query(
+        `UPDATE usage_ledger
+         SET status = 'committed',
+             units_committed = 1,
+             model_used = $2,
+             estimated_cost_usd = $3,
+             updated_at = NOW()
+         WHERE id = $1`,
+        [reservationId, modelUsed || "gemini", estimatedCostUsd]
+      );
+      await client.query("COMMIT");
+    } catch (err) {
+      await client.query("ROLLBACK").catch(() => {
+      });
+      console.error("[EntitlementService] Commit usage error:", err.message);
+      throw err;
+    } finally {
+      client.release();
+    }
+  }
+  /**
+   * Finalize Step: Release reserved quota on definitive failure or non-AI fallback.
+   * Guarantees that users are never charged for studio canvas compositions or failed API calls.
+   */
+  async releaseUsage(reservationId, reason = "operation_failed_or_fallback") {
+    const client = await this.pool.connect();
+    try {
+      await client.query("BEGIN");
+      const ledgerRes = await client.query(
+        `SELECT * FROM usage_ledger WHERE id = $1 FOR UPDATE`,
+        [reservationId]
+      );
+      if (ledgerRes.rows.length === 0) {
+        await client.query("ROLLBACK");
+        return;
+      }
+      const ledger = ledgerRes.rows[0];
+      if (ledger.status === "released" || ledger.status === "committed") {
+        await client.query("ROLLBACK");
+        return;
+      }
+      const resourceType = ledger.resource_type;
+      const periodId = ledger.usage_period_id;
+      if (resourceType === "ai_text") {
+        await client.query(
+          `UPDATE usage_periods
+           SET ai_text_reserved = GREATEST(0, ai_text_reserved - 1),
+               updated_at = NOW()
+           WHERE id = $1`,
+          [periodId]
+        );
+      } else if (resourceType === "ai_image") {
+        await client.query(
+          `UPDATE usage_periods
+           SET ai_image_reserved = GREATEST(0, ai_image_reserved - 1),
+               updated_at = NOW()
+           WHERE id = $1`,
+          [periodId]
+        );
+      }
+      await client.query(
+        `UPDATE usage_ledger
+         SET status = 'released',
+             units_released = 1,
+             model_used = $2,
+             updated_at = NOW()
+         WHERE id = $1`,
+        [reservationId, `released:${reason}`]
+      );
+      await client.query("COMMIT");
+    } catch (err) {
+      await client.query("ROLLBACK").catch(() => {
+      });
+      console.warn("[EntitlementService] Release usage notice:", err.message);
+    } finally {
+      client.release();
+    }
+  }
+  /**
+   * Authoritative Payment Activation & Renewal Extension:
+   * Extends subscription by 30 days.
+   * If customer renews early before current access period expires:
+   * new_end_date = GREATEST(current_end_date, NOW()) + 30 days.
+   * Customer never loses paid days remaining.
+   */
+  async applyPaymentEntitlement(userId, orderId, razorpayPaymentId, razorpayOrderId) {
+    const client = await this.pool.connect();
+    try {
+      await client.query("BEGIN");
+      await client.query(
+        `UPDATE payment_orders
+         SET status = 'paid', razorpay_payment_id = $1, updated_at = NOW()
+         WHERE (id = $2 OR razorpay_order_id = $3) AND user_id = $4`,
+        [razorpayPaymentId, orderId, razorpayOrderId, userId]
+      );
+      const curSub = await client.query(
+        `SELECT end_date FROM subscriptions WHERE user_id = $1 LIMIT 1`,
+        [userId]
+      );
+      let targetEndDate;
+      if (curSub.rows.length > 0 && curSub.rows[0].end_date) {
+        const curEnd = new Date(curSub.rows[0].end_date);
+        if (curEnd.getTime() > Date.now()) {
+          targetEndDate = new Date(curEnd.getTime() + 30 * 24 * 60 * 60 * 1e3);
+        } else {
+          targetEndDate = new Date(Date.now() + 30 * 24 * 60 * 60 * 1e3);
+        }
+      } else {
+        targetEndDate = new Date(Date.now() + 30 * 24 * 60 * 60 * 1e3);
+      }
+      const subRes = await client.query(
+        `INSERT INTO subscriptions (
+          id, user_id, plan, status, razorpay_payment_id, razorpay_order_id,
+          amount, start_date, end_date, renewal_mode, plan_version, updated_at
+        ) VALUES (
+          $1, $2, 'artisan_pro', 'active', $3, $4, 299.00,
+          NOW(), $5, 'manual', 1, NOW()
+        )
+        ON CONFLICT (user_id) DO UPDATE SET
+          plan = 'artisan_pro',
+          status = 'active',
+          razorpay_payment_id = $3,
+          razorpay_order_id = $4,
+          amount = 299.00,
+          end_date = $5,
+          updated_at = NOW()
+        RETURNING start_date, end_date`,
+        [`sub_${Date.now()}`, userId, razorpayPaymentId, razorpayOrderId, targetEndDate]
+      );
+      const activatedPeriod = subRes.rows[0];
+      const proPlan = getPlan("artisan_pro");
+      const periodId = `period_${Date.now()}_${import_crypto.default.randomBytes(4).toString("hex")}`;
+      await client.query(
+        `INSERT INTO usage_periods (
+          id, user_id, billing_owner_id, plan_code, period_start, period_end,
+          ai_text_allowance, ai_text_committed, ai_text_reserved,
+          ai_image_allowance, ai_image_committed, ai_image_reserved
+        ) VALUES ($1, $2, $2, 'artisan_pro', NOW(), $3, $4, 0, 0, $5, 0, 0)`,
+        [
+          periodId,
+          userId,
+          activatedPeriod.end_date,
+          proPlan.limits.aiTextOperations,
+          proPlan.limits.aiImageOperations
+        ]
+      );
+      await client.query("COMMIT");
+      return {
+        plan: "artisan_pro",
+        startDate: new Date(activatedPeriod.start_date).toISOString(),
+        endDate: new Date(activatedPeriod.end_date).toISOString()
+      };
+    } catch (err) {
+      await client.query("ROLLBACK").catch(() => {
+      });
+      console.error("[EntitlementService] applyPaymentEntitlement error:", err.message);
+      throw err;
+    } finally {
+      client.release();
+    }
+  }
+};
+
 // server.ts
 import_dotenv.default.config();
 var imageGenService = new GenerationService();
@@ -4731,6 +5416,7 @@ pgPool.on("error", (err) => {
   console.warn("[PostgreSQL Pool Warning]: Idle client error:", err.message || err);
 });
 var quotationService = new QuotationService(pgPool);
+var entitlementService = new EntitlementService(pgPool);
 var app = (0, import_express.default)();
 var PORT = process.env.PORT ? parseInt(process.env.PORT, 10) : 3e3;
 var getJwtSecret = () => {
@@ -4792,7 +5478,12 @@ app.use((req, res, next) => {
   }
   next();
 });
-app.use(import_express.default.json({ limit: "25mb" }));
+app.use(import_express.default.json({
+  limit: "25mb",
+  verify: (req, _res, buf) => {
+    req.rawBody = buf;
+  }
+}));
 app.use(import_express.default.urlencoded({ extended: true, limit: "25mb" }));
 var EMAIL_REGEX = /^[a-zA-Z0-9.!#$%&'*+/=?^_`{|}~-]+@[a-zA-Z0-9](?:[a-zA-Z0-9-]{0,61}[a-zA-Z0-9])?(?:\.[a-zA-Z0-9](?:[a-zA-Z0-9-]{0,61}[a-zA-Z0-9])?)+$/;
 var authRateLimitMap = /* @__PURE__ */ new Map();
@@ -5217,7 +5908,7 @@ app.post("/api/auth/register", authRateLimiter(20, 5 * 60 * 1e3), async (req, re
       res.status(409).json({ error: "An account with this email address already exists. Please sign in instead." });
       return;
     }
-    const newId = `usr_${Date.now()}_${import_crypto.default.randomBytes(3).toString("hex")}`;
+    const newId = `usr_${Date.now()}_${import_crypto2.default.randomBytes(3).toString("hex")}`;
     const hash = await import_bcryptjs.default.hash(password, 10);
     const insertRes = await queryPg(
       `INSERT INTO users (id, full_name, email, password_hash, phone_number, role, preferred_language, is_active, is_verified, created_at, updated_at)
@@ -5227,7 +5918,7 @@ app.post("/api/auth/register", authRateLimiter(20, 5 * 60 * 1e3), async (req, re
     );
     const user = insertRes.rows[0];
     if (finalBusinessName || finalLocation) {
-      const bpId = `bp_${Date.now()}_${import_crypto.default.randomBytes(3).toString("hex")}`;
+      const bpId = `bp_${Date.now()}_${import_crypto2.default.randomBytes(3).toString("hex")}`;
       await queryPg(
         `INSERT INTO business_profiles (id, user_id, business_name, state, language, created_at, updated_at)
          VALUES ($1, $2, $3, $4, $5, NOW(), NOW())
@@ -5240,7 +5931,7 @@ app.post("/api/auth/register", authRateLimiter(20, 5 * 60 * 1e3), async (req, re
         console.warn("[Register Notice]: Could not create default business profile row:", bpErr.message);
       });
     }
-    const subId = `sub_${Date.now()}_${import_crypto.default.randomBytes(3).toString("hex")}`;
+    const subId = `sub_${Date.now()}_${import_crypto2.default.randomBytes(3).toString("hex")}`;
     await queryPg(
       `INSERT INTO subscriptions (id, user_id, plan, status, start_date, created_at, updated_at)
        VALUES ($1, $2, 'free', 'active', NOW(), NOW(), NOW())
@@ -5378,9 +6069,9 @@ app.post("/api/auth/forgot-password", authRateLimiter(10, 5 * 60 * 1e3), async (
     const userRes = await queryPg(`SELECT id, email FROM users WHERE LOWER(email) = $1`, [cleanEmail]);
     const user = userRes.rows[0];
     if (user) {
-      const rawToken = import_crypto.default.randomBytes(32).toString("hex");
-      const tokenHash = import_crypto.default.createHash("sha256").update(rawToken).digest("hex");
-      const resetId = `rst_${Date.now()}_${import_crypto.default.randomBytes(3).toString("hex")}`;
+      const rawToken = import_crypto2.default.randomBytes(32).toString("hex");
+      const tokenHash = import_crypto2.default.createHash("sha256").update(rawToken).digest("hex");
+      const resetId = `rst_${Date.now()}_${import_crypto2.default.randomBytes(3).toString("hex")}`;
       await queryPg(
         `UPDATE password_resets SET used_at = NOW() WHERE LOWER(email) = $1 AND used_at IS NULL`,
         [cleanEmail]
@@ -5409,7 +6100,7 @@ app.post("/api/auth/verify-reset-token", async (req, res) => {
       res.status(400).json({ valid: false, error: "Reset token is required" });
       return;
     }
-    const tokenHash = import_crypto.default.createHash("sha256").update(token.trim()).digest("hex");
+    const tokenHash = import_crypto2.default.createHash("sha256").update(token.trim()).digest("hex");
     const resetRes = await queryPg(
       `SELECT email, expires_at, used_at FROM password_resets WHERE token_hash = $1`,
       [tokenHash]
@@ -5443,7 +6134,7 @@ app.post("/api/auth/reset-password", authRateLimiter(10, 5 * 60 * 1e3), async (r
       res.status(400).json({ error: "New password must be at least 6 characters long" });
       return;
     }
-    const tokenHash = import_crypto.default.createHash("sha256").update(token.trim()).digest("hex");
+    const tokenHash = import_crypto2.default.createHash("sha256").update(token.trim()).digest("hex");
     const resetRes = await queryPg(
       `SELECT * FROM password_resets WHERE token_hash = $1 AND used_at IS NULL AND expires_at > NOW()`,
       [tokenHash]
@@ -5662,6 +6353,16 @@ app.post("/api/products/generate-details", authenticateToken, async (req, res) =
       res.status(503).json({ error: "AI service is currently unavailable. Server API key is not configured." });
       return;
     }
+    let reservation = null;
+    try {
+      reservation = await entitlementService.reserveUsage(req.user.id, "ai_text", "product_details");
+    } catch (limitErr) {
+      if (limitErr instanceof QuotaExceededError) {
+        res.status(403).json(limitErr.details);
+        return;
+      }
+      throw limitErr;
+    }
     let calculatedPrice = void 0;
     if (typeof materialCost === "number" && typeof laborCost === "number") {
       const pricingBreakdown = PricingEngine.calculate({ materialCost, laborCost });
@@ -5698,6 +6399,9 @@ Rules:
     if (calculatedPrice) {
       parsed.suggestedPrice = calculatedPrice;
     }
+    if (reservation) {
+      await entitlementService.commitUsage(reservation.reservationId, "gemini-1.5-flash", 1e-4);
+    }
     res.json({ data: parsed });
   } catch (err) {
     console.error("Failed to generate product details:", err.message || err);
@@ -5705,12 +6409,22 @@ Rules:
   }
 });
 app.post("/api/products/suggest-brand", authenticateToken, async (req, res) => {
+  let reservation = null;
   try {
     const { craftType = "Handicrafts", region = "Rural India", personality = "Authentic & Cultural", language = "en", productName } = req.body;
     const targetLang = normalizeLanguageName(language || req.user?.preferredLanguage || "en");
     if (!geminiService.isAvailable()) {
       res.status(503).json({ error: "AI service is currently unavailable. Server API key is not configured." });
       return;
+    }
+    try {
+      reservation = await entitlementService.reserveUsage(req.user.id, "ai_text", "brand_suggestion");
+    } catch (limitErr) {
+      if (limitErr instanceof QuotaExceededError) {
+        res.status(403).json(limitErr.details);
+        return;
+      }
+      throw limitErr;
     }
     const brandResult = await AITaskRouter.handle({
       task: "BRAND_SUGGESTION",
@@ -5726,13 +6440,21 @@ app.post("/api/products/suggest-brand", authenticateToken, async (req, res) => {
       },
       parameters: { personality }
     });
+    if (reservation) {
+      await entitlementService.commitUsage(reservation.reservationId, "gemini-1.5-flash", 1e-4);
+    }
     res.json({ suggestions: brandResult.suggestions });
   } catch (err) {
+    if (reservation) {
+      await entitlementService.releaseUsage(reservation.reservationId, "provider_error").catch(() => {
+      });
+    }
     console.error("Failed to suggest brand names:", err.message || err);
     res.status(503).json({ error: "Failed to generate brand suggestions: " + (err.message || "Service error") });
   }
 });
 app.post("/api/products/generate-identity", authenticateToken, async (req, res) => {
+  let reservation = null;
   try {
     const { productName, detectedSubject, materials = "Natural traditional materials", region = "Rural India", brandName = "Artisan Collective", targetAudience = "Home d\xE9cor enthusiasts & conscious buyers", language = "en", targetPrice, materialCost, laborCost } = req.body;
     const targetLang = normalizeLanguageName(language || req.user?.preferredLanguage || "en");
@@ -5740,6 +6462,15 @@ app.post("/api/products/generate-identity", authenticateToken, async (req, res) 
     if (!geminiService.isAvailable()) {
       res.status(503).json({ error: "AI service is currently unavailable. Server API key is not configured." });
       return;
+    }
+    try {
+      reservation = await entitlementService.reserveUsage(req.user.id, "ai_text", "product_identity");
+    } catch (limitErr) {
+      if (limitErr instanceof QuotaExceededError) {
+        res.status(403).json(limitErr.details);
+        return;
+      }
+      throw limitErr;
     }
     let calculatedPrice = void 0;
     if (typeof materialCost === "number" && typeof laborCost === "number") {
@@ -5762,6 +6493,9 @@ app.post("/api/products/generate-identity", authenticateToken, async (req, res) 
       },
       userInput: `Generate full e-commerce catalog identity for ${title} made with ${materials} targeting ${targetAudience}.`
     });
+    if (reservation) {
+      await entitlementService.commitUsage(reservation.reservationId, "gemini-1.5-flash", 1e-4);
+    }
     const formattedData = {
       productTitle: identityResult.title,
       shortDescription: identityResult.shortDescription,
@@ -5779,6 +6513,10 @@ app.post("/api/products/generate-identity", authenticateToken, async (req, res) 
     };
     res.json({ data: formattedData });
   } catch (err) {
+    if (reservation) {
+      await entitlementService.releaseUsage(reservation.reservationId, "provider_error").catch(() => {
+      });
+    }
     console.error("Failed to generate product identity:", err.message || err);
     res.status(503).json({ error: "Failed to generate product identity: " + (err.message || "Service error") });
   }
@@ -5872,6 +6610,15 @@ app.post("/api/products", authenticateToken, async (req, res) => {
     if (!title) {
       res.status(400).json({ error: "Product title is required" });
       return;
+    }
+    try {
+      await entitlementService.assertCanCreateProduct(userId);
+    } catch (limitErr) {
+      if (limitErr instanceof QuotaExceededError) {
+        res.status(403).json(limitErr.details);
+        return;
+      }
+      throw limitErr;
     }
     await queryPg(
       `INSERT INTO users (id, email, full_name, role, is_active, is_verified, created_at, updated_at)
@@ -6565,6 +7312,15 @@ app.get("/api/marketplace/exports", authenticateToken, async (req, res) => {
 app.post("/api/quotations", authenticateToken, async (req, res) => {
   try {
     const userId = req.user.id;
+    try {
+      await entitlementService.assertCanCreateQuotation(userId);
+    } catch (limitErr) {
+      if (limitErr instanceof QuotaExceededError) {
+        res.status(403).json(limitErr.details);
+        return;
+      }
+      throw limitErr;
+    }
     const quotation = await quotationService.createQuotation(userId, req.body);
     await queryPg(
       `INSERT INTO activities (id, user_id, title, description, event_type, created_at)
@@ -7029,6 +7785,7 @@ app.post("/api/tasks/toggle", authenticateToken, async (req, res) => {
   }
 });
 app.post("/api/ai/mentor", optionalAuthenticateToken, async (req, res) => {
+  let reservation = null;
   try {
     const userId = req.user?.id || "artisan_guest";
     const { message, language = "English", conversationHistory = [] } = req.body;
@@ -7045,6 +7802,15 @@ app.post("/api/ai/mentor", optionalAuthenticateToken, async (req, res) => {
     if (!geminiService.isAvailable()) {
       res.status(503).json({ error: "AI Mentor service is temporarily unavailable. Server API key is not configured." });
       return;
+    }
+    try {
+      reservation = await entitlementService.reserveUsage(userId, "ai_text", "mentor");
+    } catch (limitErr) {
+      if (limitErr instanceof QuotaExceededError) {
+        res.status(403).json(limitErr.details);
+        return;
+      }
+      throw limitErr;
     }
     const mentorResult = await AITaskRouter.handle({
       task: "MENTOR",
@@ -7071,6 +7837,9 @@ app.post("/api/ai/mentor", optionalAuthenticateToken, async (req, res) => {
         content: msg.text || ""
       }))
     });
+    if (reservation) {
+      await entitlementService.commitUsage(reservation.reservationId, "gemini-1.5-flash", 1e-4);
+    }
     const replyText = mentorResult.response;
     const timestamp = (/* @__PURE__ */ new Date()).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
     try {
@@ -7111,6 +7880,10 @@ app.post("/api/ai/mentor", optionalAuthenticateToken, async (req, res) => {
       timestamp
     });
   } catch (err) {
+    if (reservation) {
+      await entitlementService.releaseUsage(reservation.reservationId, "provider_error").catch(() => {
+      });
+    }
     console.error("Failed to process AI mentorship request:", err.message || err);
     res.status(503).json({ error: "Failed to process AI mentorship request: " + (err.message || "Service error") });
   }
@@ -7257,79 +8030,131 @@ app.post("/api/storefront/inquiry", async (req, res) => {
     res.status(500).json({ error: "Failed to track inquiry" });
   }
 });
+app.get("/api/plans", (_req, res) => {
+  res.json({
+    plans: getAllPublicPlans(),
+    creditPacks: CREDIT_PACKS,
+    taxPolicy: "Prices listed are exclusive of applicable GST as determined at checkout.",
+    renewalPolicy: "All paid plans are prepaid 30-day access passes with manual renewal."
+  });
+});
 app.get("/api/subscriptions", authenticateToken, async (req, res) => {
   try {
     const userId = req.user.id;
-    const subRes = await queryPg(`SELECT * FROM subscriptions WHERE user_id = $1`, [userId]);
-    const sub = subRes.rows[0] || {
-      id: `sub_${userId}`,
-      userId,
-      plan: "free",
-      status: "active",
-      startDate: (/* @__PURE__ */ new Date()).toISOString()
-    };
-    res.json({ subscription: sub });
+    const snapshot = await entitlementService.getUsageSnapshot(userId);
+    res.json({
+      subscription: snapshot.subscription,
+      usage: snapshot
+    });
   } catch (err) {
-    res.status(500).json({ error: "Failed to retrieve subscription" });
+    console.error("Failed to retrieve subscription:", err);
+    res.status(500).json({ error: "Failed to retrieve subscription snapshot" });
+  }
+});
+app.get("/api/subscriptions/usage", authenticateToken, async (req, res) => {
+  try {
+    const userId = req.user.id;
+    const snapshot = await entitlementService.getUsageSnapshot(userId);
+    res.json(snapshot);
+  } catch (err) {
+    console.error("Failed to retrieve usage:", err);
+    res.status(500).json({ error: "Failed to retrieve usage data" });
   }
 });
 app.post("/api/payments/create-order", authenticateToken, async (req, res) => {
-  const plan = "pro";
-  const amount = 299;
-  const keyId = process.env.RAZORPAY_KEY_ID || "";
-  const keySecret = process.env.RAZORPAY_KEY_SECRET || "";
-  const isRazorpayConfigured = Boolean(
-    keyId && keyId !== "rzp_test_krivio123" && keySecret && keySecret !== "krivio_razorpay_secret_123"
-  );
-  if (!isRazorpayConfigured && process.env.NODE_ENV === "production") {
-    res.status(503).json({
-      error: "Online checkout is currently unavailable. Please contact support or try again later."
-    });
-    return;
-  }
-  if (isRazorpayConfigured) {
-    try {
-      const basicAuth = Buffer.from(`${keyId}:${keySecret}`).toString("base64");
-      const orderResp = await fetch("https://api.razorpay.com/v1/orders", {
-        method: "POST",
-        headers: {
-          "Authorization": `Basic ${basicAuth}`,
-          "Content-Type": "application/json"
-        },
-        body: JSON.stringify({
-          amount: amount * 100,
-          currency: "INR",
-          receipt: `rcpt_${req.user.id}_${Date.now()}`.slice(0, 40),
-          notes: {
-            userId: req.user.id,
-            plan
-          }
-        })
-      });
-      if (orderResp.ok) {
-        const orderData = await orderResp.json();
-        res.json({
-          id: orderData.id,
-          orderId: orderData.id,
-          amount: orderData.amount,
-          currency: orderData.currency,
-          keyId,
-          plan
-        });
-        return;
-      }
-    } catch (orderErr) {
-      console.warn("[Razorpay API Warning]: Could not reach upstream Razorpay Orders API:", orderErr);
+  try {
+    const userId = req.user.id;
+    const requestedPlanCode = req.body.plan || "artisan_pro";
+    const plan = getPlan(requestedPlanCode);
+    if (plan.code === "free") {
+      res.status(400).json({ error: "The Artisan Free plan does not require a payment transaction." });
+      return;
     }
+    if (!plan.isSelfServe) {
+      res.status(400).json({
+        error: `${plan.name} is currently available via group onboarding and inquiry only. Please submit an inquiry.`,
+        enquiryRequired: true,
+        plan: plan.code
+      });
+      return;
+    }
+    const amountPaise = plan.pricePaise;
+    const currency = plan.currency;
+    const keyId = process.env.RAZORPAY_KEY_ID || "";
+    const keySecret = process.env.RAZORPAY_KEY_SECRET || "";
+    const isRazorpayConfigured = Boolean(
+      keyId && keyId !== "rzp_test_krivio123" && keySecret && keySecret !== "krivio_razorpay_secret_123"
+    );
+    if (!isRazorpayConfigured && process.env.NODE_ENV === "production") {
+      res.status(503).json({
+        error: "Online checkout is currently unavailable. Please contact support or try again later."
+      });
+      return;
+    }
+    const internalOrderId = `ord_int_${Date.now()}_${import_crypto2.default.randomBytes(4).toString("hex")}`;
+    let razorpayOrderId = `order_${Date.now()}_${import_crypto2.default.randomBytes(3).toString("hex")}`;
+    if (isRazorpayConfigured) {
+      try {
+        const basicAuth = Buffer.from(`${keyId}:${keySecret}`).toString("base64");
+        const orderResp = await fetch("https://api.razorpay.com/v1/orders", {
+          method: "POST",
+          headers: {
+            "Authorization": `Basic ${basicAuth}`,
+            "Content-Type": "application/json"
+          },
+          body: JSON.stringify({
+            amount: amountPaise,
+            currency,
+            receipt: internalOrderId.slice(0, 40),
+            notes: {
+              userId,
+              plan: plan.code,
+              internalOrderId
+            }
+          })
+        });
+        if (orderResp.ok) {
+          const rzpData = await orderResp.json();
+          razorpayOrderId = rzpData.id;
+        }
+      } catch (orderErr) {
+        console.warn("[Razorpay API Warning]: Could not reach upstream Razorpay Orders API:", orderErr);
+      }
+    }
+    await queryPg(
+      `INSERT INTO payment_orders (
+        id, user_id, billing_owner_id, plan_code, amount_paise, currency,
+        razorpay_order_id, status, metadata, created_at, updated_at
+      ) VALUES ($1, $2, $2, $3, $4, $5, $6, 'created', $7, NOW(), NOW())`,
+      [
+        internalOrderId,
+        userId,
+        plan.code,
+        amountPaise,
+        currency,
+        razorpayOrderId,
+        JSON.stringify({
+          planName: plan.name,
+          durationDays: plan.durationDays,
+          renewalMode: plan.renewalMode
+        })
+      ]
+    );
+    res.json({
+      id: razorpayOrderId,
+      orderId: razorpayOrderId,
+      internalOrderId,
+      amount: amountPaise,
+      currency,
+      keyId: keyId || "rzp_test_krivio123",
+      plan: plan.code,
+      durationDays: plan.durationDays,
+      renewalMode: "manual"
+    });
+  } catch (err) {
+    console.error("Failed to create payment order:", err);
+    res.status(500).json({ error: "Failed to create payment order" });
   }
-  res.json({
-    id: `order_${Date.now()}`,
-    orderId: `order_${Date.now()}`,
-    amount: amount * 100,
-    currency: "INR",
-    keyId: keyId || "rzp_test_krivio123",
-    plan
-  });
 });
 app.post("/api/payments/verify", authenticateToken, async (req, res) => {
   try {
@@ -7344,10 +8169,10 @@ app.post("/api/payments/verify", authenticateToken, async (req, res) => {
       res.status(503).json({ error: "Payment gateway configuration is currently unavailable for verification." });
       return;
     }
-    const expectedSignature = import_crypto.default.createHmac("sha256", secret).update(`${razorpayOrderId}|${razorpayPaymentId}`).digest("hex");
+    const expectedSignature = import_crypto2.default.createHmac("sha256", secret).update(`${razorpayOrderId}|${razorpayPaymentId}`).digest("hex");
     const expectedBuf = Buffer.from(expectedSignature, "utf-8");
     const signatureBuf = Buffer.from(String(razorpaySignature), "utf-8");
-    if (expectedBuf.length !== signatureBuf.length || !import_crypto.default.timingSafeEqual(expectedBuf, signatureBuf)) {
+    if (expectedBuf.length !== signatureBuf.length || !import_crypto2.default.timingSafeEqual(expectedBuf, signatureBuf)) {
       res.status(400).json({ error: "Invalid payment signature. Verification failed." });
       return;
     }
@@ -7359,20 +8184,146 @@ app.post("/api/payments/verify", authenticateToken, async (req, res) => {
       res.status(409).json({ error: "This payment transaction ID has already been applied to another account." });
       return;
     }
-    await queryPg(
-      `INSERT INTO subscriptions (id, user_id, plan, status, razorpay_payment_id, start_date, end_date)
-       VALUES ($1, $2, 'pro', 'active', $3, NOW(), NOW() + INTERVAL '30 days')
-       ON CONFLICT (user_id) DO UPDATE SET
-        plan = 'pro', status = 'active', razorpay_payment_id = $3, start_date = NOW(), end_date = NOW() + INTERVAL '30 days'`,
-      [`sub_${Date.now()}`, userId, razorpayPaymentId]
+    if (existingPayment.rows.length > 0 && existingPayment.rows[0].user_id === userId) {
+      const snapshot2 = await entitlementService.getUsageSnapshot(userId);
+      res.json({
+        success: true,
+        subscriptionPlan: "artisan_pro",
+        message: "Payment verified and Pro access active.",
+        usage: snapshot2
+      });
+      return;
+    }
+    const activation = await entitlementService.applyPaymentEntitlement(
+      userId,
+      razorpayOrderId,
+      razorpayPaymentId,
+      razorpayOrderId
     );
+    const snapshot = await entitlementService.getUsageSnapshot(userId);
+    await queryPg(
+      `INSERT INTO activities (id, user_id, title, description, event_type, created_at)
+       VALUES ($1, $2, $3, $4, $5, NOW())`,
+      [
+        `act_${Date.now()}`,
+        userId,
+        "Activated Artisan Pro Access",
+        `30-day access active until ${new Date(activation.endDate).toLocaleDateString()}.`,
+        "subscription_activated"
+      ]
+    ).catch(() => {
+    });
     res.json({
       success: true,
-      subscriptionPlan: "pro",
-      message: "Subscription upgraded to Pro successfully!"
+      subscriptionPlan: "artisan_pro",
+      startDate: activation.startDate,
+      endDate: activation.endDate,
+      message: "Subscription upgraded to Artisan Pro successfully for 30 days.",
+      usage: snapshot
     });
   } catch (err) {
+    console.error("Failed to verify payment:", err);
     res.status(500).json({ error: "Failed to verify payment" });
+  }
+});
+app.post("/api/payments/webhook", async (req, res) => {
+  try {
+    const signature = req.headers["x-razorpay-signature"];
+    const webhookSecret = process.env.RAZORPAY_WEBHOOK_SECRET || process.env.RAZORPAY_KEY_SECRET;
+    if (!webhookSecret || webhookSecret === "krivio_razorpay_secret_123") {
+      res.status(503).json({ error: "Webhook processing secret is unconfigured" });
+      return;
+    }
+    if (!signature) {
+      res.status(400).json({ error: "Missing x-razorpay-signature header" });
+      return;
+    }
+    const rawBody = req.rawBody;
+    if (!rawBody) {
+      res.status(400).json({ error: "Raw request body unavailable for signature verification" });
+      return;
+    }
+    const expectedSignature = import_crypto2.default.createHmac("sha256", webhookSecret).update(rawBody).digest("hex");
+    const expectedBuf = Buffer.from(expectedSignature, "utf-8");
+    const signatureBuf = Buffer.from(signature, "utf-8");
+    if (expectedBuf.length !== signatureBuf.length || !import_crypto2.default.timingSafeEqual(expectedBuf, signatureBuf)) {
+      res.status(400).json({ error: "Invalid webhook signature" });
+      return;
+    }
+    const event = req.body;
+    const eventId = event?.event_id || event?.id || `evt_${Date.now()}_${import_crypto2.default.randomBytes(4).toString("hex")}`;
+    const eventType = event?.event || "unknown";
+    const existingEvt = await queryPg(
+      `SELECT id FROM payment_events WHERE provider_event_id = $1 LIMIT 1`,
+      [eventId]
+    );
+    if (existingEvt.rows.length > 0) {
+      res.json({ status: "ignored_duplicate", eventId });
+      return;
+    }
+    const paymentEntity = event?.payload?.payment?.entity || {};
+    const orderEntity = event?.payload?.order?.entity || {};
+    const rzpOrderId = paymentEntity.order_id || orderEntity.id;
+    const rzpPaymentId = paymentEntity.id;
+    const userId = paymentEntity.notes?.userId || orderEntity.notes?.userId;
+    await queryPg(
+      `INSERT INTO payment_events (
+        id, provider_event_id, event_type, razorpay_order_id, razorpay_payment_id,
+        signature_verified, processing_status, payload, created_at
+      ) VALUES ($1, $2, $3, $4, $5, true, 'processed', $6, NOW())`,
+      [
+        `pevt_${Date.now()}`,
+        eventId,
+        eventType,
+        rzpOrderId || null,
+        rzpPaymentId || null,
+        JSON.stringify(event)
+      ]
+    );
+    if ((eventType === "order.paid" || eventType === "payment.captured") && userId && rzpPaymentId && rzpOrderId) {
+      await entitlementService.applyPaymentEntitlement(userId, rzpOrderId, rzpPaymentId, rzpOrderId).catch((aErr) => {
+        console.warn("Webhook entitlement activation note:", aErr.message);
+      });
+    }
+    res.json({ status: "processed", eventId });
+  } catch (err) {
+    console.error("Webhook error:", err);
+    res.status(500).json({ error: "Internal webhook error" });
+  }
+});
+app.get("/api/admin/billing/metrics", authenticateToken, async (req, res) => {
+  try {
+    const userRole = req.user?.role;
+    if (userRole !== "admin") {
+      res.status(403).json({ error: "Administrative authorization required to access business analytics." });
+      return;
+    }
+    const [userCounts, subCounts, orderStats, ledgerStats, productCount] = await Promise.all([
+      queryPg(`SELECT role, COUNT(*)::int as count FROM users GROUP BY role`),
+      queryPg(`SELECT plan, status, COUNT(*)::int as count FROM subscriptions GROUP BY plan, status`),
+      queryPg(`SELECT status, COUNT(*)::int as count, COALESCE(SUM(amount_paise), 0)::bigint as total_paise FROM payment_orders GROUP BY status`),
+      queryPg(`SELECT resource_type, operation_type, status, COUNT(*)::int as count, COALESCE(SUM(estimated_cost_usd), 0)::numeric as cost_usd FROM usage_ledger GROUP BY resource_type, operation_type, status`),
+      queryPg(`SELECT COUNT(*)::int as count FROM products`)
+    ]);
+    const grossPaidPaise = orderStats.rows.find((r) => r.status === "paid")?.total_paise || 0;
+    const grossPaidInr = Number(grossPaidPaise) / 100;
+    res.json({
+      summary: {
+        totalProducts: productCount.rows[0]?.count || 0,
+        grossRevenueInr: grossPaidInr,
+        activeProSubscriptions: subCounts.rows.find((r) => (r.plan === "pro" || r.plan === "artisan_pro") && r.status === "active")?.count || 0,
+        freeUsers: subCounts.rows.find((r) => r.plan === "free")?.count || 0,
+        expiredSubscriptions: subCounts.rows.find((r) => r.status === "expired")?.count || 0
+      },
+      userBreakdown: userCounts.rows,
+      subscriptionBreakdown: subCounts.rows,
+      orderBreakdown: orderStats.rows,
+      usageLedgerBreakdown: ledgerStats.rows,
+      generatedAt: (/* @__PURE__ */ new Date()).toISOString()
+    });
+  } catch (err) {
+    console.error("Admin metrics error:", err);
+    res.status(500).json({ error: "Failed to retrieve administrative billing metrics" });
   }
 });
 app.get("/api/marketplace/recommendations", authenticateToken, async (req, res) => {
@@ -7442,6 +8393,7 @@ app.get("/api/marketplace/recommendations", authenticateToken, async (req, res) 
   }
 });
 app.post("/api/images/analyze", authenticateToken, async (req, res) => {
+  let reservation = null;
   try {
     const { imageBase64 } = req.body;
     if (!imageBase64) {
@@ -7451,6 +8403,15 @@ app.post("/api/images/analyze", authenticateToken, async (req, res) => {
     if (!geminiService.isAvailable()) {
       res.status(503).json({ error: "Vision AI service is currently unavailable. Server API key is not configured." });
       return;
+    }
+    try {
+      reservation = await entitlementService.reserveUsage(req.user.id, "ai_text", "image_analysis");
+    } catch (limitErr) {
+      if (limitErr instanceof QuotaExceededError) {
+        res.status(403).json(limitErr.details);
+        return;
+      }
+      throw limitErr;
     }
     let mimeType = "image/jpeg";
     let cleanBase64 = imageBase64;
@@ -7471,6 +8432,9 @@ app.post("/api/images/analyze", authenticateToken, async (req, res) => {
         language: req.user?.preferredLanguage || "en"
       })
     ]);
+    if (reservation) {
+      await entitlementService.commitUsage(reservation.reservationId, "gemini-1.5-flash", 2e-4);
+    }
     const analysis = {
       id: `img_${Date.now()}`,
       imageUrl: imageBase64,
@@ -7496,6 +8460,10 @@ app.post("/api/images/analyze", authenticateToken, async (req, res) => {
     };
     res.json({ analysis });
   } catch (err) {
+    if (reservation) {
+      await entitlementService.releaseUsage(reservation.reservationId, "provider_error").catch(() => {
+      });
+    }
     console.error("Failed to analyze product image:", err.message || err);
     res.status(503).json({ error: "Failed to analyze product image with Vision AI: " + (err.message || "Service error") });
   }
@@ -7507,6 +8475,7 @@ app.get("/api/image-studio/operations", (req, res) => {
   });
 });
 app.post("/api/image-studio/generate", authenticateToken, async (req, res) => {
+  let reservation = null;
   try {
     const userId = req.user.id;
     const {
@@ -7519,11 +8488,25 @@ app.post("/api/image-studio/generate", authenticateToken, async (req, res) => {
       language,
       brandContext,
       festivalOrOccasion,
-      marketingText
+      marketingText,
+      mode
     } = req.body;
     if (!originalImage) {
       res.status(400).json({ error: "An original product image is required." });
       return;
+    }
+    const sub = await entitlementService.getEffectiveSubscription(userId);
+    const isStudioCanvasMode = mode === "studio_canvas";
+    if (!isStudioCanvasMode) {
+      try {
+        reservation = await entitlementService.reserveUsage(userId, "ai_image", "image_studio");
+      } catch (limitErr) {
+        if (limitErr instanceof QuotaExceededError) {
+          res.status(403).json(limitErr.details);
+          return;
+        }
+        throw limitErr;
+      }
     }
     let effectiveBrand = brandContext;
     if (!effectiveBrand) {
@@ -7550,6 +8533,13 @@ app.post("/api/image-studio/generate", authenticateToken, async (req, res) => {
       festivalOrOccasion,
       marketingText
     });
+    if (reservation) {
+      if (result.modelUsed === "krivio-studio-engine") {
+        await entitlementService.releaseUsage(reservation.reservationId, "canvas_fallback");
+      } else {
+        await entitlementService.commitUsage(reservation.reservationId, result.modelUsed || "imagen-3", 0.03);
+      }
+    }
     await queryPg(
       `INSERT INTO image_studio_assets (
         id, user_id, product_id, operation_id, category, original_asset, generated_asset,
@@ -7570,7 +8560,8 @@ app.post("/api/image-studio/generate", authenticateToken, async (req, res) => {
         JSON.stringify({
           operationLabel: result.operationLabel,
           brandUsed: Boolean(effectiveBrand?.brandName),
-          festival: festivalOrOccasion || null
+          festival: festivalOrOccasion || null,
+          isStudioCanvasFallback: result.modelUsed === "krivio-studio-engine"
         })
       ]
     ).catch((dbErr) => {
@@ -7590,9 +8581,14 @@ app.post("/api/image-studio/generate", authenticateToken, async (req, res) => {
     });
     res.json({
       success: true,
-      asset: result
+      asset: result,
+      isStudioCanvasFallback: result.modelUsed === "krivio-studio-engine"
     });
   } catch (err) {
+    if (reservation) {
+      await entitlementService.releaseUsage(reservation.reservationId, "provider_error").catch(() => {
+      });
+    }
     console.error("Image Studio generation error:", err.message || err);
     res.status(500).json({
       error: "The enhancement could not be completed right now. Your original image is still safe."
@@ -8356,6 +9352,118 @@ async function initPgDatabase() {
         updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
         PRIMARY KEY (user_id, task_id)
       );
+
+      CREATE TABLE IF NOT EXISTS plans (
+        code VARCHAR(50) PRIMARY KEY,
+        name VARCHAR(100) NOT NULL,
+        price_paise INT NOT NULL,
+        currency VARCHAR(10) DEFAULT 'INR',
+        duration_days INT DEFAULT 30,
+        max_seats INT DEFAULT 1,
+        product_allowance INT NOT NULL,
+        ai_text_allowance INT NOT NULL,
+        ai_image_allowance INT NOT NULL,
+        quotations_trial_limit INT NOT NULL,
+        feature_flags JSONB DEFAULT '{}'::jsonb,
+        is_active BOOLEAN DEFAULT TRUE,
+        version INT DEFAULT 1,
+        created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
+        updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
+      );
+
+      CREATE TABLE IF NOT EXISTS payment_orders (
+        id VARCHAR(255) PRIMARY KEY,
+        user_id VARCHAR(255) NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+        billing_owner_id VARCHAR(255) NOT NULL,
+        plan_code VARCHAR(50) NOT NULL,
+        amount_paise INT NOT NULL,
+        currency VARCHAR(10) DEFAULT 'INR',
+        razorpay_order_id VARCHAR(255) UNIQUE,
+        razorpay_payment_id VARCHAR(255),
+        status VARCHAR(50) DEFAULT 'created',
+        idempotency_key VARCHAR(255) UNIQUE,
+        metadata JSONB DEFAULT '{}'::jsonb,
+        created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
+        updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
+      );
+
+      CREATE TABLE IF NOT EXISTS payment_events (
+        id VARCHAR(255) PRIMARY KEY,
+        provider_event_id VARCHAR(255) UNIQUE NOT NULL,
+        event_type VARCHAR(100) NOT NULL,
+        razorpay_order_id VARCHAR(255),
+        razorpay_payment_id VARCHAR(255),
+        signature_verified BOOLEAN DEFAULT FALSE,
+        processing_status VARCHAR(50) DEFAULT 'pending',
+        payload JSONB DEFAULT '{}'::jsonb,
+        error_message TEXT,
+        created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
+      );
+
+      CREATE TABLE IF NOT EXISTS usage_periods (
+        id VARCHAR(255) PRIMARY KEY,
+        user_id VARCHAR(255) NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+        billing_owner_id VARCHAR(255) NOT NULL,
+        plan_code VARCHAR(50) NOT NULL,
+        period_start TIMESTAMP WITH TIME ZONE NOT NULL,
+        period_end TIMESTAMP WITH TIME ZONE NOT NULL,
+        ai_text_allowance INT NOT NULL,
+        ai_text_committed INT NOT NULL DEFAULT 0,
+        ai_text_reserved INT NOT NULL DEFAULT 0,
+        ai_image_allowance INT NOT NULL,
+        ai_image_committed INT NOT NULL DEFAULT 0,
+        ai_image_reserved INT NOT NULL DEFAULT 0,
+        created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
+        updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
+      );
+
+      CREATE TABLE IF NOT EXISTS usage_ledger (
+        id VARCHAR(255) PRIMARY KEY,
+        user_id VARCHAR(255) NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+        billing_owner_id VARCHAR(255) NOT NULL,
+        usage_period_id VARCHAR(255) REFERENCES usage_periods(id) ON DELETE SET NULL,
+        resource_type VARCHAR(50) NOT NULL,
+        operation_type VARCHAR(100) NOT NULL,
+        request_id VARCHAR(255) UNIQUE NOT NULL,
+        units_reserved INT NOT NULL DEFAULT 1,
+        units_committed INT NOT NULL DEFAULT 0,
+        units_released INT NOT NULL DEFAULT 0,
+        status VARCHAR(50) NOT NULL DEFAULT 'reserved',
+        model_used VARCHAR(100),
+        estimated_cost_usd NUMERIC(10, 6) DEFAULT 0,
+        created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
+        updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
+      );
+
+      CREATE TABLE IF NOT EXISTS credit_packs (
+        id VARCHAR(255) PRIMARY KEY,
+        user_id VARCHAR(255) NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+        pack_id VARCHAR(100) NOT NULL,
+        resource_type VARCHAR(50) NOT NULL DEFAULT 'ai_image',
+        quantity_granted INT NOT NULL,
+        quantity_consumed INT NOT NULL DEFAULT 0,
+        razorpay_payment_id VARCHAR(255),
+        status VARCHAR(50) DEFAULT 'active',
+        created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
+        expires_at TIMESTAMP WITH TIME ZONE
+      );
+
+      CREATE TABLE IF NOT EXISTS organizations (
+        id VARCHAR(255) PRIMARY KEY,
+        name VARCHAR(255) NOT NULL,
+        owner_user_id VARCHAR(255) NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+        created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
+      );
+
+      CREATE TABLE IF NOT EXISTS organization_members (
+        id VARCHAR(255) PRIMARY KEY,
+        organization_id VARCHAR(255) NOT NULL REFERENCES organizations(id) ON DELETE CASCADE,
+        user_id VARCHAR(255) NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+        role VARCHAR(50) NOT NULL DEFAULT 'member',
+        status VARCHAR(50) NOT NULL DEFAULT 'active',
+        created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
+        UNIQUE(organization_id, user_id)
+      );
     `;
     await pgPool.query(createTablesQuery);
     await pgPool.query(`CREATE INDEX IF NOT EXISTS idx_user_tasks_user_id ON user_tasks(user_id)`).catch(() => {
@@ -8416,6 +9524,55 @@ async function initPgDatabase() {
     });
     await pgPool.query(`CREATE INDEX IF NOT EXISTS idx_voice_assets_sender ON voice_assets(whatsapp_sender_id)`).catch(() => {
     });
+    await pgPool.query(`ALTER TABLE subscriptions ADD COLUMN IF NOT EXISTS renewal_mode VARCHAR(50) DEFAULT 'manual'`).catch(() => {
+    });
+    await pgPool.query(`ALTER TABLE subscriptions ADD COLUMN IF NOT EXISTS plan_version INT DEFAULT 1`).catch(() => {
+    });
+    await pgPool.query(`ALTER TABLE subscriptions ADD COLUMN IF NOT EXISTS organization_id VARCHAR(255)`).catch(() => {
+    });
+    await pgPool.query(`CREATE INDEX IF NOT EXISTS idx_payment_orders_user ON payment_orders(user_id)`).catch(() => {
+    });
+    await pgPool.query(`CREATE INDEX IF NOT EXISTS idx_payment_orders_rzp_ord ON payment_orders(razorpay_order_id)`).catch(() => {
+    });
+    await pgPool.query(`CREATE INDEX IF NOT EXISTS idx_payment_events_prov ON payment_events(provider_event_id)`).catch(() => {
+    });
+    await pgPool.query(`CREATE INDEX IF NOT EXISTS idx_usage_periods_user_time ON usage_periods(user_id, period_start, period_end)`).catch(() => {
+    });
+    await pgPool.query(`CREATE INDEX IF NOT EXISTS idx_usage_ledger_req ON usage_ledger(request_id)`).catch(() => {
+    });
+    await pgPool.query(`CREATE INDEX IF NOT EXISTS idx_usage_ledger_user ON usage_ledger(user_id)`).catch(() => {
+    });
+    await pgPool.query(`CREATE INDEX IF NOT EXISTS idx_credit_packs_user ON credit_packs(user_id)`).catch(() => {
+    });
+    for (const plan of getAllPublicPlans()) {
+      await pgPool.query(
+        `INSERT INTO plans (
+          code, name, price_paise, currency, duration_days, max_seats,
+          product_allowance, ai_text_allowance, ai_image_allowance,
+          quotations_trial_limit, feature_flags, is_active, version, updated_at
+        ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, true, $12, NOW())
+        ON CONFLICT (code) DO UPDATE SET
+          name = $2, price_paise = $3, duration_days = $5, max_seats = $6,
+          product_allowance = $7, ai_text_allowance = $8, ai_image_allowance = $9,
+          quotations_trial_limit = $10, feature_flags = $11, version = $12, updated_at = NOW()`,
+        [
+          plan.code,
+          plan.name,
+          plan.pricePaise,
+          plan.currency,
+          plan.durationDays,
+          plan.limits.maxSeats,
+          plan.limits.maxProducts,
+          plan.limits.aiTextOperations,
+          plan.limits.aiImageOperations,
+          plan.limits.quotationsTrialLimit,
+          JSON.stringify(plan.featureFlags),
+          plan.version
+        ]
+      ).catch((pErr) => {
+        console.warn("Notice seeding plan catalogue:", pErr.message || pErr);
+      });
+    }
     console.log("PostgreSQL production database tables verified.");
   } catch (err) {
     console.warn("PostgreSQL initialization notice:", err.message || err);
