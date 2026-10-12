@@ -79,6 +79,7 @@ export const Dashboard: React.FC<DashboardProps> = ({ currentTab, setCurrentTab,
   const [recentProducts, setRecentProducts] = useState<Product[]>([]);
   const [recentActivity, setRecentActivity] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
+  const [fetchError, setFetchError] = useState<string | null>(null);
   const [isSidebarCollapsed, setIsSidebarCollapsed] = useState(false);
   const [mobileDrawerOpen, setMobileDrawerOpen] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
@@ -87,16 +88,24 @@ export const Dashboard: React.FC<DashboardProps> = ({ currentTab, setCurrentTab,
   const loadDashboardData = async () => {
     try {
       setLoading(true);
+      setFetchError(null);
       const [data, prodRes] = await Promise.all([
-        dashboardApi.getStats().catch(() => ({ stats: null, tasks: [], recentActivity: [] })),
-        productsApi.getAll().catch(() => ({ products: [] })),
+        dashboardApi.getStats().catch((err) => {
+          console.warn('[Dashboard Stats Notice]:', err?.message);
+          return { stats: null, tasks: [], recentActivity: [] };
+        }),
+        productsApi.getAll().catch((err) => {
+          console.warn('[Dashboard Products Notice]:', err?.message);
+          throw err;
+        }),
       ]);
       if (data?.stats) setStats(data.stats);
       if (data?.tasks) setTasks(data.tasks);
-      setRecentProducts(prodRes?.products || (data as any)?.recentProducts || []);
+      setRecentProducts(prodRes?.products || []);
       setRecentActivity((data as any)?.recentActivity || []);
-    } catch (err) {
+    } catch (err: any) {
       console.error('Failed to load workspace data', err);
+      setFetchError(err?.message || 'Unable to load workspace data. Please check connection.');
     } finally {
       setLoading(false);
     }
@@ -123,16 +132,18 @@ export const Dashboard: React.FC<DashboardProps> = ({ currentTab, setCurrentTab,
   }, [mobileDrawerOpen]);
 
   const handleToggleTask = async (taskId: string) => {
+    const prevTasks = [...tasks];
+    setTasks((prev) =>
+      prev.map((t) => (t.id === taskId ? { ...t, completed: !t.completed } : t))
+    );
     try {
-      setTasks((prev) =>
-        prev.map((t) => (t.id === taskId ? { ...t, completed: !t.completed } : t))
-      );
       const res = await dashboardApi.toggleTask(taskId);
       if (res.tasks) {
         setTasks(res.tasks);
       }
     } catch (err) {
-      console.error('Failed to toggle task', err);
+      console.error('Failed to toggle task, rolling back', err);
+      setTasks(prevTasks);
     }
   };
 
@@ -203,17 +214,142 @@ export const Dashboard: React.FC<DashboardProps> = ({ currentTab, setCurrentTab,
       case 'settings':
         return <SettingsView />;
       case 'dashboard':
-      default:
+      default: {
+        // 1. Loading Skeleton State
+        if (loading) {
+          return (
+            <div className="space-y-6 animate-pulse p-2 sm:p-4">
+              <div className="h-44 bg-stone-200/80 dark:bg-emerald-950/40 rounded-3xl" />
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+                <div className="h-28 bg-stone-200/80 dark:bg-emerald-950/40 rounded-2xl" />
+                <div className="h-28 bg-stone-200/80 dark:bg-emerald-950/40 rounded-2xl" />
+                <div className="h-28 bg-stone-200/80 dark:bg-emerald-950/40 rounded-2xl" />
+              </div>
+              <div className="h-64 bg-stone-200/80 dark:bg-emerald-950/40 rounded-2xl" />
+            </div>
+          );
+        }
+
+        // 2. Network / Server Failure Recovery State
+        if (fetchError && recentProducts.length === 0) {
+          return (
+            <div className="max-w-xl mx-auto my-12 p-6 sm:p-8 bg-white dark:bg-[#13251B] rounded-3xl border border-red-200 dark:border-red-900/50 shadow-md text-center space-y-4">
+              <div className="w-14 h-14 rounded-2xl bg-red-100 dark:bg-red-950/60 text-red-600 dark:text-red-400 flex items-center justify-center mx-auto">
+                <AlertCircle className="w-7 h-7" />
+              </div>
+              <div className="space-y-1">
+                <h3 className="text-lg font-bold text-stone-900 dark:text-white font-poppins">
+                  Unable to Connect to Workspace
+                </h3>
+                <p className="text-xs sm:text-sm text-stone-600 dark:text-emerald-200/70 max-w-md mx-auto">
+                  {fetchError} Your saved products and settings remain safe.
+                </p>
+              </div>
+              <button
+                onClick={loadDashboardData}
+                className="inline-flex items-center justify-center gap-2 px-6 py-3 bg-[#0F5132] hover:bg-[#0B3D26] text-white font-bold text-xs rounded-xl shadow-xs transition-all font-poppins cursor-pointer active:scale-98 min-h-[44px]"
+              >
+                <span>Retry Loading Workspace</span>
+              </button>
+            </div>
+          );
+        }
+
+        const healthScoreDisplay = (stats?.healthScore !== null && stats?.healthScore !== undefined)
+          ? `${stats.healthScore}%`
+          : 'Calculating...';
+
+        // 3. FIRST-TIME ARTISAN ONBOARDING EXPERIENCE (0 Products)
+        if (recentProducts.length === 0) {
+          return (
+            <div className="space-y-6 sm:space-y-8 animate-in fade-in duration-200">
+              {/* Welcoming Onboarding Banner */}
+              <div className="bg-gradient-to-r from-[#0F5132] via-[#123524] to-[#0B1911] text-white p-6 sm:p-8 rounded-3xl shadow-xl border border-[#0F5132]/30 relative overflow-hidden">
+                <div className="max-w-2xl space-y-3 relative z-10">
+                  <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-[#D4AF37] text-[#1A1A1A] text-xs font-bold font-poppins uppercase">
+                    Welcome to KRIVIO
+                  </div>
+                  <h1 className="text-xl sm:text-3xl font-extrabold font-poppins text-white leading-tight">
+                    Namaste, {user.name || user.full_name || 'Artisan'}! Let's bring your handmade craft online.
+                  </h1>
+                  <p className="text-xs sm:text-sm text-emerald-100/90 font-inter leading-relaxed">
+                    KRIVIO AI helps you catalog your handmade goods, calculate fair market prices, and share an authentic digital storefront with buyers across India.
+                  </p>
+                </div>
+              </div>
+
+              {/* Primary Recommended Action Card */}
+              <div className="bg-white dark:bg-[#13251B] p-6 sm:p-8 rounded-3xl border-2 border-[#0F5132]/25 dark:border-emerald-700/60 shadow-lg flex flex-col md:flex-row items-start md:items-center justify-between gap-6">
+                <div className="flex items-start gap-4">
+                  <div className="w-14 h-14 rounded-2xl bg-[#0F5132]/10 dark:bg-emerald-950 text-[#0F5132] dark:text-[#34D399] flex items-center justify-center shrink-0">
+                    <Package className="w-7 h-7 text-[#0F5132] dark:text-emerald-400" />
+                  </div>
+                  <div className="space-y-1.5">
+                    <span className="text-xs font-bold text-[#D4AF37] uppercase tracking-wider font-poppins">
+                      Recommended First Step
+                    </span>
+                    <h2 className="text-lg sm:text-xl font-bold text-stone-900 dark:text-white font-poppins">
+                      Add Your First Handcrafted Product
+                    </h2>
+                    <p className="text-xs sm:text-sm text-stone-600 dark:text-emerald-200/80 font-inter max-w-xl leading-relaxed">
+                      Take a smartphone photo of your item. Our AI will help you write an authentic craft story and calculate a fair market price.
+                    </p>
+                  </div>
+                </div>
+
+                <button
+                  onClick={() => setCurrentTab('products')}
+                  className="w-full md:w-auto inline-flex items-center justify-center gap-2 px-6 py-3.5 bg-[#0F5132] hover:bg-[#0B3D26] text-white font-bold text-sm rounded-xl shadow-md transition-all font-poppins cursor-pointer active:scale-98 min-h-[48px] shrink-0"
+                >
+                  <Plus className="w-5 h-5 text-[#D4AF37]" />
+                  <span>Prepare Your First Product</span>
+                </button>
+              </div>
+
+              {/* 3-Step Guided Journey */}
+              <div className="space-y-3">
+                <h3 className="text-xs font-bold text-stone-500 dark:text-emerald-400 uppercase tracking-wider font-poppins">
+                  How KRIVIO Works for Your Business
+                </h3>
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                  <div className="p-5 bg-white dark:bg-[#13251B] rounded-2xl border border-[#0F5132]/15 dark:border-emerald-800/60 shadow-2xs space-y-2">
+                    <div className="w-9 h-9 rounded-xl bg-[#0F5132]/10 dark:bg-emerald-950 text-[#0F5132] dark:text-emerald-400 font-bold text-sm flex items-center justify-center font-poppins">
+                      1
+                    </div>
+                    <h4 className="text-sm font-bold text-stone-900 dark:text-white font-poppins">Create Listing</h4>
+                    <p className="text-xs text-stone-600 dark:text-emerald-200/70 leading-relaxed">Upload smartphone photos, craft origin, and materials using voice or text.</p>
+                  </div>
+
+                  <div className="p-5 bg-white dark:bg-[#13251B] rounded-2xl border border-[#0F5132]/15 dark:border-emerald-800/60 shadow-2xs space-y-2">
+                    <div className="w-9 h-9 rounded-xl bg-[#D4AF37]/20 text-[#8B6E10] dark:text-[#D4AF37] font-bold text-sm flex items-center justify-center font-poppins">
+                      2
+                    </div>
+                    <h4 className="text-sm font-bold text-stone-900 dark:text-white font-poppins">Calculate Fair Price</h4>
+                    <p className="text-xs text-stone-600 dark:text-emerald-200/70 leading-relaxed">Include labor hours and materials so you never undercharge for your craftsmanship.</p>
+                  </div>
+
+                  <div className="p-5 bg-white dark:bg-[#13251B] rounded-2xl border border-[#0F5132]/15 dark:border-emerald-800/60 shadow-2xs space-y-2">
+                    <div className="w-9 h-9 rounded-xl bg-[#2E7D32]/10 dark:bg-emerald-950 text-[#2E7D32] dark:text-emerald-400 font-bold text-sm flex items-center justify-center font-poppins">
+                      3
+                    </div>
+                    <h4 className="text-sm font-bold text-stone-900 dark:text-white font-poppins">Share Storefront</h4>
+                    <p className="text-xs text-stone-600 dark:text-emerald-200/70 leading-relaxed">Direct WhatsApp orders for buyers across India with zero middleman commissions.</p>
+                  </div>
+                </div>
+              </div>
+            </div>
+          );
+        }
+
+        // 4. RETURNING ARTISAN ACTIVE WORKSPACE (Catalog Exists)
         return (
           <div className="space-y-6 sm:space-y-8 animate-in fade-in duration-200">
-            {/* Welcome Message Banner */}
+            {/* Executive Workspace Banner */}
             <div className="bg-gradient-to-r from-[#0F5132] via-[#123524] to-[#0B1911] text-white p-5 sm:p-7 md:p-8 rounded-3xl shadow-xl border border-[#0F5132]/30 relative overflow-hidden">
-              <div className="absolute right-0 top-0 w-80 h-80 bg-[#D4AF37]/10 rounded-full blur-3xl pointer-events-none" />
-
               <div className="flex flex-col md:flex-row md:items-center justify-between gap-5 relative z-10">
                 <div className="space-y-2">
                   <div className="flex flex-wrap items-center gap-2">
-                    <span className="px-2.5 py-0.5 rounded-full text-[10px] font-bold uppercase tracking-wider bg-[#D4AF37] text-[#1A1A1A] font-poppins">
+                    <span className="px-2.5 py-0.5 rounded-full text-xs font-bold uppercase tracking-wider bg-[#D4AF37] text-[#1A1A1A] font-poppins">
                       {user.role === 'shg' ? t('auth.roleSHG') : t('auth.roleArtisan')}
                     </span>
                     <span className="text-xs text-emerald-200 font-medium flex items-center gap-1">
@@ -222,412 +358,230 @@ export const Dashboard: React.FC<DashboardProps> = ({ currentTab, setCurrentTab,
                     </span>
                   </div>
                   <h1 className="text-xl sm:text-2xl lg:text-3xl font-bold font-poppins text-white leading-tight">
-                    {t('dashboard.welcome')}, {user.name || user.full_name || 'Entrepreneur'}!
+                    {user.businessName || 'Your Artisan Enterprise'}
                   </h1>
-                  <p className="text-xs sm:text-sm text-emerald-100/80 max-w-xl font-inter">
-                    {user.businessName || 'Your Enterprise'} — <strong className="text-[#D4AF37] font-semibold">{stats?.healthScore ?? 0}% {t('dashboard.marketplaceReady')}</strong>
+                  <p className="text-xs sm:text-sm text-emerald-100/90 font-inter">
+                    Marketplace Readiness:{' '}
+                    <strong className="text-[#D4AF37] font-semibold">{healthScoreDisplay}</strong>
                   </p>
                 </div>
 
-                <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2.5 shrink-0">
-                  <button
-                    onClick={() => setCurrentTab('mentor')}
-                    className="inline-flex items-center justify-center gap-2 px-5 py-3 bg-[#D4AF37] hover:bg-[#C29F2B] text-[#1A1A1A] font-bold text-xs rounded-xl shadow-md transition-all font-poppins active:scale-98 cursor-pointer"
-                  >
-                    <Mic className="w-4 h-4 text-[#1A1A1A]" />
-                    <span>{t('dashboard.actionVoiceMentor')}</span>
-                  </button>
+                {/* 2 Primary Core Actions */}
+                <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-3 shrink-0">
                   <button
                     onClick={() => setCurrentTab('products')}
-                    className="inline-flex items-center justify-center gap-2 px-5 py-3 bg-white/10 hover:bg-white/20 text-white font-bold text-xs rounded-xl border border-white/20 shadow-sm transition-all font-poppins cursor-pointer"
+                    className="inline-flex items-center justify-center gap-2 px-5 py-3 bg-white text-[#0F5132] hover:bg-stone-100 font-bold text-xs sm:text-sm rounded-xl shadow-md transition-all font-poppins active:scale-98 cursor-pointer min-h-[44px]"
                   >
-                    <Plus className="w-4 h-4" />
+                    <Plus className="w-4 h-4 text-[#0F5132]" />
                     <span>{t('product.addProduct')}</span>
+                  </button>
+
+                  <button
+                    onClick={() => setCurrentTab('storefront')}
+                    className="inline-flex items-center justify-center gap-2 px-5 py-3 bg-[#D4AF37] hover:bg-[#C29F2B] text-[#1A1A1A] font-bold text-xs sm:text-sm rounded-xl shadow-md transition-all font-poppins active:scale-98 cursor-pointer min-h-[44px]"
+                  >
+                    <Store className="w-4 h-4" />
+                    <span>{t('dashboard.viewStorefront')}</span>
                   </button>
                 </div>
               </div>
             </div>
 
-            {/* Live Digital Storefront Card */}
-            <div className="bg-white dark:bg-[#13251B] p-5 sm:p-6 rounded-3xl border border-[#0F5132]/20 dark:border-emerald-800/60 shadow-md flex flex-col md:flex-row items-start md:items-center justify-between gap-5 relative overflow-hidden">
-              <div className="flex items-start gap-4">
-                <div className="w-12 h-12 rounded-2xl bg-[#0F5132]/10 dark:bg-emerald-950 text-[#0F5132] dark:text-[#34D399] flex items-center justify-center shrink-0">
-                  <Store className="w-6 h-6" />
-                </div>
-                <div className="space-y-1">
-                  <div className="flex items-center gap-2">
-                    <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-[#D4AF37] text-[#1A1A1A] font-poppins uppercase">
-                      {t('nav.publicStore')}
-                    </span>
-                    <span className="text-[11px] text-stone-500 dark:text-emerald-400/70 font-medium">
-                      WhatsApp Orders Enabled
-                    </span>
-                  </div>
-                  <h2 className="text-base sm:text-lg font-bold text-[#0F5132] dark:text-white font-poppins">
-                    {user.businessName || 'Your Artisan Enterprise'} {t('storefront.catalogTitle')}
-                  </h2>
-                  <p className="text-xs text-stone-600 dark:text-emerald-200/80 font-inter">
-                    {t('dashboard.actionPublicStoreDesc')}
-                  </p>
-                </div>
-              </div>
-
-              <div className="w-full md:w-auto flex flex-col sm:flex-row items-stretch sm:items-center gap-2.5 shrink-0">
-                <button
-                  onClick={() => setCurrentTab('storefront')}
-                  className="inline-flex items-center justify-center gap-1.5 px-4 py-2.5 bg-[#0F5132] hover:bg-[#0B3D26] text-white font-bold text-xs rounded-xl shadow-xs transition-all font-poppins cursor-pointer active:scale-98 min-h-[42px]"
-                >
-                  <ExternalLink className="w-3.5 h-3.5" />
-                  <span>{t('dashboard.viewStorefront')}</span>
-                </button>
-
-                <button
-                  onClick={() => {
-                    const storeUrl = `${window.location.origin}/?store=${user.id}`;
-                    navigator.clipboard.writeText(storeUrl);
-                    setStoreLinkCopied(true);
-                    setTimeout(() => setStoreLinkCopied(false), 2500);
-                  }}
-                  className="flex-1 sm:flex-initial inline-flex items-center justify-center gap-1.5 px-4 py-2.5 bg-white dark:bg-[#183023] hover:bg-stone-50 dark:hover:bg-emerald-900/40 border border-[#0F5132]/25 text-[#0F5132] dark:text-emerald-300 font-bold text-xs rounded-xl shadow-xs transition-all font-poppins cursor-pointer active:scale-98"
-                >
-                  {storeLinkCopied ? <Check className="w-3.5 h-3.5 text-[#0F5132] dark:text-[#34D399]" /> : <Copy className="w-3.5 h-3.5" />}
-                  <span>{storeLinkCopied ? t('common.copied') : t('dashboard.copyStoreLink')}</span>
-                </button>
-
-                <a
-                  href={`https://api.whatsapp.com/send?text=${encodeURIComponent(
-                    `Namaste! Please explore our authentic handcrafted catalog from *${user.businessName || 'our enterprise'}* (${user.location || 'India'}) on KRIVIO AI: ${window.location.origin}/?store=${user.id}\n\nDirect from rural artisan with zero middlemen.`
-                  )}`}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="inline-flex items-center justify-center gap-1.5 px-4 py-2.5 bg-[#25D366] hover:bg-[#1EBE5D] text-white font-bold text-xs rounded-xl shadow-xs transition-all font-poppins cursor-pointer active:scale-98"
-                >
-                  <MessageCircle className="w-3.5 h-3.5 fill-white" />
-                  <span>{t('common.shareWhatsApp')}</span>
-                </a>
-              </div>
-            </div>
-
-            {/* Quick Actions Bar */}
-            <div className="space-y-3">
-              <h2 className="text-xs font-bold text-stone-500 dark:text-emerald-400 uppercase tracking-wider font-poppins">
-                {t('dashboard.quickActions')}
-              </h2>
-              <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-2.5 sm:gap-3">
-                <button
-                  onClick={() => setCurrentTab('products')}
-                  className="p-3.5 bg-white dark:bg-[#13251B] hover:border-[#0F5132] dark:hover:border-emerald-400 border border-[#0F5132]/15 dark:border-emerald-800/60 rounded-2xl flex flex-col items-center justify-center gap-2 text-center shadow-2xs transition-all active:scale-98 cursor-pointer"
-                >
-                  <div className="w-9 h-9 rounded-xl bg-[#0F5132]/10 dark:bg-emerald-950 text-[#0F5132] dark:text-emerald-300 flex items-center justify-center">
-                    <Package className="w-5 h-5" />
-                  </div>
-                  <span className="text-xs font-bold text-stone-800 dark:text-emerald-100 font-poppins">{t('product.addProduct')}</span>
-                </button>
-
-                <button
-                  onClick={() => setCurrentTab('mentor')}
-                  className="p-3.5 bg-white dark:bg-[#13251B] hover:border-[#0F5132] dark:hover:border-emerald-400 border border-[#0F5132]/15 dark:border-emerald-800/60 rounded-2xl flex flex-col items-center justify-center gap-2 text-center shadow-2xs transition-all active:scale-98 cursor-pointer"
-                >
-                  <div className="w-9 h-9 rounded-xl bg-[#D4AF37]/20 text-[#8B6E10] dark:text-[#D4AF37] flex items-center justify-center">
-                    <Mic className="w-5 h-5" />
-                  </div>
-                  <span className="text-xs font-bold text-stone-800 dark:text-emerald-100 font-poppins">{t('dashboard.actionVoiceMentor')}</span>
-                </button>
-
-                <button
-                  onClick={() => setCurrentTab('images')}
-                  className="p-3.5 bg-white dark:bg-[#13251B] hover:border-[#0F5132] dark:hover:border-emerald-400 border border-[#0F5132]/15 dark:border-emerald-800/60 rounded-2xl flex flex-col items-center justify-center gap-2 text-center shadow-2xs transition-all active:scale-98 cursor-pointer"
-                >
-                  <div className="w-9 h-9 rounded-xl bg-[#2E7D32]/10 dark:bg-emerald-950 text-[#2E7D32] dark:text-emerald-300 flex items-center justify-center">
-                    <Camera className="w-5 h-5" />
-                  </div>
-                  <span className="text-xs font-bold text-stone-800 dark:text-emerald-100 font-poppins">{t('nav.imageStudio')}</span>
-                </button>
-
-                <button
-                  onClick={() => setCurrentTab('marketplace')}
-                  className="p-3.5 bg-white dark:bg-[#13251B] hover:border-[#0F5132] dark:hover:border-emerald-400 border border-[#0F5132]/15 dark:border-emerald-800/60 rounded-2xl flex flex-col items-center justify-center gap-2 text-center shadow-2xs transition-all active:scale-98 cursor-pointer"
-                >
-                  <div className="w-9 h-9 rounded-xl bg-[#0F5132]/10 dark:bg-emerald-950 text-[#0F5132] dark:text-emerald-300 flex items-center justify-center">
-                    <Store className="w-5 h-5" />
-                  </div>
-                  <span className="text-xs font-bold text-stone-800 dark:text-emerald-100 font-poppins">{t('nav.marketplace')}</span>
-                </button>
-
-                <button
-                  onClick={() => setCurrentTab('schemes')}
-                  className="p-3.5 bg-white dark:bg-[#13251B] hover:border-[#0F5132] dark:hover:border-emerald-400 border border-[#0F5132]/15 dark:border-emerald-800/60 rounded-2xl flex flex-col items-center justify-center gap-2 text-center shadow-2xs transition-all active:scale-98 cursor-pointer"
-                >
-                  <div className="w-9 h-9 rounded-xl bg-[#2E7D32]/10 dark:bg-emerald-950 text-[#2E7D32] dark:text-emerald-400 flex items-center justify-center">
-                    <Landmark className="w-5 h-5" />
-                  </div>
-                  <span className="text-xs font-bold text-stone-800 dark:text-emerald-100 font-poppins">{t('nav.schemes')}</span>
-                </button>
-
-                <button
-                  onClick={() => setCurrentTab('subscriptions')}
-                  className="p-3.5 bg-white dark:bg-[#13251B] hover:border-[#D4AF37] border border-[#0F5132]/15 dark:border-emerald-800/60 rounded-2xl flex flex-col items-center justify-center gap-2 text-center shadow-2xs transition-all active:scale-98 cursor-pointer"
-                >
-                  <div className="w-9 h-9 rounded-xl bg-[#D4AF37]/20 text-[#8B6E10] dark:text-[#D4AF37] flex items-center justify-center">
-                    <Crown className="w-5 h-5" />
-                  </div>
-                  <span className="text-xs font-bold text-stone-800 dark:text-emerald-100 font-poppins">{t('common.upgradePro')}</span>
-                </button>
-              </div>
-            </div>
-
-            {/* Business Health Card Metrics */}
-            <div>
-              <div className="flex items-center justify-between mb-3">
-                <h2 className="text-xs font-bold text-stone-500 dark:text-emerald-400 uppercase tracking-wider font-poppins">
-                  {t('dashboard.healthScore')}
-                </h2>
-                <span className="text-[11px] text-[#0F5132] dark:text-emerald-400 font-semibold flex items-center gap-1">
-                  <span className="w-2 h-2 rounded-full bg-[#2E7D32] animate-ping" />
-                  {t('notifications.liveSync')}
-                </span>
-              </div>
-
-              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3.5 sm:gap-4">
-                {/* Metric 1 */}
-                <div className="bg-white dark:bg-[#13251B] p-5 rounded-2xl border border-[#0F5132]/15 dark:border-emerald-800/60 shadow-2xs space-y-2">
-                  <div className="flex items-center justify-between">
-                    <span className="text-xs font-semibold text-stone-600 dark:text-emerald-200/80">{t('dashboard.totalProducts')}</span>
-                    <div className="p-2 bg-[#0F5132]/10 dark:bg-emerald-950 text-[#0F5132] dark:text-emerald-400 rounded-lg">
-                      <Package className="w-4 h-4" />
-                    </div>
-                  </div>
-                  <div className="text-2xl font-extrabold text-stone-900 dark:text-white font-poppins">
-                    {formatNumber(stats?.totalProducts || 0)}
-                  </div>
-                  <p className="text-[11px] text-stone-500 dark:text-emerald-300/70">{t('dashboard.overviewSubtitle')}</p>
-                </div>
-
-                {/* Metric 2 */}
-                <div className="bg-white dark:bg-[#13251B] p-5 rounded-2xl border border-[#0F5132]/15 dark:border-emerald-800/60 shadow-2xs space-y-2">
-                  <div className="flex items-center justify-between">
-                    <span className="text-xs font-semibold text-stone-600 dark:text-emerald-200/80">{t('dashboard.marketplaceReady')}</span>
-                    <div className="p-2 bg-[#D4AF37]/20 text-[#8B6E10] dark:text-[#D4AF37] rounded-lg">
-                      <Store className="w-4 h-4" />
-                    </div>
-                  </div>
-                  <div className="text-2xl font-extrabold text-stone-900 dark:text-white font-poppins">
-                    {formatNumber(stats?.marketplaceReadyProducts || 0)} <span className="text-xs font-normal text-stone-400">/ {formatNumber(stats?.totalProducts || 0)}</span>
-                  </div>
-                  <p className="text-[11px] text-[#2E7D32] dark:text-emerald-400 font-medium">{t('marketplace.eligible')}</p>
-                </div>
-
-                {/* Metric 3 */}
-                <div className="bg-white dark:bg-[#13251B] p-5 rounded-2xl border border-[#0F5132]/15 dark:border-emerald-800/60 shadow-2xs space-y-2">
-                  <div className="flex items-center justify-between">
-                    <span className="text-xs font-semibold text-stone-600 dark:text-emerald-200/80">{t('dashboard.healthScore')}</span>
-                    <div className="p-2 bg-[#2E7D32]/10 dark:bg-emerald-950 text-[#2E7D32] dark:text-emerald-400 rounded-lg">
-                      <TrendingUp className="w-4 h-4" />
-                    </div>
-                  </div>
-                  <div className="text-2xl font-extrabold text-stone-900 dark:text-white font-poppins">
-                    {stats?.healthScore ?? 0}%
-                  </div>
-                  <div className="w-full bg-stone-100 dark:bg-emerald-950 rounded-full h-1.5 overflow-hidden">
-                    <div
-                      className="bg-[#0F5132] dark:bg-emerald-400 h-1.5 rounded-full transition-all"
-                      style={{ width: `${stats?.healthScore ?? 0}%` }}
-                    />
-                  </div>
-                </div>
-
-                {/* Metric 4 */}
-                <div className="bg-white dark:bg-[#13251B] p-5 rounded-2xl border border-[#0F5132]/15 dark:border-emerald-800/60 shadow-2xs space-y-2">
-                  <div className="flex items-center justify-between">
-                    <span className="text-xs font-semibold text-stone-600 dark:text-emerald-200/80">{t('dashboard.estimatedRevenue')}</span>
-                    <div className="p-2 bg-[#D4AF37]/20 text-[#8B6E10] dark:text-[#D4AF37] rounded-lg">
-                      <Sparkles className="w-4 h-4" />
-                    </div>
-                  </div>
-                  <div className="text-2xl font-extrabold text-stone-900 dark:text-white font-poppins">
-                    {formatCurrency(stats?.estimatedMonthlyRevenue ?? 0)}
-                  </div>
-                  <p className="text-[11px] text-stone-500 dark:text-emerald-300/70">{t('dashboard.overviewSubtitle')}</p>
-                </div>
-              </div>
-            </div>
-
-            {/* AI Workspace Smart Suggestions */}
-            <div className="bg-[#0F5132]/5 dark:bg-[#183023]/70 p-4 sm:p-5 rounded-2xl border border-[#0F5132]/20 dark:border-emerald-700/50 flex items-start gap-3.5">
-              <div className="w-9 h-9 rounded-xl bg-[#D4AF37] text-[#1A1A1A] flex items-center justify-center shrink-0 mt-0.5 shadow-xs">
-                <Sparkles className="w-5 h-5" />
-              </div>
-              <div className="space-y-1 text-xs font-inter">
-                <div className="flex items-center gap-2">
-                  <h3 className="font-bold text-stone-900 dark:text-white font-poppins">
-                    {t('settings.aiSuggestions')}
-                  </h3>
-                  <span className="px-2 py-0.2 text-[9px] font-bold bg-[#D4AF37] text-[#1A1A1A] rounded uppercase font-poppins">
-                    {t('common.recommended')}
+            {/* 3 Focused Core Metric Cards */}
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-3.5 sm:gap-4">
+              <div className="bg-white dark:bg-[#13251B] p-5 rounded-2xl border border-[#0F5132]/15 dark:border-emerald-800/60 shadow-2xs space-y-2">
+                <div className="flex items-center justify-between">
+                  <span className="text-xs sm:text-sm font-semibold text-stone-600 dark:text-emerald-200/80">
+                    {t('dashboard.totalProducts')}
                   </span>
+                  <div className="p-2 bg-[#0F5132]/10 dark:bg-emerald-950 text-[#0F5132] dark:text-emerald-400 rounded-lg">
+                    <Package className="w-4 h-4" />
+                  </div>
                 </div>
-                <p className="text-stone-700 dark:text-emerald-100/90 leading-relaxed">
-                  {t('imageStudio.marketplaceTipsTitle')}: {t('imageStudio.tip1')}
-                </p>
+                <div className="text-2xl font-extrabold text-stone-900 dark:text-white font-poppins">
+                  {formatNumber(stats?.totalProducts || recentProducts.length)}
+                </div>
+                <p className="text-xs text-stone-500 dark:text-emerald-300/70">In your catalog</p>
+              </div>
+
+              <div className="bg-white dark:bg-[#13251B] p-5 rounded-2xl border border-[#0F5132]/15 dark:border-emerald-800/60 shadow-2xs space-y-2">
+                <div className="flex items-center justify-between">
+                  <span className="text-xs sm:text-sm font-semibold text-stone-600 dark:text-emerald-200/80">
+                    {t('dashboard.marketplaceReady')}
+                  </span>
+                  <div className="p-2 bg-[#D4AF37]/20 text-[#8B6E10] dark:text-[#D4AF37] rounded-lg">
+                    <Store className="w-4 h-4" />
+                  </div>
+                </div>
+                <div className="text-2xl font-extrabold text-stone-900 dark:text-white font-poppins">
+                  {formatNumber(stats?.marketplaceReadyProducts || 0)}
+                </div>
+                <p className="text-xs text-[#2E7D32] dark:text-emerald-400 font-medium">Ready for Amazon, Meesho & ONDC</p>
+              </div>
+
+              <div className="bg-white dark:bg-[#13251B] p-5 rounded-2xl border border-[#0F5132]/15 dark:border-emerald-800/60 shadow-2xs space-y-2">
+                <div className="flex items-center justify-between">
+                  <span className="text-xs sm:text-sm font-semibold text-stone-600 dark:text-emerald-200/80">
+                    {t('dashboard.estimatedRevenue')}
+                  </span>
+                  <div className="p-2 bg-[#2E7D32]/10 dark:bg-emerald-950 text-[#2E7D32] dark:text-emerald-400 rounded-lg">
+                    <TrendingUp className="w-4 h-4" />
+                  </div>
+                </div>
+                <div className="text-2xl font-extrabold text-stone-900 dark:text-white font-poppins">
+                  {formatCurrency(stats?.estimatedMonthlyRevenue ?? 0)}
+                </div>
+                <p className="text-xs text-stone-500 dark:text-emerald-300/70">Estimated catalog value</p>
               </div>
             </div>
 
-            {/* Main Content Grid: Tasks & Recent Activity */}
+            {/* Recent Products Shelf & Action Tasks */}
             <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 sm:gap-8">
-              {/* Today's Tasks */}
-              <div className="lg:col-span-7 bg-white dark:bg-[#13251B] p-5 sm:p-6 rounded-2xl border border-[#0F5132]/15 dark:border-emerald-800/60 shadow-2xs space-y-5">
+              {/* Left Column: Recent Products */}
+              <div className="lg:col-span-7 bg-white dark:bg-[#13251B] p-5 sm:p-6 rounded-2xl border border-[#0F5132]/15 dark:border-emerald-800/60 shadow-2xs space-y-4">
                 <div className="flex items-center justify-between pb-3 border-b border-stone-100 dark:border-emerald-900/40">
-                  <div>
-                    <h3 className="text-base font-bold text-stone-900 dark:text-white font-poppins">
+                  <h3 className="text-sm font-bold text-stone-900 dark:text-white uppercase tracking-wider font-poppins">
+                    {t('dashboard.recentProducts')}
+                  </h3>
+                  <button
+                    onClick={() => setCurrentTab('products')}
+                    className="text-xs font-bold text-[#0F5132] dark:text-emerald-400 hover:underline flex items-center gap-1 font-poppins cursor-pointer"
+                  >
+                    <span>{t('common.viewAll')}</span>
+                    <ArrowRight className="w-3.5 h-3.5" />
+                  </button>
+                </div>
+
+                <div className="space-y-3">
+                  {recentProducts.slice(0, 4).map((prod) => (
+                    <div
+                      key={prod.id}
+                      onClick={() => setCurrentTab('products')}
+                      className="p-3.5 bg-stone-50 dark:bg-[#183023]/60 rounded-xl border border-stone-200/80 dark:border-emerald-900/40 flex items-center justify-between gap-3 cursor-pointer hover:border-[#0F5132] dark:hover:border-emerald-400 transition-all font-inter"
+                    >
+                      <div className="flex items-center gap-3 min-w-0">
+                        <img
+                          src={getProductThumbnail(prod)}
+                          alt={prod.title}
+                          onError={(e) => {
+                            const fallback = getFallbackCraftThumbnail(prod);
+                            if (e.currentTarget.src !== fallback) {
+                              e.currentTarget.src = fallback;
+                            }
+                          }}
+                          className="w-12 h-12 rounded-lg object-cover shrink-0 border border-stone-200 dark:border-emerald-900/50"
+                        />
+                        <div className="min-w-0">
+                          <h4 className="text-sm font-bold text-stone-900 dark:text-white truncate">
+                            {prod.title}
+                          </h4>
+                          <p className="text-xs text-[#0F5132] dark:text-emerald-300 font-semibold">
+                            {formatCurrency(prod.price)} • {prod.category}
+                          </p>
+                        </div>
+                      </div>
+
+                      <span className={`px-2.5 py-1 text-xs font-bold rounded uppercase shrink-0 font-poppins ${
+                        prod.status === 'published'
+                          ? 'bg-[#0F5132]/10 text-[#0F5132] dark:bg-emerald-950 dark:text-emerald-300'
+                          : 'bg-stone-200 text-stone-700 dark:bg-stone-800 dark:text-stone-300'
+                      }`}>
+                        {prod.status || 'published'}
+                      </span>
+                    </div>
+                  ))}
+                </div>
+              </div>
+
+              {/* Right Column: Growth Checklist & Live Storefront Share */}
+              <div className="lg:col-span-5 space-y-6">
+                {/* 1-Click WhatsApp Storefront Share Card */}
+                <div className="bg-white dark:bg-[#13251B] p-5 sm:p-6 rounded-2xl border border-[#0F5132]/20 dark:border-emerald-800/60 shadow-2xs space-y-3 font-inter">
+                  <div className="flex items-center justify-between">
+                    <span className="text-xs font-bold text-stone-500 dark:text-emerald-400 uppercase tracking-wider font-poppins">
+                      Your Digital Storefront
+                    </span>
+                    <span className="px-2 py-0.5 rounded-full text-xs font-bold bg-[#D4AF37] text-[#1A1A1A] font-poppins">
+                      Live
+                    </span>
+                  </div>
+                  <h4 className="text-sm sm:text-base font-bold text-stone-900 dark:text-white font-poppins">
+                    Share your catalog with buyers
+                  </h4>
+                  <div className="flex flex-col sm:flex-row gap-2 pt-1">
+                    <button
+                      onClick={() => {
+                        const storeUrl = `${window.location.origin}/?store=${user.id}`;
+                        navigator.clipboard.writeText(storeUrl);
+                        setStoreLinkCopied(true);
+                        setTimeout(() => setStoreLinkCopied(false), 2500);
+                      }}
+                      className="flex-1 inline-flex items-center justify-center gap-1.5 px-3.5 py-2.5 bg-stone-100 hover:bg-stone-200 dark:bg-[#183023] dark:hover:bg-emerald-900/40 text-stone-800 dark:text-emerald-100 font-bold text-xs rounded-xl transition-all cursor-pointer min-h-[42px]"
+                    >
+                      {storeLinkCopied ? <Check className="w-3.5 h-3.5 text-[#0F5132] dark:text-[#34D399]" /> : <Copy className="w-3.5 h-3.5" />}
+                      <span>{storeLinkCopied ? t('common.copied') : t('dashboard.copyStoreLink')}</span>
+                    </button>
+
+                    <a
+                      href={`https://api.whatsapp.com/send?text=${encodeURIComponent(
+                        `Namaste! Please explore our authentic handcrafted catalog from *${user.businessName || 'our enterprise'}* on KRIVIO AI: ${window.location.origin}/?store=${user.id}`
+                      )}`}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="flex-1 inline-flex items-center justify-center gap-1.5 px-3.5 py-2.5 bg-[#25D366] hover:bg-[#1EBE5D] text-white font-bold text-xs rounded-xl shadow-xs transition-all cursor-pointer min-h-[42px]"
+                    >
+                      <MessageCircle className="w-3.5 h-3.5 fill-white" />
+                      <span>{t('common.shareWhatsApp')}</span>
+                    </a>
+                  </div>
+                </div>
+
+                {/* Business Growth Tasks */}
+                <div className="bg-white dark:bg-[#13251B] p-5 sm:p-6 rounded-2xl border border-[#0F5132]/15 dark:border-emerald-800/60 shadow-2xs space-y-4">
+                  <div className="flex items-center justify-between pb-2 border-b border-stone-100 dark:border-emerald-900/40">
+                    <h3 className="text-sm font-bold text-stone-900 dark:text-white font-poppins">
                       {t('dashboard.tasksTitle')}
                     </h3>
-                    <p className="text-xs text-stone-500 dark:text-emerald-300/70 font-inter">{t('dashboard.healthScoreDesc')}</p>
+                    <span className="text-xs font-bold text-[#0F5132] dark:text-emerald-400 font-poppins">
+                      {tasks.filter((t) => t.completed).length} / {tasks.length} Done
+                    </span>
                   </div>
-                  <span className="px-2.5 py-1 text-xs font-bold bg-[#0F5132]/10 text-[#0F5132] dark:bg-emerald-950 dark:text-emerald-300 rounded-full border border-[#0F5132]/20 dark:border-emerald-800 font-poppins">
-                    {formatNumber(stats?.completedTasksCount || 0)} / {formatNumber(tasks.length)} {t('common.status')}
-                  </span>
-                </div>
 
-                <div className="space-y-2.5">
-                  {filteredTasks.length === 0 ? (
-                    <div className="py-6 text-center text-stone-400 dark:text-emerald-400/60 text-xs font-inter">
-                      {t('common.noData')}
-                    </div>
-                  ) : (
-                    filteredTasks.map((task) => (
+                  <div className="space-y-2">
+                    {tasks.map((task) => (
                       <div
                         key={task.id}
                         onClick={() => handleToggleTask(task.id)}
-                        className={`p-3.5 sm:p-4 rounded-xl border transition-all cursor-pointer flex items-start gap-3.5 ${
+                        className={`p-3 rounded-xl border transition-all cursor-pointer flex items-start gap-3 ${
                           task.completed
-                            ? 'bg-stone-50/70 dark:bg-[#183023]/50 border-stone-200/60 dark:border-emerald-900/40 text-stone-400 dark:text-emerald-400/60 opacity-80'
-                            : 'bg-white dark:bg-[#13251B] border-stone-200/90 dark:border-emerald-800/60 hover:border-[#0F5132]'
+                            ? 'bg-stone-50/70 dark:bg-[#183023]/50 border-stone-200/60 dark:border-emerald-900/40 opacity-75'
+                            : 'bg-white dark:bg-[#13251B] border-stone-200 dark:border-emerald-800/60 hover:border-[#0F5132]'
                         }`}
                       >
-                        <button
-                          type="button"
-                          className="mt-0.5 text-[#0F5132] dark:text-emerald-400 shrink-0 cursor-pointer"
-                        >
+                        <button type="button" className="mt-0.5 text-[#0F5132] dark:text-emerald-400 shrink-0">
                           {task.completed ? (
-                            <CheckCircle2 className="w-5 h-5 fill-[#0F5132]/20 dark:fill-emerald-950" />
+                            <CheckCircle2 className="w-4 h-4 fill-[#0F5132]/20 dark:fill-emerald-950" />
                           ) : (
-                            <Circle className="w-5 h-5 text-stone-300 dark:text-emerald-800" />
+                            <Circle className="w-4 h-4 text-stone-300 dark:text-emerald-800" />
                           )}
                         </button>
-                        <div className="flex-1 space-y-0.5 font-inter">
-                          <div className="flex items-center justify-between gap-2">
-                            <h4
-                              className={`text-xs font-bold ${
-                                task.completed ? 'line-through text-stone-400 dark:text-emerald-400/60' : 'text-stone-900 dark:text-white'
-                              }`}
-                            >
-                              {task.title}
-                            </h4>
-                            <span className="text-[10px] font-semibold text-stone-500 dark:text-emerald-300/70 bg-stone-100 dark:bg-[#183023] px-2 py-0.5 rounded shrink-0">
-                              {task.dueDate}
-                            </span>
-                          </div>
-                          <p className="text-[11px] text-stone-600 dark:text-emerald-200/80 leading-relaxed">{task.description}</p>
+                        <div className="min-w-0">
+                          <h4 className={`text-xs font-bold ${task.completed ? 'line-through text-stone-400 dark:text-emerald-400/60' : 'text-stone-900 dark:text-white'}`}>
+                            {task.title}
+                          </h4>
+                          <p className="text-xs text-stone-500 dark:text-emerald-300/70 leading-normal">
+                            {task.description}
+                          </p>
                         </div>
                       </div>
-                    ))
-                  )}
-                </div>
-              </div>
-
-              {/* Sidebar Cards: Recent Activity & Recent Products */}
-              <div className="lg:col-span-5 space-y-6">
-                {/* Recent Products Preview */}
-                <div className="bg-white dark:bg-[#13251B] p-5 sm:p-6 rounded-2xl border border-[#0F5132]/15 dark:border-emerald-800/60 shadow-2xs space-y-4">
-                  <div className="flex items-center justify-between pb-2 border-b border-stone-100 dark:border-emerald-900/40">
-                    <h3 className="text-xs font-bold text-stone-900 dark:text-white uppercase tracking-wider font-poppins">
-                      {t('dashboard.recentProducts')}
-                    </h3>
-                    <button
-                      onClick={() => setCurrentTab('products')}
-                      className="text-xs font-bold text-[#0F5132] dark:text-emerald-400 hover:underline flex items-center gap-1 font-poppins cursor-pointer"
-                    >
-                      {t('common.viewAll')} <ArrowRight className="w-3 h-3" />
-                    </button>
-                  </div>
-
-                  {recentProducts.length === 0 ? (
-                    <div className="py-6 text-center text-stone-400 dark:text-emerald-400/60 text-xs font-inter">
-                      {t('dashboard.noProductsYet')}. {t('dashboard.noProductsDesc')}
-                    </div>
-                  ) : (
-                    <div className="space-y-2.5">
-                      {recentProducts.slice(0, 3).map((prod) => (
-                        <div
-                          key={prod.id}
-                          onClick={() => setCurrentTab('products')}
-                          className="p-3 bg-stone-50 dark:bg-[#183023]/60 rounded-xl border border-stone-100 dark:border-emerald-900/40 flex items-center gap-3 cursor-pointer hover:border-[#0F5132] dark:hover:border-emerald-400 transition-all font-inter"
-                        >
-                          <img
-                            src={getProductThumbnail(prod)}
-                            alt={prod.title}
-                            onError={(e) => {
-                              const fallback = getFallbackCraftThumbnail(prod);
-                              if (e.currentTarget.src !== fallback) {
-                                e.currentTarget.src = fallback;
-                              }
-                            }}
-                            className="w-12 h-12 rounded-lg object-cover shrink-0"
-                          />
-                          <div className="flex-1 min-w-0">
-                            <h4 className="text-xs font-bold text-stone-900 dark:text-white truncate">
-                              {prod.title}
-                            </h4>
-                            <p className="text-[11px] text-[#0F5132] dark:text-emerald-300 font-semibold">
-                              {formatCurrency(prod.price)} • {prod.category}
-                            </p>
-                          </div>
-                          <span className="px-2 py-0.5 text-[9px] font-bold bg-[#0F5132]/10 dark:bg-emerald-950 text-[#0F5132] dark:text-emerald-300 rounded uppercase shrink-0 font-poppins">
-                            {t('product.marketplaceReady')}
-                          </span>
-                        </div>
-                      ))}
-                    </div>
-                  )}
-                </div>
-
-                {/* Recent Activity Log */}
-                <div className="bg-white dark:bg-[#13251B] p-5 sm:p-6 rounded-2xl border border-[#0F5132]/15 dark:border-emerald-800/60 shadow-2xs space-y-4 font-inter">
-                  <h3 className="text-xs font-bold text-stone-900 dark:text-white uppercase tracking-wider font-poppins flex items-center gap-2">
-                    <Activity className="w-4 h-4 text-[#0F5132] dark:text-emerald-400" /> {t('dashboard.recentActivity')}
-                  </h3>
-
-                  <div className="space-y-3">
-                    {recentActivity.length === 0 ? (
-                      <div className="py-6 text-center text-stone-400 dark:text-emerald-400/60 text-xs font-inter">
-                        {t('dashboard.noActivityYet')}
-                      </div>
-                    ) : (
-                      recentActivity.map((act: any) => (
-                        <div key={act.id} className="flex items-start gap-3 text-stone-600 dark:text-emerald-200/80">
-                          <div className="w-2 h-2 rounded-full bg-[#0F5132] dark:bg-emerald-400 mt-1.5 shrink-0" />
-                          <div>
-                            <p className="font-semibold text-stone-800 dark:text-emerald-100">
-                              {act.title}
-                            </p>
-                            {act.description && (
-                              <p className="text-[11px] text-stone-500 dark:text-emerald-300/70">
-                                {act.description}
-                              </p>
-                            )}
-                            <p className="text-[10px] text-stone-400 dark:text-emerald-400/60">
-                              {act.createdAt ? new Date(act.createdAt).toLocaleString([], { dateStyle: 'short', timeStyle: 'short' }) : t('common.today')}
-                            </p>
-                          </div>
-                        </div>
-                      ))
-                    )}
+                    ))}
                   </div>
                 </div>
               </div>
             </div>
           </div>
         );
+      }
     }
   };
 
