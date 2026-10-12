@@ -20,6 +20,10 @@ import {
   Image as ImageIcon,
   WifiOff,
   RefreshCw,
+  ChevronRight,
+  ChevronDown,
+  ArrowLeft,
+  ArrowRight,
 } from 'lucide-react';
 import {
   getProductThumbnail,
@@ -44,6 +48,11 @@ export const ProductStudio: React.FC = () => {
   const [categoryFilter, setCategoryFilter] = useState('');
   const [statusFilter, setStatusFilter] = useState('');
   const [sortOption, setSortOption] = useState('newest');
+
+  // Progressive Wizard States
+  const [wizardStep, setWizardStep] = useState<1 | 2 | 3>(1);
+  const [showAdvancedLogistics, setShowAdvancedLogistics] = useState(false);
+  const [showAiHelper, setShowAiHelper] = useState(false);
 
   // Form states
   const [title, setTitle] = useState('');
@@ -94,6 +103,9 @@ export const ProductStudio: React.FC = () => {
 
   const openNewProductModal = () => {
     setEditingId(null);
+    setWizardStep(1);
+    setShowAdvancedLogistics(false);
+    setShowAiHelper(false);
     setTitle('');
     setRawCraftInput('');
     setCraftType('Handicrafts & Art');
@@ -117,6 +129,9 @@ export const ProductStudio: React.FC = () => {
 
   const openEditModal = (p: Product) => {
     setEditingId(p.id);
+    setWizardStep(1);
+    setShowAdvancedLogistics(Boolean(p.sku || p.weight || p.dimensions));
+    setShowAiHelper(false);
     setTitle(p.title);
     setRawCraftInput(p.title);
     setCraftType(p.category);
@@ -262,6 +277,7 @@ export const ProductStudio: React.FC = () => {
     if (e) e.preventDefault();
     if (!title.trim()) {
       setFormError(t('validation.required') || 'Product title is required.');
+      setWizardStep(1);
       return;
     }
 
@@ -270,10 +286,12 @@ export const ProductStudio: React.FC = () => {
 
     if (numPrice < 0) {
       setFormError(t('validation.positiveNumber') || 'Price cannot be negative.');
+      setWizardStep(3);
       return;
     }
     if (numStock < 0) {
       setFormError(t('validation.positiveNumber') || 'Stock cannot be negative.');
+      setWizardStep(3);
       return;
     }
 
@@ -696,18 +714,18 @@ export const ProductStudio: React.FC = () => {
         </div>
       )}
 
-      {/* Add / Edit Product Modal */}
+      {/* Add / Edit Product Modal - Progressive 3-Step Wizard */}
       {modalOpen && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-2 sm:p-4 bg-black/70 backdrop-blur-xs animate-in fade-in duration-200">
           <div className="bg-white dark:bg-[#13251B] rounded-3xl max-w-3xl w-full shadow-2xl border border-[#0F5132]/20 dark:border-emerald-800/60 flex flex-col max-h-[92vh] overflow-hidden">
             {/* Sticky Header */}
-            <div className="px-5 sm:px-7 py-4 sm:py-5 border-b border-stone-200/80 dark:border-emerald-800/50 flex items-center justify-between bg-white dark:bg-[#13251B] shrink-0">
+            <div className="px-5 sm:px-7 py-4 border-b border-stone-200/80 dark:border-emerald-800/50 flex items-center justify-between bg-white dark:bg-[#13251B] shrink-0">
               <div>
                 <h2 className="text-base sm:text-lg font-bold text-stone-900 dark:text-white font-poppins">
                   {editingId ? (t('product.editProduct') || 'Edit Product') : (t('product.addProduct') || 'Add New Product')}
                 </h2>
-                <p className="text-[11px] text-stone-500 dark:text-emerald-300/70">
-                  {t('product.subtitle') || 'Catalog your inventory, generate AI marketing stories, and prepare for marketplace listing.'}
+                <p className="text-[11px] text-stone-500 dark:text-emerald-300/70 font-inter">
+                  Step {wizardStep} of 3 • {wizardStep === 1 ? 'Craft Identity' : wizardStep === 2 ? 'Photos & Artisan Story' : 'Fair Pricing & Publish'}
                 </p>
               </div>
               <button
@@ -720,6 +738,68 @@ export const ProductStudio: React.FC = () => {
               </button>
             </div>
 
+            {/* Accessible Stepper Tabs */}
+            <div className="px-4 sm:px-7 py-2.5 bg-[#F8F9F5] dark:bg-[#0E2016] border-b border-stone-200/80 dark:border-emerald-800/50 flex items-center justify-between gap-1 sm:gap-2 overflow-x-auto shrink-0">
+              <button
+                type="button"
+                onClick={() => setWizardStep(1)}
+                className={`flex items-center gap-2 px-3 py-1.5 rounded-xl text-xs font-semibold transition-all shrink-0 cursor-pointer font-poppins ${
+                  wizardStep === 1
+                    ? 'bg-[#0F5132] text-white shadow-xs'
+                    : 'text-stone-600 dark:text-emerald-300/80 hover:bg-stone-200/60 dark:hover:bg-emerald-900/30'
+                }`}
+              >
+                <span className={`w-5 h-5 rounded-full flex items-center justify-center text-[11px] font-bold ${wizardStep === 1 ? 'bg-white/20 text-white' : 'bg-stone-200 dark:bg-emerald-900/60 text-stone-700 dark:text-emerald-200'}`}>1</span>
+                <span>Craft Identity</span>
+              </button>
+
+              <ChevronRight className="w-3.5 h-3.5 text-stone-400 dark:text-emerald-500/50 shrink-0" />
+
+              <button
+                type="button"
+                onClick={() => {
+                  if (!title.trim()) {
+                    setFormError(t('validation.required') || 'Please enter a product title before proceeding.');
+                    setWizardStep(1);
+                    return;
+                  }
+                  setFormError('');
+                  setWizardStep(2);
+                }}
+                className={`flex items-center gap-2 px-3 py-1.5 rounded-xl text-xs font-semibold transition-all shrink-0 cursor-pointer font-poppins ${
+                  wizardStep === 2
+                    ? 'bg-[#0F5132] text-white shadow-xs'
+                    : 'text-stone-600 dark:text-emerald-300/80 hover:bg-stone-200/60 dark:hover:bg-emerald-900/30'
+                }`}
+              >
+                <span className={`w-5 h-5 rounded-full flex items-center justify-center text-[11px] font-bold ${wizardStep === 2 ? 'bg-white/20 text-white' : 'bg-stone-200 dark:bg-emerald-900/60 text-stone-700 dark:text-emerald-200'}`}>2</span>
+                <span>Photos & Story</span>
+              </button>
+
+              <ChevronRight className="w-3.5 h-3.5 text-stone-400 dark:text-emerald-500/50 shrink-0" />
+
+              <button
+                type="button"
+                onClick={() => {
+                  if (!title.trim()) {
+                    setFormError(t('validation.required') || 'Please enter a product title before proceeding.');
+                    setWizardStep(1);
+                    return;
+                  }
+                  setFormError('');
+                  setWizardStep(3);
+                }}
+                className={`flex items-center gap-2 px-3 py-1.5 rounded-xl text-xs font-semibold transition-all shrink-0 cursor-pointer font-poppins ${
+                  wizardStep === 3
+                    ? 'bg-[#0F5132] text-white shadow-xs'
+                    : 'text-stone-600 dark:text-emerald-300/80 hover:bg-stone-200/60 dark:hover:bg-emerald-900/30'
+                }`}
+              >
+                <span className={`w-5 h-5 rounded-full flex items-center justify-center text-[11px] font-bold ${wizardStep === 3 ? 'bg-white/20 text-white' : 'bg-stone-200 dark:bg-emerald-900/60 text-stone-700 dark:text-emerald-200'}`}>3</span>
+                <span>Pricing & Publish</span>
+              </button>
+            </div>
+
             {/* Scrollable Form Body */}
             <form id="product-form" onSubmit={handleSaveProduct} noValidate className="flex-1 overflow-y-auto px-5 sm:px-7 py-5 space-y-5">
               {formError && (
@@ -729,289 +809,464 @@ export const ProductStudio: React.FC = () => {
                 </div>
               )}
 
-              {/* AI Generator Magic Prompt Box */}
-              <div className="bg-[#0F5132]/5 dark:bg-[#183023]/70 p-4 rounded-2xl border border-[#0F5132]/20 dark:border-emerald-700/50 space-y-3">
-                <div className="flex items-center justify-between">
-                  <span className="text-xs font-bold text-stone-900 dark:text-white font-poppins flex items-center gap-1.5">
-                    <Sparkles className="w-4 h-4 text-[#D4AF37]" />
-                    {t('product.generateWithAi') || 'AI Assistant Generator'}
-                  </span>
-                  {aiGeneratedSuccess && (
-                    <span className="text-[11px] font-bold text-[#0F5132] dark:text-emerald-400 flex items-center gap-1 font-poppins">
-                      <CheckCircle2 className="w-3.5 h-3.5" /> {t('common.success') || 'Generated!'}
-                    </span>
-                  )}
-                </div>
-
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
-                  <input
-                    type="text"
-                    value={rawCraftInput}
-                    onChange={(e) => setRawCraftInput(e.target.value)}
-                    placeholder={t('product.namePlaceholder') || 'e.g. Handcrafted Madhubani Silk Dupatta'}
-                    className="px-3.5 py-2 bg-white dark:bg-[#0E2016] border border-[#0F5132]/20 dark:border-emerald-800/60 rounded-xl text-xs text-stone-900 dark:text-white outline-none focus:ring-2 focus:ring-[#0F5132]"
-                  />
-                  <input
-                    type="text"
-                    value={materials}
-                    onChange={(e) => setMaterials(e.target.value)}
-                    placeholder={t('product.materialsPlaceholder') || 'Materials e.g. Silk cloth, organic dye'}
-                    className="px-3.5 py-2 bg-white dark:bg-[#0E2016] border border-[#0F5132]/20 dark:border-emerald-800/60 rounded-xl text-xs text-stone-900 dark:text-white outline-none focus:ring-2 focus:ring-[#0F5132]"
-                  />
-                </div>
-
-                <button
-                  type="button"
-                  id="btn-generate-ai-details"
-                  onClick={handleAIGenerateDetails}
-                  disabled={generatingAI || !rawCraftInput.trim()}
-                  className="w-full py-2.5 bg-[#0F5132] hover:bg-[#0B3D26] text-white font-semibold text-xs rounded-xl shadow-xs transition-all flex items-center justify-center gap-2 disabled:opacity-50 font-poppins cursor-pointer"
-                >
-                  <Sparkles className="w-4 h-4 text-[#D4AF37]" />
-                  <span>{generatingAI ? (t('product.generatingWithAi') || 'AI Generating Details...') : (t('product.generateWithAi') || 'Auto-Fill Details with AI')}</span>
-                </button>
-
-                {aiGenerateError && (
-                  <p className="text-[11px] text-red-600 dark:text-red-400 font-inter">{aiGenerateError}</p>
-                )}
-              </div>
-
-              {/* Standard Form Inputs */}
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-3.5 sm:gap-4">
-                <div className="md:col-span-2">
-                  <label className="block text-xs font-semibold text-stone-700 dark:text-emerald-200 mb-1 font-poppins">
-                    {t('product.nameLabel') || 'Product Name'} <span className="text-red-500">*</span>
-                  </label>
-                  <input
-                    type="text"
-                    value={title}
-                    onChange={(e) => setTitle(e.target.value)}
-                    placeholder={t('product.namePlaceholder') || 'e.g. Madhubani Handpainted Silk Scarf'}
-                    required
-                    className="w-full px-3.5 py-2.5 bg-[#F8F9F5] dark:bg-[#0E2016] border border-[#0F5132]/20 dark:border-emerald-800/60 rounded-xl text-xs text-stone-900 dark:text-white focus:ring-2 focus:ring-[#0F5132] outline-none font-semibold font-inter"
-                  />
-                </div>
-
-                <div>
-                  <label className="block text-xs font-semibold text-stone-700 dark:text-emerald-200 mb-1 font-poppins">
-                    {t('product.categoryLabel') || 'Category'}
-                  </label>
-                  <select
-                    value={craftType}
-                    onChange={(e) => setCraftType(e.target.value)}
-                    className="w-full px-3.5 py-2.5 bg-[#F8F9F5] dark:bg-[#0E2016] border border-[#0F5132]/20 dark:border-emerald-800/60 rounded-xl text-xs text-stone-900 dark:text-white focus:ring-2 focus:ring-[#0F5132] outline-none cursor-pointer"
-                  >
-                    <option value="Handicrafts & Art">Handicrafts & Art</option>
-                    <option value="Pottery & Home Decor">Pottery & Home Decor</option>
-                    <option value="Textiles & Handlooms">Textiles & Handlooms</option>
-                    <option value="Organic Agri-products">Organic Agri-products</option>
-                    <option value="Jewelry & Accessories">Jewelry & Accessories</option>
-                  </select>
-                </div>
-
-                <div>
-                  <label className="block text-xs font-semibold text-stone-700 dark:text-emerald-200 mb-1 font-poppins">
-                    {t('common.status') || 'Listing Status'}
-                  </label>
-                  <select
-                    value={status}
-                    onChange={(e) => setStatus(e.target.value as any)}
-                    className="w-full px-3.5 py-2.5 bg-[#F8F9F5] dark:bg-[#0E2016] border border-[#0F5132]/20 dark:border-emerald-800/60 rounded-xl text-xs text-stone-900 dark:text-white focus:ring-2 focus:ring-[#0F5132] outline-none cursor-pointer"
-                  >
-                    <option value="published">{t('subscription.active') || 'Published / Active'}</option>
-                    <option value="draft">Draft</option>
-                    <option value="archived">Archived</option>
-                  </select>
-                </div>
-
-                <div>
-                  <label className="block text-xs font-semibold text-stone-700 dark:text-emerald-200 mb-1 font-poppins">
-                    {t('product.priceLabel') || 'Selling Price'} (₹) <span className="text-red-500">*</span>
-                  </label>
-                  <input
-                    type="number"
-                    min="0"
-                    step="any"
-                    value={price}
-                    onChange={(e) => setPrice(Number(e.target.value))}
-                    required
-                    className="w-full px-3.5 py-2.5 bg-[#F8F9F5] dark:bg-[#0E2016] border border-[#0F5132]/20 dark:border-emerald-800/60 rounded-xl text-xs text-stone-900 dark:text-white focus:ring-2 focus:ring-[#0F5132] outline-none font-semibold"
-                  />
-                </div>
-
-                <div>
-                  <label className="block text-xs font-semibold text-stone-700 dark:text-emerald-200 mb-1 font-poppins">
-                    {t('product.stockLabel') || 'Available Stock'}
-                  </label>
-                  <input
-                    type="number"
-                    min="0"
-                    step="any"
-                    value={stock}
-                    onChange={(e) => setStock(Number(e.target.value))}
-                    required
-                    className="w-full px-3.5 py-2.5 bg-[#F8F9F5] dark:bg-[#0E2016] border border-[#0F5132]/20 dark:border-emerald-800/60 rounded-xl text-xs text-stone-900 dark:text-white focus:ring-2 focus:ring-[#0F5132] outline-none"
-                  />
-                </div>
-
-                <div>
-                  <label className="block text-xs font-semibold text-stone-700 dark:text-emerald-200 mb-1 font-poppins">
-                    {t('product.skuLabel') || 'SKU Code'}
-                  </label>
-                  <input
-                    type="text"
-                    value={sku}
-                    onChange={(e) => setSku(e.target.value)}
-                    placeholder="SKU-ART-1001"
-                    className="w-full px-3.5 py-2.5 bg-[#F8F9F5] dark:bg-[#0E2016] border border-[#0F5132]/20 dark:border-emerald-800/60 rounded-xl text-xs text-stone-900 dark:text-white focus:ring-2 focus:ring-[#0F5132] outline-none font-mono"
-                  />
-                </div>
-
-                <div>
-                  <label className="block text-xs font-semibold text-stone-700 dark:text-emerald-200 mb-1 font-poppins">
-                    {t('product.weightLabel') || 'Weight'} & {t('product.dimensionsLabel') || 'Dimensions'}
-                  </label>
-                  <div className="flex gap-2">
-                    <input
-                      type="text"
-                      value={weight}
-                      onChange={(e) => setWeight(e.target.value)}
-                      placeholder="e.g. 0.5 kg"
-                      className="w-1/2 px-3 py-2.5 bg-[#F8F9F5] dark:bg-[#0E2016] border border-[#0F5132]/20 dark:border-emerald-800/60 rounded-xl text-xs text-stone-900 dark:text-white outline-none"
-                    />
-                    <input
-                      type="text"
-                      value={dimensions}
-                      onChange={(e) => setDimensions(e.target.value)}
-                      placeholder="e.g. 10x10x10 cm"
-                      className="w-1/2 px-3 py-2.5 bg-[#F8F9F5] dark:bg-[#0E2016] border border-[#0F5132]/20 dark:border-emerald-800/60 rounded-xl text-xs text-stone-900 dark:text-white outline-none"
-                    />
+              {/* STEP 1: CRAFT IDENTITY & AI HELPER */}
+              {wizardStep === 1 && (
+                <div className="space-y-4 animate-in fade-in duration-200">
+                  <div className="space-y-0.5">
+                    <h3 className="text-sm font-bold text-stone-900 dark:text-white font-poppins">
+                      What are you offering?
+                    </h3>
+                    <p className="text-xs text-stone-500 dark:text-emerald-300/70 font-inter">
+                      Give your handcrafted item a recognizable name and category so buyers can discover it.
+                    </p>
                   </div>
-                </div>
-              </div>
 
-              <div>
-                <label className="block text-xs font-semibold text-stone-700 dark:text-emerald-200 mb-1 font-poppins">
-                  {t('product.descLabel') || 'Description & Artisan Story'}
-                </label>
-                <textarea
-                  value={description}
-                  onChange={(e) => setDescription(e.target.value)}
-                  rows={3}
-                  placeholder={t('product.descPlaceholder') || 'Describe the traditional technique, materials, and cultural heritage of this item...'}
-                  className="w-full px-3.5 py-2.5 bg-[#F8F9F5] dark:bg-[#0E2016] border border-[#0F5132]/20 dark:border-emerald-800/60 rounded-xl text-xs text-stone-900 dark:text-white focus:ring-2 focus:ring-[#0F5132] outline-none leading-relaxed font-inter"
-                />
-              </div>
-
-              {/* Product Gallery & Upload */}
-              <div className="space-y-3">
-                <label className="block text-xs font-semibold text-stone-700 dark:text-emerald-200 font-poppins">
-                  {t('product.imagesLabel') || 'Product Photos'}
-                </label>
-
-                {/* Thumbnail list */}
-                <div className="flex flex-wrap gap-2.5 sm:gap-3">
-                  {imageUrls.map((url, idx) => (
-                    <div key={idx} className="relative w-20 h-20 rounded-xl overflow-hidden border border-[#0F5132]/20 dark:border-emerald-800/60 group shadow-xs">
-                      <img src={url} alt={`Preview ${idx}`} className="w-full h-full object-cover" />
+                  {/* AI Assistant Progressive Tool */}
+                  <div className="bg-[#0F5132]/5 dark:bg-[#183023]/70 p-4 rounded-2xl border border-[#0F5132]/20 dark:border-emerald-700/50 space-y-3">
+                    <div className="flex items-center justify-between">
                       <button
                         type="button"
-                        onClick={() => handleRemoveImage(idx)}
-                        aria-label="Remove image"
-                        className="absolute top-1 right-1 p-1 bg-red-600 text-white rounded-full opacity-90 hover:opacity-100 transition-opacity cursor-pointer shadow-sm"
+                        onClick={() => setShowAiHelper(!showAiHelper)}
+                        className="text-xs font-bold text-stone-900 dark:text-white font-poppins flex items-center gap-1.5 hover:text-[#0F5132] dark:hover:text-emerald-300 transition-colors cursor-pointer"
                       >
-                        <X className="w-3 h-3" />
-                      </button>
-                    </div>
-                  ))}
-
-                  <label className="w-20 h-20 rounded-xl border-2 border-dashed border-[#0F5132]/30 dark:border-emerald-800/60 flex flex-col items-center justify-center cursor-pointer hover:border-[#0F5132] transition-colors bg-[#F8F9F5] dark:bg-[#0E2016]">
-                    <Upload className="w-4 h-4 text-[#0F5132] dark:text-emerald-400 mb-1" />
-                    <span className="text-[9px] text-stone-500 dark:text-emerald-300/70 font-medium font-poppins">{t('imageStudio.dropzone') || 'Upload'}</span>
-                    <input type="file" accept="image/*" onChange={handleFileUpload} className="hidden" />
-                  </label>
-                </div>
-
-                <div className="flex flex-col sm:flex-row gap-2 pt-1">
-                  <input
-                    type="text"
-                    value={newImageUrl}
-                    onChange={(e) => setNewImageUrl(e.target.value)}
-                    placeholder="Or paste direct image URL..."
-                    className="flex-1 px-3 py-2 bg-[#F8F9F5] dark:bg-[#0E2016] border border-[#0F5132]/20 dark:border-emerald-800/60 rounded-xl text-xs text-stone-900 dark:text-white outline-none"
-                  />
-                  <button
-                    type="button"
-                    onClick={handleAddImageUrl}
-                    className="px-4 py-2 bg-stone-100 dark:bg-[#183023] hover:bg-stone-200 dark:hover:bg-emerald-900/40 text-xs font-semibold rounded-xl text-stone-800 dark:text-emerald-200 font-poppins cursor-pointer"
-                  >
-                    + Add URL
-                  </button>
-                </div>
-
-                {imageUrls.length === 0 && (
-                  <div className="flex items-center gap-3 p-3 bg-emerald-50/70 dark:bg-emerald-950/40 border border-emerald-200/80 dark:border-emerald-800/60 rounded-xl">
-                    <img
-                      src={getContextualCraftImage({
-                        title: title || rawCraftInput || 'Craft Product',
-                        category: craftType,
-                        material: materials,
-                        description,
-                      })}
-                      alt="Craft match preview"
-                      className="w-14 h-14 rounded-lg object-cover border border-[#0F5132]/20 dark:border-emerald-700/60 shrink-0"
-                    />
-                    <div className="space-y-0.5">
-                      <div className="flex items-center gap-1.5">
-                        <Sparkles className="w-3.5 h-3.5 text-[#0F5132] dark:text-emerald-400" />
-                        <span className="text-xs font-bold text-stone-900 dark:text-white font-poppins">
-                          Contextual Craft Image Pre-Assigned
+                        <Sparkles className="w-4 h-4 text-[#D4AF37]" />
+                        <span>{t('product.generateWithAi') || 'AI Assistant Auto-Fill'}</span>
+                        <span className="text-[10px] font-normal text-stone-500 dark:text-emerald-300/60">
+                          ({showAiHelper ? 'Hide' : 'Click to expand'})
                         </span>
+                      </button>
+
+                      {aiGeneratedSuccess && (
+                        <span className="text-[11px] font-bold text-[#0F5132] dark:text-emerald-400 flex items-center gap-1 font-poppins">
+                          <CheckCircle2 className="w-3.5 h-3.5" /> Suggestions Ready!
+                        </span>
+                      )}
+                    </div>
+
+                    {showAiHelper ? (
+                      <div className="space-y-2.5 pt-1">
+                        <p className="text-[11px] text-stone-600 dark:text-emerald-200/80 font-inter">
+                          Type a rough craft name and materials. Gemini AI will suggest an authentic title, cultural story, and keywords.
+                        </p>
+                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
+                          <input
+                            type="text"
+                            value={rawCraftInput}
+                            onChange={(e) => setRawCraftInput(e.target.value)}
+                            placeholder={t('product.namePlaceholder') || 'e.g. Handcrafted Madhubani Silk Dupatta'}
+                            className="px-3.5 py-2 bg-white dark:bg-[#0E2016] border border-[#0F5132]/20 dark:border-emerald-800/60 rounded-xl text-xs text-stone-900 dark:text-white outline-none focus:ring-2 focus:ring-[#0F5132]"
+                          />
+                          <input
+                            type="text"
+                            value={materials}
+                            onChange={(e) => setMaterials(e.target.value)}
+                            placeholder={t('product.materialsPlaceholder') || 'Materials e.g. Silk cloth, organic dye'}
+                            className="px-3.5 py-2 bg-white dark:bg-[#0E2016] border border-[#0F5132]/20 dark:border-emerald-800/60 rounded-xl text-xs text-stone-900 dark:text-white outline-none focus:ring-2 focus:ring-[#0F5132]"
+                          />
+                        </div>
+
+                        <button
+                          type="button"
+                          id="btn-generate-ai-details"
+                          onClick={handleAIGenerateDetails}
+                          disabled={generatingAI || !rawCraftInput.trim()}
+                          className="w-full py-2.5 bg-[#0F5132] hover:bg-[#0B3D26] text-white font-semibold text-xs rounded-xl shadow-xs transition-all flex items-center justify-center gap-2 disabled:opacity-50 font-poppins cursor-pointer"
+                        >
+                          <Sparkles className="w-4 h-4 text-[#D4AF37]" />
+                          <span>{generatingAI ? (t('product.generatingWithAi') || 'AI Generating Details...') : (t('product.generateWithAi') || 'Auto-Fill Details with AI')}</span>
+                        </button>
+
+                        {aiGenerateError && (
+                          <p className="text-[11px] text-red-600 dark:text-red-400 font-inter">{aiGenerateError}</p>
+                        )}
                       </div>
-                      <p className="text-[11px] text-stone-600 dark:text-emerald-300/80 font-inter">
-                        An authentic craft photo matching <strong>{craftType}</strong> is ready. You can keep it or upload your own photos above.
+                    ) : (
+                      <p className="text-[11px] text-stone-500 dark:text-emerald-300/70 font-inter">
+                        Need help crafting your listing? Open the AI assistant above to auto-suggest titles, descriptions, and pricing.
                       </p>
+                    )}
+                  </div>
+
+                  {/* Primary Craft Inputs */}
+                  <div className="space-y-3.5">
+                    <div>
+                      <label className="block text-xs font-semibold text-stone-700 dark:text-emerald-200 mb-1 font-poppins">
+                        {t('product.nameLabel') || 'Product Name / Title'} <span className="text-red-500">*</span>
+                      </label>
+                      <input
+                        type="text"
+                        value={title}
+                        onChange={(e) => {
+                          setTitle(e.target.value);
+                          if (formError) setFormError('');
+                        }}
+                        placeholder={t('product.namePlaceholder') || 'e.g. Madhubani Handpainted Silk Scarf'}
+                        required
+                        className="w-full px-3.5 py-2.5 bg-[#F8F9F5] dark:bg-[#0E2016] border border-[#0F5132]/20 dark:border-emerald-800/60 rounded-xl text-xs text-stone-900 dark:text-white focus:ring-2 focus:ring-[#0F5132] outline-none font-semibold font-inter"
+                      />
+                    </div>
+
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-3.5">
+                      <div>
+                        <label className="block text-xs font-semibold text-stone-700 dark:text-emerald-200 mb-1 font-poppins">
+                          {t('product.categoryLabel') || 'Craft Category'}
+                        </label>
+                        <select
+                          value={craftType}
+                          onChange={(e) => setCraftType(e.target.value)}
+                          className="w-full px-3.5 py-2.5 bg-[#F8F9F5] dark:bg-[#0E2016] border border-[#0F5132]/20 dark:border-emerald-800/60 rounded-xl text-xs text-stone-900 dark:text-white focus:ring-2 focus:ring-[#0F5132] outline-none cursor-pointer"
+                        >
+                          <option value="Handicrafts & Art">Handicrafts & Art</option>
+                          <option value="Pottery & Home Decor">Pottery & Home Decor</option>
+                          <option value="Textiles & Handlooms">Textiles & Handlooms</option>
+                          <option value="Organic Agri-products">Organic Agri-products</option>
+                          <option value="Jewelry & Accessories">Jewelry & Accessories</option>
+                        </select>
+                      </div>
+
+                      <div>
+                        <label className="block text-xs font-semibold text-stone-700 dark:text-emerald-200 mb-1 font-poppins">
+                          {t('product.materialsLabel') || 'Materials Used'} <span className="text-stone-400 font-normal text-[11px]">(Optional)</span>
+                        </label>
+                        <input
+                          type="text"
+                          value={materials}
+                          onChange={(e) => setMaterials(e.target.value)}
+                          placeholder="e.g. Pure Clay, Terracotta, Silk"
+                          className="w-full px-3.5 py-2.5 bg-[#F8F9F5] dark:bg-[#0E2016] border border-[#0F5132]/20 dark:border-emerald-800/60 rounded-xl text-xs text-stone-900 dark:text-white focus:ring-2 focus:ring-[#0F5132] outline-none"
+                        />
+                      </div>
                     </div>
                   </div>
-                )}
-              </div>
-            </form>
-
-            {/* Sticky Action Footer */}
-            <div className="px-5 sm:px-7 py-3.5 sm:py-4 border-t border-stone-200/80 dark:border-emerald-800/50 flex flex-col gap-3 bg-stone-50/95 dark:bg-[#0E2016]/95 backdrop-blur-xs shrink-0">
-              {formError && (
-                <div className="p-2.5 bg-red-50 dark:bg-red-950/80 border border-red-200 dark:border-red-800 rounded-xl text-xs text-red-700 dark:text-red-300 flex items-center gap-2">
-                  <AlertCircle className="w-4 h-4 shrink-0" />
-                  <span>{formError}</span>
                 </div>
               )}
-              <div className="flex items-center justify-end gap-3">
-                <button
-                  type="button"
-                  onClick={() => setModalOpen(false)}
-                  className="px-5 py-2.5 bg-white dark:bg-[#183023] hover:bg-stone-100 dark:hover:bg-emerald-900/40 border border-stone-200 dark:border-emerald-800/60 text-stone-700 dark:text-emerald-200 font-semibold text-xs rounded-xl transition-colors font-poppins cursor-pointer"
-                >
-                  {t('common.cancel')}
-                </button>
-                <button
-                  type="button"
-                  id="btn-save-product-submit"
-                  disabled={saving}
-                  onClick={(e) => {
-                    e.preventDefault();
-                    handleSaveProduct();
-                  }}
-                  className="px-6 py-2.5 bg-[#0F5132] hover:bg-[#0B3D26] disabled:opacity-50 text-white font-semibold text-xs rounded-xl shadow-md transition-all font-poppins cursor-pointer flex items-center gap-2 active:scale-98"
-                >
-                  {saving ? (
-                    <>
-                      <div className="w-3.5 h-3.5 border-2 border-white border-t-transparent rounded-full animate-spin" />
-                      <span>{t('common.saving') || 'Saving...'}</span>
-                    </>
-                  ) : (
-                    <span>{editingId ? (t('common.save') || 'Save Changes') : (t('product.saveProduct') || 'Save Product')}</span>
-                  )}
-                </button>
+
+              {/* STEP 2: PHOTOS & CRAFT STORY */}
+              {wizardStep === 2 && (
+                <div className="space-y-4 animate-in fade-in duration-200">
+                  <div className="space-y-0.5">
+                    <h3 className="text-sm font-bold text-stone-900 dark:text-white font-poppins">
+                      Photos & Artisan Heritage Story
+                    </h3>
+                    <p className="text-xs text-stone-500 dark:text-emerald-300/70 font-inter">
+                      Upload clear photos from your workshop and describe how this piece is crafted.
+                    </p>
+                  </div>
+
+                  {/* Photo Gallery & Upload */}
+                  <div className="space-y-3">
+                    <label className="block text-xs font-semibold text-stone-700 dark:text-emerald-200 font-poppins">
+                      {t('product.imagesLabel') || 'Product Photos'}
+                    </label>
+
+                    <div className="flex flex-wrap gap-2.5 sm:gap-3">
+                      {imageUrls.map((url, idx) => (
+                        <div key={idx} className="relative w-20 h-20 rounded-xl overflow-hidden border border-[#0F5132]/20 dark:border-emerald-800/60 group shadow-xs">
+                          <img src={url} alt={`Preview ${idx}`} className="w-full h-full object-cover" />
+                          <button
+                            type="button"
+                            onClick={() => handleRemoveImage(idx)}
+                            aria-label="Remove image"
+                            className="absolute top-1 right-1 p-1 bg-red-600 text-white rounded-full opacity-90 hover:opacity-100 transition-opacity cursor-pointer shadow-sm"
+                          >
+                            <X className="w-3 h-3" />
+                          </button>
+                        </div>
+                      ))}
+
+                      <label className="w-20 h-20 rounded-xl border-2 border-dashed border-[#0F5132]/30 dark:border-emerald-800/60 flex flex-col items-center justify-center cursor-pointer hover:border-[#0F5132] transition-colors bg-[#F8F9F5] dark:bg-[#0E2016]">
+                        <Camera className="w-4 h-4 text-[#0F5132] dark:text-emerald-400 mb-1" />
+                        <span className="text-[9px] text-stone-500 dark:text-emerald-300/70 font-medium font-poppins">{t('imageStudio.dropzone') || 'Upload'}</span>
+                        <input type="file" accept="image/*" onChange={handleFileUpload} className="hidden" />
+                      </label>
+                    </div>
+
+                    <div className="flex flex-col sm:flex-row gap-2 pt-1">
+                      <input
+                        type="text"
+                        value={newImageUrl}
+                        onChange={(e) => setNewImageUrl(e.target.value)}
+                        placeholder="Or paste direct image URL..."
+                        className="flex-1 px-3 py-2 bg-[#F8F9F5] dark:bg-[#0E2016] border border-[#0F5132]/20 dark:border-emerald-800/60 rounded-xl text-xs text-stone-900 dark:text-white outline-none"
+                      />
+                      <button
+                        type="button"
+                        onClick={handleAddImageUrl}
+                        className="px-4 py-2 bg-stone-100 dark:bg-[#183023] hover:bg-stone-200 dark:hover:bg-emerald-900/40 text-xs font-semibold rounded-xl text-stone-800 dark:text-emerald-200 font-poppins cursor-pointer"
+                      >
+                        + Add URL
+                      </button>
+                    </div>
+
+                    {imageUrls.length === 0 && (
+                      <div className="flex items-center gap-3 p-3 bg-emerald-50/70 dark:bg-emerald-950/40 border border-emerald-200/80 dark:border-emerald-800/60 rounded-xl">
+                        <img
+                          src={getContextualCraftImage({
+                            title: title || rawCraftInput || 'Craft Product',
+                            category: craftType,
+                            material: materials,
+                            description,
+                          })}
+                          alt="Craft match preview"
+                          className="w-14 h-14 rounded-lg object-cover border border-[#0F5132]/20 dark:border-emerald-700/60 shrink-0"
+                        />
+                        <div className="space-y-0.5">
+                          <div className="flex items-center gap-1.5">
+                            <Sparkles className="w-3.5 h-3.5 text-[#0F5132] dark:text-emerald-400" />
+                            <span className="text-xs font-bold text-stone-900 dark:text-white font-poppins">
+                              Contextual Craft Image Pre-Assigned
+                            </span>
+                          </div>
+                          <p className="text-[11px] text-stone-600 dark:text-emerald-300/80 font-inter">
+                            An authentic craft photo matching <strong>{craftType}</strong> is ready. You can keep it or upload your own photos above.
+                          </p>
+                        </div>
+                      </div>
+                    )}
+                  </div>
+
+                  {/* Description & Artisan Story */}
+                  <div>
+                    <label className="block text-xs font-semibold text-stone-700 dark:text-emerald-200 mb-1 font-poppins">
+                      {t('product.descLabel') || 'Description & Artisan Story'}
+                    </label>
+                    <textarea
+                      value={description}
+                      onChange={(e) => setDescription(e.target.value)}
+                      rows={4}
+                      placeholder={t('product.descPlaceholder') || 'Describe the traditional technique, materials, and cultural heritage of this item...'}
+                      className="w-full px-3.5 py-2.5 bg-[#F8F9F5] dark:bg-[#0E2016] border border-[#0F5132]/20 dark:border-emerald-800/60 rounded-xl text-xs text-stone-900 dark:text-white focus:ring-2 focus:ring-[#0F5132] outline-none leading-relaxed font-inter"
+                    />
+                  </div>
+
+                  {/* Keywords */}
+                  <div>
+                    <label className="block text-xs font-semibold text-stone-700 dark:text-emerald-200 mb-1.5 font-poppins">
+                      Search Tags & Keywords
+                    </label>
+                    <div className="flex flex-wrap gap-1.5">
+                      {keywords.map((kw, i) => (
+                        <span
+                          key={i}
+                          className="inline-flex items-center gap-1 px-2.5 py-1 bg-stone-100 dark:bg-[#183023] text-stone-700 dark:text-emerald-300 rounded-lg text-xs font-medium font-inter"
+                        >
+                          #{kw}
+                          <button
+                            type="button"
+                            onClick={() => setKeywords(keywords.filter((_, idx) => idx !== i))}
+                            className="hover:text-red-500 cursor-pointer"
+                          >
+                            <X className="w-3 h-3" />
+                          </button>
+                        </span>
+                      ))}
+                    </div>
+                  </div>
+                </div>
+              )}
+
+              {/* STEP 3: FAIR PRICING, INVENTORY & STATUS */}
+              {wizardStep === 3 && (
+                <div className="space-y-4 animate-in fade-in duration-200">
+                  <div className="space-y-0.5">
+                    <h3 className="text-sm font-bold text-stone-900 dark:text-white font-poppins">
+                      Pricing, Inventory & Listing Status
+                    </h3>
+                    <p className="text-xs text-stone-500 dark:text-emerald-300/70 font-inter">
+                      Set a price that covers your raw materials and honors your craft labor.
+                    </p>
+                  </div>
+
+                  <div className="grid grid-cols-1 sm:grid-cols-3 gap-3.5">
+                    <div>
+                      <label className="block text-xs font-semibold text-stone-700 dark:text-emerald-200 mb-1 font-poppins">
+                        {t('product.priceLabel') || 'Selling Price'} (₹) <span className="text-red-500">*</span>
+                      </label>
+                      <input
+                        type="number"
+                        min="0"
+                        step="any"
+                        value={price}
+                        onChange={(e) => setPrice(Number(e.target.value))}
+                        required
+                        className="w-full px-3.5 py-2.5 bg-[#F8F9F5] dark:bg-[#0E2016] border border-[#0F5132]/20 dark:border-emerald-800/60 rounded-xl text-xs text-stone-900 dark:text-white focus:ring-2 focus:ring-[#0F5132] outline-none font-bold"
+                      />
+                    </div>
+
+                    <div>
+                      <label className="block text-xs font-semibold text-stone-700 dark:text-emerald-200 mb-1 font-poppins">
+                        {t('product.stockLabel') || 'Available Stock'} <span className="text-red-500">*</span>
+                      </label>
+                      <input
+                        type="number"
+                        min="0"
+                        step="1"
+                        value={stock}
+                        onChange={(e) => setStock(Number(e.target.value))}
+                        required
+                        className="w-full px-3.5 py-2.5 bg-[#F8F9F5] dark:bg-[#0E2016] border border-[#0F5132]/20 dark:border-emerald-800/60 rounded-xl text-xs text-stone-900 dark:text-white focus:ring-2 focus:ring-[#0F5132] outline-none font-medium"
+                      />
+                    </div>
+
+                    <div>
+                      <label className="block text-xs font-semibold text-stone-700 dark:text-emerald-200 mb-1 font-poppins">
+                        {t('common.status') || 'Listing Status'}
+                      </label>
+                      <select
+                        value={status}
+                        onChange={(e) => setStatus(e.target.value as any)}
+                        className="w-full px-3.5 py-2.5 bg-[#F8F9F5] dark:bg-[#0E2016] border border-[#0F5132]/20 dark:border-emerald-800/60 rounded-xl text-xs text-stone-900 dark:text-white focus:ring-2 focus:ring-[#0F5132] outline-none cursor-pointer"
+                      >
+                        <option value="published">{t('subscription.active') || 'Published / Active'}</option>
+                        <option value="draft">Draft (Private)</option>
+                        <option value="archived">Archived</option>
+                      </select>
+                    </div>
+                  </div>
+
+                  {/* Progressive Disclosure: Advanced Logistics Accordion */}
+                  <div className="border border-stone-200/80 dark:border-emerald-800/50 rounded-2xl overflow-hidden">
+                    <button
+                      type="button"
+                      onClick={() => setShowAdvancedLogistics(!showAdvancedLogistics)}
+                      className="w-full px-4 py-3 bg-[#F8F9F5] dark:bg-[#0E2016] flex items-center justify-between text-xs font-semibold text-stone-700 dark:text-emerald-200 font-poppins cursor-pointer hover:bg-stone-100 dark:hover:bg-emerald-900/30 transition-colors"
+                    >
+                      <span className="flex items-center gap-2">
+                        <span>Advanced Logistics (SKU, Weight & Dimensions)</span>
+                        <span className="text-[10px] text-stone-400 font-normal">Optional</span>
+                      </span>
+                      {showAdvancedLogistics ? (
+                        <ChevronDown className="w-4 h-4 text-stone-500" />
+                      ) : (
+                        <ChevronRight className="w-4 h-4 text-stone-500" />
+                      )}
+                    </button>
+
+                    {showAdvancedLogistics && (
+                      <div className="p-4 bg-white dark:bg-[#13251B] grid grid-cols-1 sm:grid-cols-2 gap-3.5 border-t border-stone-200/60 dark:border-emerald-800/40">
+                        <div>
+                          <label className="block text-xs font-semibold text-stone-700 dark:text-emerald-200 mb-1 font-poppins">
+                            {t('product.skuLabel') || 'SKU Code'}
+                          </label>
+                          <input
+                            type="text"
+                            value={sku}
+                            onChange={(e) => setSku(e.target.value)}
+                            placeholder="SKU-ART-1001"
+                            className="w-full px-3.5 py-2.5 bg-[#F8F9F5] dark:bg-[#0E2016] border border-[#0F5132]/20 dark:border-emerald-800/60 rounded-xl text-xs text-stone-900 dark:text-white focus:ring-2 focus:ring-[#0F5132] outline-none font-mono"
+                          />
+                        </div>
+
+                        <div>
+                          <label className="block text-xs font-semibold text-stone-700 dark:text-emerald-200 mb-1 font-poppins">
+                            {t('product.weightLabel') || 'Weight'} & {t('product.dimensionsLabel') || 'Dimensions'}
+                          </label>
+                          <div className="flex gap-2">
+                            <input
+                              type="text"
+                              value={weight}
+                              onChange={(e) => setWeight(e.target.value)}
+                              placeholder="e.g. 0.5 kg"
+                              className="w-1/2 px-3 py-2 bg-[#F8F9F5] dark:bg-[#0E2016] border border-[#0F5132]/20 dark:border-emerald-800/60 rounded-xl text-xs text-stone-900 dark:text-white outline-none"
+                            />
+                            <input
+                              type="text"
+                              value={dimensions}
+                              onChange={(e) => setDimensions(e.target.value)}
+                              placeholder="e.g. 10x10x10 cm"
+                              className="w-1/2 px-3 py-2 bg-[#F8F9F5] dark:bg-[#0E2016] border border-[#0F5132]/20 dark:border-emerald-800/60 rounded-xl text-xs text-stone-900 dark:text-white outline-none"
+                            />
+                          </div>
+                        </div>
+                      </div>
+                    )}
+                  </div>
+
+                  {/* Summary Review Card */}
+                  <div className="p-3.5 bg-emerald-50/70 dark:bg-emerald-950/40 border border-emerald-200/80 dark:border-emerald-800/60 rounded-2xl flex items-center justify-between text-xs font-inter">
+                    <div className="space-y-0.5">
+                      <span className="font-bold text-stone-900 dark:text-white font-poppins block">
+                        {title || 'Untitled Product'}
+                      </span>
+                      <span className="text-[11px] text-stone-600 dark:text-emerald-300/80">
+                        {craftType} • {imageUrls.length > 0 ? `${imageUrls.length} photo(s)` : 'Contextual match photo'} • {status.toUpperCase()}
+                      </span>
+                    </div>
+                    <div className="text-right">
+                      <span className="text-xs text-stone-500 dark:text-emerald-400/70 block">Selling Price</span>
+                      <span className="text-base font-extrabold text-[#0F5132] dark:text-emerald-300 font-poppins">
+                        {formatCurrency(price)}
+                      </span>
+                    </div>
+                  </div>
+                </div>
+              )}
+            </form>
+
+            {/* Sticky Action Footer with Step Navigation */}
+            <div className="px-5 sm:px-7 py-3.5 sm:py-4 border-t border-stone-200/80 dark:border-emerald-800/50 flex items-center justify-between bg-stone-50/95 dark:bg-[#0E2016]/95 backdrop-blur-xs shrink-0">
+              <div>
+                {wizardStep > 1 ? (
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setFormError('');
+                      setWizardStep((prev) => (prev > 1 ? (prev - 1 as 1 | 2) : 1));
+                    }}
+                    className="inline-flex items-center gap-1.5 px-4 py-2.5 bg-white dark:bg-[#183023] hover:bg-stone-100 dark:hover:bg-emerald-900/40 border border-stone-200 dark:border-emerald-800/60 text-stone-700 dark:text-emerald-200 font-semibold text-xs rounded-xl transition-colors font-poppins cursor-pointer"
+                  >
+                    <ArrowLeft className="w-3.5 h-3.5" />
+                    <span>Back</span>
+                  </button>
+                ) : (
+                  <button
+                    type="button"
+                    onClick={() => setModalOpen(false)}
+                    className="px-4 py-2.5 text-stone-500 hover:text-stone-800 dark:text-emerald-300/70 dark:hover:text-white font-semibold text-xs transition-colors font-poppins cursor-pointer"
+                  >
+                    {t('common.cancel')}
+                  </button>
+                )}
+              </div>
+
+              <div className="flex items-center gap-2">
+                {wizardStep < 3 ? (
+                  <button
+                    type="button"
+                    onClick={() => {
+                      if (wizardStep === 1 && !title.trim()) {
+                        setFormError(t('validation.required') || 'Product name is required before proceeding.');
+                        return;
+                      }
+                      setFormError('');
+                      setWizardStep((prev) => (prev < 3 ? (prev + 1 as 2 | 3) : 3));
+                    }}
+                    className="inline-flex items-center gap-1.5 px-5 py-2.5 bg-[#0F5132] hover:bg-[#0B3D26] text-white font-semibold text-xs rounded-xl shadow-md transition-all font-poppins cursor-pointer active:scale-98"
+                  >
+                    <span>{wizardStep === 1 ? 'Next: Photos & Story' : 'Next: Pricing & Publish'}</span>
+                    <ArrowRight className="w-3.5 h-3.5" />
+                  </button>
+                ) : (
+                  <button
+                    type="button"
+                    id="btn-save-product-submit"
+                    disabled={saving}
+                    onClick={(e) => {
+                      e.preventDefault();
+                      handleSaveProduct();
+                    }}
+                    className="px-6 py-2.5 bg-[#0F5132] hover:bg-[#0B3D26] disabled:opacity-50 text-white font-semibold text-xs rounded-xl shadow-md transition-all font-poppins cursor-pointer flex items-center gap-2 active:scale-98"
+                  >
+                    {saving ? (
+                      <>
+                        <div className="w-3.5 h-3.5 border-2 border-white border-t-transparent rounded-full animate-spin" />
+                        <span>{t('common.saving') || 'Saving...'}</span>
+                      </>
+                    ) : (
+                      <span>{editingId ? (t('common.save') || 'Save Changes') : (t('product.saveProduct') || 'Save Product')}</span>
+                    )}
+                  </button>
+                )}
               </div>
             </div>
           </div>
