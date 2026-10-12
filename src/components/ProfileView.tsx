@@ -119,7 +119,7 @@ export const ProfileView: React.FC<ProfileViewProps> = ({ setCurrentTab, openPri
               className="flex-1 sm:flex-initial px-4 py-2.5 bg-[#D4AF37] hover:bg-[#C29F2B] text-[#1A1A1A] font-semibold text-xs rounded-xl shadow-md flex items-center justify-center gap-1.5 transition-all font-poppins cursor-pointer active:scale-98"
             >
               <Crown className="w-4 h-4" />
-              <span>{user.subscriptionPlan === 'pro' ? 'Pro Member' : t('subscription.upgradeToPro')}</span>
+              <span>{(user.subscriptionPlan === 'artisan_pro' || user.subscriptionPlan === 'pro') ? 'Pro Member' : t('subscription.upgradeToPro')}</span>
             </button>
             <button
               onClick={logout}

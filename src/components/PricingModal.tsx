@@ -42,7 +42,7 @@ export const PricingModal: React.FC<PricingModalProps> = ({ isOpen, onClose }) =
 
   if (!isOpen) return null;
 
-  const isPro = user?.subscriptionPlan === 'pro';
+  const isPro = user?.subscriptionPlan === 'artisan_pro' || user?.subscriptionPlan === 'pro';
 
   const handlePayPro = async () => {
     setSubmitting(true);

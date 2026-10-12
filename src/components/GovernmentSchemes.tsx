@@ -9,6 +9,7 @@ import {
   Filter,
   Award,
   CircleCheck,
+  X,
 } from 'lucide-react';
 
 const SCHEMES_DATA: GovernmentScheme[] = [
@@ -225,9 +226,9 @@ export const GovernmentSchemes: React.FC = () => {
               <button
                 onClick={() => setSelectedScheme(null)}
                 aria-label={t('common.close')}
-                className="text-stone-400 hover:text-stone-600 dark:hover:text-white text-lg font-bold p-1 cursor-pointer"
+                className="text-stone-400 hover:text-stone-600 dark:hover:text-white p-1 cursor-pointer"
               >
-                ✕
+                <X className="w-5 h-5" />
               </button>
             </div>
 

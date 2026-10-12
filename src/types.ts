@@ -12,7 +12,7 @@ export interface User {
   location?: string;
   is_active?: boolean;
   is_verified?: boolean;
-  subscriptionPlan: 'free' | 'pro';
+  subscriptionPlan: 'free' | 'artisan_pro' | 'pro';
   subscriptionValidUntil?: string;
   avatarUrl?: string;
   profile_image?: string;

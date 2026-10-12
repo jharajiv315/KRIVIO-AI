@@ -9,6 +9,12 @@ import {
   ArrowRight,
   Download,
   Layers,
+  Globe,
+  Package,
+  ShoppingBag,
+  Tag,
+  Palette,
+  Store,
 } from 'lucide-react';
 
 export const MarketplaceReadiness: React.FC = () => {
@@ -287,25 +293,28 @@ export const MarketplaceReadiness: React.FC = () => {
         {/* Platform Tabs */}
         <div className="flex gap-2 overflow-x-auto pb-2 no-scrollbar">
           {[
-            { id: 'ondc', name: 'ONDC Network', logo: '🌐' },
-            { id: 'amazon_karigar', name: 'Amazon Karigar', logo: '📦' },
-            { id: 'flipkart_samarth', name: 'Flipkart Samarth', logo: '🛍️' },
-            { id: 'meesho', name: 'Meesho', logo: '🏷️' },
-            { id: 'etsy', name: 'Etsy Export', logo: '🎨' },
-          ].map((tab) => (
-            <button
-              key={tab.id}
-              onClick={() => setActivePlatformTab(tab.id)}
-              className={`px-4 py-2.5 rounded-2xl text-xs font-bold transition-all flex items-center gap-2 shrink-0 font-poppins cursor-pointer ${
-                activePlatformTab === tab.id
-                  ? 'bg-[#0F5132] text-white shadow-xs'
-                  : 'bg-stone-100 dark:bg-[#0E2016] text-stone-600 dark:text-emerald-300/80 hover:bg-stone-200 dark:hover:bg-[#183023]'
-              }`}
-            >
-              <span>{tab.logo}</span>
-              <span>{tab.name}</span>
-            </button>
-          ))}
+            { id: 'ondc', name: 'ONDC Network', icon: Globe },
+            { id: 'amazon_karigar', name: 'Amazon Karigar', icon: Package },
+            { id: 'flipkart_samarth', name: 'Flipkart Samarth', icon: ShoppingBag },
+            { id: 'meesho', name: 'Meesho', icon: Tag },
+            { id: 'etsy', name: 'Etsy Export', icon: Palette },
+          ].map((tab) => {
+            const Icon = tab.icon;
+            return (
+              <button
+                key={tab.id}
+                onClick={() => setActivePlatformTab(tab.id)}
+                className={`px-4 py-2.5 rounded-2xl text-xs font-bold transition-all flex items-center gap-2 shrink-0 font-poppins cursor-pointer ${
+                  activePlatformTab === tab.id
+                    ? 'bg-[#0F5132] text-white shadow-xs'
+                    : 'bg-stone-100 dark:bg-[#0E2016] text-stone-600 dark:text-emerald-300/80 hover:bg-stone-200 dark:hover:bg-[#183023]'
+                }`}
+              >
+                <Icon className="w-4 h-4" />
+                <span>{tab.name}</span>
+              </button>
+            );
+          })}
         </div>
 
         {/* Selected Platform Scorecard Details */}
@@ -383,8 +392,8 @@ export const MarketplaceReadiness: React.FC = () => {
       <div className="bg-[#0F5132] text-white p-5 sm:p-8 rounded-3xl border border-[#2E7D32]/50 shadow-lg space-y-5 font-inter">
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-3">
-            <div className="w-10 h-10 rounded-xl bg-[#2E7D32] text-white font-bold flex items-center justify-center text-lg">
-              🌐
+            <div className="w-10 h-10 rounded-xl bg-[#2E7D32] text-white font-bold flex items-center justify-center">
+              <Globe className="w-5 h-5 text-emerald-100" />
             </div>
             <div>
               <h3 className="text-base font-bold font-poppins">
@@ -445,7 +454,6 @@ export const MarketplaceReadiness: React.FC = () => {
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 sm:gap-6">
             {channels.map((ch, idx) => {
               const cName = ch.channelName || (ch as any).name || 'Sales Channel';
-              const cLogo = ch.logo || '🏪';
               const cDesc = ch.description || 'Direct selling channel for rural enterprise catalog.';
               const cScore = ch.fitScore ?? 92;
               const cBenefits = Array.isArray(ch.benefits) ? ch.benefits : ['Direct customer orders', '0% setup fee'];
@@ -459,8 +467,8 @@ export const MarketplaceReadiness: React.FC = () => {
                   <div className="space-y-4">
                     <div className="flex items-start justify-between gap-2">
                       <div className="flex items-center gap-3">
-                        <div className="w-12 h-12 rounded-2xl bg-stone-100 dark:bg-[#0E2016] text-2xl flex items-center justify-center shrink-0 border border-[#0F5132]/10 dark:border-emerald-900/40">
-                          {cLogo}
+                        <div className="w-12 h-12 rounded-2xl bg-stone-100 dark:bg-[#0E2016] text-[#0F5132] dark:text-emerald-400 flex items-center justify-center shrink-0 border border-[#0F5132]/10 dark:border-emerald-900/40">
+                          <Store className="w-6 h-6" />
                         </div>
                         <div>
                           <h3 className="text-sm font-bold text-stone-900 dark:text-white line-clamp-1 font-poppins">

@@ -49,7 +49,7 @@ export const SubscriptionView: React.FC<SubscriptionViewProps> = ({ openPricingM
     loadUsage();
   }, []);
 
-  const isPro = usage?.subscription.isPro ?? (user?.subscriptionPlan === 'pro');
+  const isPro = usage?.subscription.isPro ?? (user?.subscriptionPlan === 'artisan_pro' || user?.subscriptionPlan === 'pro');
   const planName = isPro ? 'Artisan Pro' : 'Artisan Free';
 
   const periodEndFormatted = usage?.periodEnd

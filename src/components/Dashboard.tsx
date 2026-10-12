@@ -799,10 +799,10 @@ export const Dashboard: React.FC<DashboardProps> = ({ currentTab, setCurrentTab,
             <div className="flex items-center justify-between">
               <span className="text-stone-500 dark:text-emerald-400/70">{t('nav.subscription')}</span>
               <span className="font-bold text-[#0F5132] dark:text-[#34D399] uppercase text-[10px]">
-                {user.subscriptionPlan === 'pro' ? t('pricing.proPlanTitle') : t('pricing.freePlanTitle')}
+                {(user.subscriptionPlan === 'artisan_pro' || user.subscriptionPlan === 'pro') ? t('pricing.proPlanTitle') : t('pricing.freePlanTitle')}
               </span>
             </div>
-            {user.subscriptionPlan !== 'pro' && (
+            {user.subscriptionPlan !== 'artisan_pro' && user.subscriptionPlan !== 'pro' && (
               <button
                 onClick={() => {
                   setMobileDrawerOpen(false);
@@ -810,7 +810,7 @@ export const Dashboard: React.FC<DashboardProps> = ({ currentTab, setCurrentTab,
                 }}
                 className="w-full py-2.5 bg-[#D4AF37] hover:bg-[#C29F2B] text-[#1A1A1A] font-bold text-xs rounded-xl shadow-xs transition-all font-poppins cursor-pointer"
               >
-                {t('pricing.upgradeBtn')} (₹299/mo)
+                {t('pricing.upgradeBtn')} (₹299 / 30-day pass)
               </button>
             )}
 
@@ -923,7 +923,7 @@ export const Dashboard: React.FC<DashboardProps> = ({ currentTab, setCurrentTab,
               <div className="flex items-center justify-between text-stone-500 dark:text-emerald-300/70">
                 <span>{t('profile.plan')}</span>
                 <span className="font-bold text-[#0F5132] dark:text-[#34D399] uppercase text-[10px] font-poppins">
-                  {user.subscriptionPlan === 'pro' ? t('pricing.proPlanTitle') : t('pricing.freePlanTitle')}
+                  {(user.subscriptionPlan === 'artisan_pro' || user.subscriptionPlan === 'pro') ? t('pricing.proPlanTitle') : t('pricing.freePlanTitle')}
                 </span>
               </div>
               <p className="text-[10px] text-stone-400 dark:text-emerald-400/60 leading-tight">

@@ -302,7 +302,7 @@ export async function generateClientStudioAsset(params: {
         ctx.fillStyle = '#D4AF37';
         ctx.font = `bold ${Math.round(width * 0.038)}px system-ui, sans-serif`;
         ctx.textAlign = 'center';
-        ctx.fillText(`✨ ${festival} Special ✨`, width * 0.5, height * 0.085);
+        ctx.fillText(`${festival} Special`, width * 0.5, height * 0.085);
 
         ctx.fillStyle = '#FEF3C7';
         ctx.font = `${Math.round(width * 0.024)}px system-ui, sans-serif`;

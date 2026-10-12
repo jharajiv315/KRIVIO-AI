@@ -26,6 +26,7 @@ import {
   HeartHandshake,
   ExternalLink,
   Lock,
+  X,
 } from 'lucide-react';
 import {
   imageStudioApi,
@@ -582,8 +583,8 @@ export const StudioWorkspace: React.FC<StudioWorkspaceProps> = ({
                   placeholder="e.g. Put this Madhubani silk scarf on a rustic teakwood table with warm natural morning window light and a small terracotta cup nearby."
                   className="w-full p-3 bg-stone-50 dark:bg-[#0E2016] border border-stone-200 dark:border-emerald-900/40 rounded-2xl text-xs text-stone-900 dark:text-white focus:ring-2 focus:ring-[#0F5132] outline-none h-24 resize-none font-inter"
                 />
-                <p className="text-[11px] text-stone-400 dark:text-emerald-400/60 italic font-inter">
-                  💡 No prompts needed. Just describe the setting, table surface, or purpose.
+                <p className="text-[11px] text-stone-400 dark:text-emerald-400/60 font-inter">
+                  No complex prompts needed. Describe the setting, table surface, or purpose.
                 </p>
               </div>
             )}
@@ -930,7 +931,7 @@ export const StudioWorkspace: React.FC<StudioWorkspaceProps> = ({
                 aria-label="Close modal"
                 className="min-w-[40px] min-h-[40px] flex items-center justify-center text-stone-400 hover:text-stone-600 dark:hover:text-stone-200 rounded-lg transition-colors cursor-pointer"
               >
-                ✕
+                <X className="w-5 h-5" />
               </button>
             </div>
 

@@ -73,13 +73,17 @@ const PORT = process.env.PORT ? parseInt(process.env.PORT, 10) : 3000;
 // High-Entropy JWT Secret Enforcer: Rejects insecure default fallbacks in production
 let runtimeFallbackSecret: string | null = null;
 
-const getJwtSecret = (): string => {
+export const getJwtSecret = (): string => {
   const secret = process.env.JWT_SECRET;
   const INSECURE_DEFAULTS = ['krivio_secret_key_2026', 'krivio_secret_key_change_in_production', 'krivio_secret_key_dev_testing_only'];
   if (secret && !INSECURE_DEFAULTS.includes(secret) && secret.length >= 32) {
     return secret;
   }
-  // In production / serverless environments without an explicit secret, initialize a cryptographically random 256-bit key
+  // Enforce required secret in production environment
+  if ((process.env.NODE_ENV === 'production' || process.env.VERCEL) && !process.env.ALLOW_RUNTIME_JWT_SECRET) {
+    throw new Error('[FATAL SECURITY CONFIGURATION]: High-entropy JWT_SECRET (>= 32 chars) must be configured in production environment.');
+  }
+  // In development / testing environments without an explicit secret, initialize a cryptographically random 256-bit key
   if (!runtimeFallbackSecret) {
     runtimeFallbackSecret = crypto.randomBytes(32).toString('hex');
     console.warn(
@@ -89,8 +93,9 @@ const getJwtSecret = (): string => {
   return runtimeFallbackSecret;
 };
 
-const JWT_SECRET = getJwtSecret();
-const SUPABASE_JWT_SECRET = process.env.SUPABASE_JWT_SECRET || '';
+export const JWT_SECRET = getJwtSecret();
+export const SUPABASE_JWT_SECRET = process.env.SUPABASE_JWT_SECRET || '';
+
 
 // Initialize Supabase Server Client for authenticating OAuth tokens
 const SUPABASE_URL = process.env.VITE_SUPABASE_URL || process.env.SUPABASE_URL || 'https://mvbpxcsyyasckzymjyjb.supabase.co';
@@ -268,9 +273,13 @@ export async function ensureDbInitialized(): Promise<void> {
 }
 
 // Ensure database tables and columns are initialized for all API requests
-app.use((req: Request, res: Response, next: NextFunction) => {
-  if (req.url && req.url.startsWith('/api')) {
-    ensureDbInitialized().catch(() => {});
+app.use(async (req: Request, res: Response, next: NextFunction) => {
+  if (req.url && req.url.startsWith('/api') && !req.url.startsWith('/api/ping') && !req.url.endsWith('/ping')) {
+    try {
+      await ensureDbInitialized();
+    } catch (dbErr: any) {
+      console.warn('[PostgreSQL Init Wait Warning]:', dbErr?.message || dbErr);
+    }
   }
   next();
 });
@@ -1487,27 +1496,6 @@ app.post('/api/products', authenticateToken, async (req: AuthenticatedRequest, r
       return;
     }
 
-    // Enforce server-side product creation entitlement quota
-    try {
-      await entitlementService.assertCanCreateProduct(userId);
-    } catch (limitErr: any) {
-      if (limitErr instanceof QuotaExceededError) {
-        res.status(403).json(limitErr.details);
-        return;
-      }
-      throw limitErr;
-    }
-
-    // Ensure user row exists in PostgreSQL to avoid foreign key constraint failure
-    await queryPg(
-      `INSERT INTO users (id, email, full_name, role, is_active, is_verified, created_at, updated_at)
-       VALUES ($1, $2, $3, 'artisan', true, true, NOW(), NOW())
-       ON CONFLICT (id) DO UPDATE SET updated_at = NOW()`,
-      [userId, req.user?.email || `${userId}@artisan.krivio.local`, req.user?.name || 'Krivio Artisan']
-    ).catch((uErr) => {
-      console.warn('Notice ensuring user for product creation:', uErr.message || uErr);
-    });
-
     const prodId = `prod_${Date.now()}_${Math.random().toString(36).slice(2, 7)}`;
 
     const effectiveShortDesc = shortDescription || short_description || '';
@@ -1540,9 +1528,45 @@ app.post('/api/products', authenticateToken, async (req: AuthenticatedRequest, r
       ? marketplaces
       : (typeof marketplaces === 'string' && marketplaces ? (marketplaces.startsWith('[') ? JSON.parse(marketplaces) : [marketplaces]) : ['ONDC']);
 
+    // Enforce concurrency-safe server-side product creation entitlement quota
+    const client = await pgPool.connect();
     let row: any = null;
     try {
-      const insertRes = await queryPg(
+      await client.query('BEGIN');
+      await client.query(`SELECT pg_advisory_xact_lock(hashtext('krivio_prod_cap_' || $1))`, [userId]);
+
+      const sub = await entitlementService.getEffectiveSubscription(userId);
+      const plan = getPlan(sub.plan);
+
+      const countRes = await client.query(
+        `SELECT COUNT(*)::int as count FROM products WHERE user_id = $1`,
+        [userId]
+      );
+      const count = countRes.rows[0]?.count || 0;
+
+      if (count >= plan.limits.maxProducts) {
+        await client.query('ROLLBACK');
+        res.status(403).json({
+          error: `Product limit reached for ${plan.name}. You have stored ${count} of ${plan.limits.maxProducts} allowed products.`,
+          limitCode: 'PRODUCT_LIMIT_REACHED',
+          resourceType: 'product',
+          currentPlan: sub.plan,
+          limit: plan.limits.maxProducts,
+          currentCount: count,
+          upgradeAvailable: sub.plan === 'free',
+        });
+        return;
+      }
+
+      // Ensure user row exists in PostgreSQL to avoid foreign key constraint failure
+      await client.query(
+        `INSERT INTO users (id, email, full_name, role, is_active, is_verified, created_at, updated_at)
+         VALUES ($1, $2, $3, 'artisan', true, true, NOW(), NOW())
+         ON CONFLICT (id) DO UPDATE SET updated_at = NOW()`,
+        [userId, req.user?.email || `${userId}@artisan.krivio.local`, req.user?.name || 'Krivio Artisan']
+      ).catch(() => {});
+
+      const insertRes = await client.query(
         `INSERT INTO products (
           id, user_id, title, description, category, price, currency, stock, sku, weight, dimensions,
           status, keywords, image_urls, is_marketplace_ready, readiness_score, marketplaces,
@@ -1584,43 +1608,12 @@ app.post('/api/products', authenticateToken, async (req: AuthenticatedRequest, r
         ]
       );
       row = insertRes.rows[0];
+      await client.query('COMMIT');
     } catch (insertErr: any) {
-      if (insertErr.message && (insertErr.message.includes('column') || insertErr.message.includes('does not exist'))) {
-        console.warn('Falling back to legacy product table schema for insert:', insertErr.message);
-        try {
-          const fallbackRes = await queryPg(
-            `INSERT INTO products (
-              id, user_id, title, description, category, price, currency, stock, sku, weight, dimensions,
-              status, keywords, image_urls, is_marketplace_ready, readiness_score, marketplaces,
-              created_at, updated_at
-            ) VALUES (
-              $1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, NOW(), NOW()
-            ) RETURNING *`,
-            [
-              prodId,
-              userId,
-              title,
-              description || '',
-              category || 'Handicrafts & Art',
-              sanitizedPrice,
-              currency || 'INR',
-              sanitizedStock,
-              sku || `SKU-${Date.now().toString().slice(-5)}`,
-              weight || '0.5 kg',
-              dimensions || '10x10x10 cm',
-              status || 'published',
-              JSON.stringify(safeKeywords),
-              JSON.stringify(safeImageUrls),
-              isMarketplaceReady ?? true,
-              readinessScore || 85,
-              JSON.stringify(safeMarketplaces),
-            ]
-          );
-          row = fallbackRes.rows[0];
-        } catch (legacyErr) {
-          console.warn('Legacy insert also failed:', legacyErr);
-        }
-      }
+      await client.query('ROLLBACK').catch(() => {});
+      throw insertErr;
+    } finally {
+      client.release();
     }
 
     // If PostgreSQL could not store the record, save directly to in-memory session cache
@@ -1971,17 +1964,46 @@ app.delete('/api/products/:id', authenticateToken, async (req: AuthenticatedRequ
 });
 
 app.post('/api/products/:id/duplicate', authenticateToken, async (req: AuthenticatedRequest, res: Response) => {
+  const client = await pgPool.connect();
   try {
     const { id } = req.params;
     const userId = req.user!.id;
-    const origRes = await queryPg(`SELECT * FROM products WHERE id = $1 AND user_id = $2`, [id, userId]);
+
+    await client.query('BEGIN');
+    await client.query(`SELECT pg_advisory_xact_lock(hashtext('krivio_prod_cap_' || $1))`, [userId]);
+
+    const sub = await entitlementService.getEffectiveSubscription(userId);
+    const plan = getPlan(sub.plan);
+
+    const countRes = await client.query(
+      `SELECT COUNT(*)::int as count FROM products WHERE user_id = $1`,
+      [userId]
+    );
+    const count = countRes.rows[0]?.count || 0;
+
+    if (count >= plan.limits.maxProducts) {
+      await client.query('ROLLBACK');
+      res.status(403).json({
+        error: `Product limit reached for ${plan.name}. You have stored ${count} of ${plan.limits.maxProducts} allowed products.`,
+        limitCode: 'PRODUCT_LIMIT_REACHED',
+        resourceType: 'product',
+        currentPlan: sub.plan,
+        limit: plan.limits.maxProducts,
+        currentCount: count,
+        upgradeAvailable: sub.plan === 'free',
+      });
+      return;
+    }
+
+    const origRes = await client.query(`SELECT * FROM products WHERE id = $1 AND user_id = $2`, [id, userId]);
     if (origRes.rows.length === 0) {
+      await client.query('ROLLBACK');
       res.status(404).json({ error: 'Product not found' });
       return;
     }
     const orig = origRes.rows[0];
     const newId = `prod_${Date.now()}_${Math.random().toString(36).slice(2, 7)}`;
-    const dupRes = await queryPg(
+    const dupRes = await client.query(
       `INSERT INTO products (
         id, user_id, title, description, category, price, currency, stock, sku, weight, dimensions,
         status, keywords, image_urls, is_marketplace_ready, readiness_score, marketplaces,
@@ -2022,6 +2044,7 @@ app.post('/api/products/:id/duplicate', authenticateToken, async (req: Authentic
         orig.origin_state || '',
       ]
     );
+    await client.query('COMMIT');
     const row = dupRes.rows[0];
     res.json({
       product: {
@@ -2060,7 +2083,10 @@ app.post('/api/products/:id/duplicate', authenticateToken, async (req: Authentic
       message: 'Product duplicated successfully'
     });
   } catch (err) {
+    await client.query('ROLLBACK').catch(() => {});
     res.status(500).json({ error: 'Failed to duplicate product' });
+  } finally {
+    client.release();
   }
 });
 
@@ -2803,20 +2829,36 @@ app.post('/api/ai/mentor', optionalAuthenticateToken, async (req: AuthenticatedR
     const craftType = prof?.business_type || 'Rural Enterprise & Crafts';
     const prodList = prodsRes.rows.map((p) => `${p.title} (₹${p.price})`).join(', ') || 'No products listed yet';
 
+    // Server-Side Metering & Anti-Abuse Rate Limiting
+    const isGuest = !req.user || req.user.id === 'artisan_guest';
+    const clientIp = (req.headers['x-forwarded-for'] as string || req.socket.remoteAddress || 'guest').split(',')[0].trim();
+
+    if (isGuest) {
+      if (!checkGuestVoiceRateLimit(clientIp)) {
+        res.status(429).json({
+          error: 'Free AI mentor demo limit reached (3 queries per day). Please sign in to use your free monthly business mentor allowance.',
+          code: 'GUEST_RATE_LIMIT_EXCEEDED',
+          limitCode: 'GUEST_LIMIT_REACHED',
+          requiresAuth: true
+        });
+        return;
+      }
+    } else {
+      // Server-enforced AI text quota reservation
+      try {
+        reservation = await entitlementService.reserveUsage(userId, 'ai_text', 'mentor');
+      } catch (limitErr: any) {
+        if (limitErr instanceof QuotaExceededError) {
+          res.status(403).json(limitErr.details);
+          return;
+        }
+        throw limitErr;
+      }
+    }
+
     if (!geminiService.isAvailable()) {
       res.status(503).json({ error: 'AI Mentor service is temporarily unavailable. Server API key is not configured.' });
       return;
-    }
-
-    // Server-enforced AI text quota reservation
-    try {
-      reservation = await entitlementService.reserveUsage(userId, 'ai_text', 'mentor');
-    } catch (limitErr: any) {
-      if (limitErr instanceof QuotaExceededError) {
-        res.status(403).json(limitErr.details);
-        return;
-      }
-      throw limitErr;
     }
 
     const mentorResult = await AITaskRouter.handle({
@@ -3246,6 +3288,54 @@ app.post('/api/payments/verify', authenticateToken, async (req: AuthenticatedReq
       return;
     }
 
+    // 1. Replay Protection: Check if this payment ID was already claimed by another user account
+    const existingPayment = await queryPg(
+      `SELECT user_id FROM subscriptions WHERE razorpay_payment_id = $1 LIMIT 1`,
+      [razorpayPaymentId]
+    );
+    if (existingPayment.rows.length > 0 && existingPayment.rows[0].user_id !== userId) {
+      res.status(409).json({ error: 'This payment transaction ID has already been applied to another account.' });
+      return;
+    }
+
+    // 2. Authoritative Stored Order Verification
+    const orderCheck = await queryPg(
+      `SELECT * FROM payment_orders WHERE razorpay_order_id = $1 LIMIT 1`,
+      [razorpayOrderId]
+    );
+
+    if (orderCheck.rows.length === 0) {
+      res.status(404).json({ error: 'No matching internal payment order was found for this transaction.' });
+      return;
+    }
+
+    const matchedOrder = orderCheck.rows[0];
+
+    // Enforce Tenant & Order Ownership
+    if (matchedOrder.user_id !== userId) {
+      res.status(403).json({ error: 'This payment order belongs to a different account.' });
+      return;
+    }
+
+    // Enforce Plan and Pricing Specification
+    if (matchedOrder.plan_code !== 'artisan_pro' || matchedOrder.amount_paise !== 29900) {
+      res.status(400).json({ error: 'Order plan or amount does not match approved commercial catalog.' });
+      return;
+    }
+
+    // Idempotent Safe Response if order is already marked paid
+    if (matchedOrder.status === 'paid') {
+      const snapshot = await entitlementService.getUsageSnapshot(userId);
+      res.json({
+        success: true,
+        subscriptionPlan: 'artisan_pro',
+        message: 'Payment already verified and Artisan Pro access active.',
+        usage: snapshot
+      });
+      return;
+    }
+
+    // 3. Cryptographic HMAC Signature Verification
     const expectedSignature = crypto
       .createHmac('sha256', secret)
       .update(`${razorpayOrderId}|${razorpayPaymentId}`)
@@ -3259,32 +3349,42 @@ app.post('/api/payments/verify', authenticateToken, async (req: AuthenticatedReq
       return;
     }
 
-    // Replay Protection: Check if this payment ID was already applied to another user account
-    const existingPayment = await queryPg(
-      `SELECT user_id FROM subscriptions WHERE razorpay_payment_id = $1 LIMIT 1`,
-      [razorpayPaymentId]
+    // 4. Authoritative Upstream Verification against Razorpay API (when configured)
+    const keyId = process.env.RAZORPAY_KEY_ID || '';
+    const isRzpConfigured = Boolean(
+      keyId && keyId !== 'rzp_test_krivio123' && secret && secret !== 'krivio_razorpay_secret_123'
     );
-    if (existingPayment.rows.length > 0 && existingPayment.rows[0].user_id !== userId) {
-      res.status(409).json({ error: 'This payment transaction ID has already been applied to another account.' });
-      return;
+
+    if (isRzpConfigured) {
+      try {
+        const basicAuth = Buffer.from(`${keyId}:${secret}`).toString('base64');
+        const payResp = await fetch(`https://api.razorpay.com/v1/payments/${razorpayPaymentId}`, {
+          headers: { 'Authorization': `Basic ${basicAuth}` }
+        });
+        if (payResp.ok) {
+          const payData = await payResp.json() as any;
+          if (payData.order_id && payData.order_id !== razorpayOrderId) {
+            res.status(400).json({ error: 'Upstream payment does not match the specified order ID.' });
+            return;
+          }
+          if (payData.status !== 'captured' && payData.status !== 'authorized') {
+            res.status(402).json({ error: `Payment is in non-successful state: ${payData.status}` });
+            return;
+          }
+          if (payData.amount && payData.amount !== matchedOrder.amount_paise) {
+            res.status(400).json({ error: 'Captured payment amount mismatch against authoritative order.' });
+            return;
+          }
+        }
+      } catch (rzpCheckErr: any) {
+        console.warn('[Razorpay Live Check Notice]:', rzpCheckErr?.message || rzpCheckErr);
+      }
     }
 
-    // Check if this payment was already processed for this user (Idempotent safe response)
-    if (existingPayment.rows.length > 0 && existingPayment.rows[0].user_id === userId) {
-      const snapshot = await entitlementService.getUsageSnapshot(userId);
-      res.json({
-        success: true,
-        subscriptionPlan: 'artisan_pro',
-        message: 'Payment verified and Pro access active.',
-        usage: snapshot
-      });
-      return;
-    }
-
-    // Apply Authoritative Entitlement & Renewal Extension via EntitlementService
+    // 5. Apply Authoritative Entitlement & Renewal Extension via EntitlementService
     const activation = await entitlementService.applyPaymentEntitlement(
       userId,
-      razorpayOrderId,
+      matchedOrder.id,
       razorpayPaymentId,
       razorpayOrderId
     );
@@ -3314,13 +3414,13 @@ app.post('/api/payments/verify', authenticateToken, async (req: AuthenticatedReq
     });
   } catch (err: any) {
     console.error('Failed to verify payment:', err);
-    res.status(500).json({ error: 'Failed to verify payment' });
+    res.status(500).json({ error: err.message || 'Failed to verify payment' });
   }
 });
 
 /**
  * 6. Razorpay Webhook Endpoint
- * Validates HMAC signature against raw request bytes. Idempotently reconciles orders.
+ * Validates HMAC signature against raw request bytes. Idempotently reconciles orders with discrete lifecycle states.
  */
 app.post('/api/payments/webhook', async (req: Request, res: Response) => {
   try {
@@ -3362,7 +3462,7 @@ app.post('/api/payments/webhook', async (req: Request, res: Response) => {
 
     // Deduplicate event in payment_events table
     const existingEvt = await queryPg(
-      `SELECT id FROM payment_events WHERE provider_event_id = $1 LIMIT 1`,
+      `SELECT id, processing_status FROM payment_events WHERE provider_event_id = $1 LIMIT 1`,
       [eventId]
     );
 
@@ -3376,15 +3476,30 @@ app.post('/api/payments/webhook', async (req: Request, res: Response) => {
     const orderEntity = event?.payload?.order?.entity || {};
     const rzpOrderId = paymentEntity.order_id || orderEntity.id;
     const rzpPaymentId = paymentEntity.id;
-    const userId = paymentEntity.notes?.userId || orderEntity.notes?.userId;
+
+    // Authoritative user derivation from stored internal order
+    let targetUserId = paymentEntity.notes?.userId || orderEntity.notes?.userId;
+    let internalOrderId = rzpOrderId;
+    if (rzpOrderId) {
+      const orderLookup = await queryPg(
+        `SELECT id, user_id FROM payment_orders WHERE razorpay_order_id = $1 LIMIT 1`,
+        [rzpOrderId]
+      );
+      if (orderLookup.rows.length > 0) {
+        targetUserId = orderLookup.rows[0].user_id;
+        internalOrderId = orderLookup.rows[0].id;
+      }
+    }
+
+    const pevtId = `pevt_${Date.now()}_${crypto.randomBytes(3).toString('hex')}`;
 
     await queryPg(
       `INSERT INTO payment_events (
         id, provider_event_id, event_type, razorpay_order_id, razorpay_payment_id,
         signature_verified, processing_status, payload, created_at
-      ) VALUES ($1, $2, $3, $4, $5, true, 'processed', $6, NOW())`,
+      ) VALUES ($1, $2, $3, $4, $5, true, 'received', $6, NOW())`,
       [
-        `pevt_${Date.now()}`,
+        pevtId,
         eventId,
         eventType,
         rzpOrderId || null,
@@ -3393,13 +3508,40 @@ app.post('/api/payments/webhook', async (req: Request, res: Response) => {
       ]
     );
 
-    if ((eventType === 'order.paid' || eventType === 'payment.captured') && userId && rzpPaymentId && rzpOrderId) {
-      await entitlementService.applyPaymentEntitlement(userId, rzpOrderId, rzpPaymentId, rzpOrderId).catch((aErr) => {
-        console.warn('Webhook entitlement activation note:', aErr.message);
-      });
+    if (eventType === 'order.paid' || eventType === 'payment.captured') {
+      if (!targetUserId || !rzpPaymentId || !rzpOrderId) {
+        await queryPg(
+          `UPDATE payment_events SET processing_status = 'recorded_failure', error_message = 'Missing order or user identifiers' WHERE id = $1`,
+          [pevtId]
+        );
+        res.json({ status: 'ignored', reason: 'unrecognized_identifiers', eventId });
+        return;
+      }
+
+      try {
+        await entitlementService.applyPaymentEntitlement(targetUserId, internalOrderId, rzpPaymentId, rzpOrderId);
+        await queryPg(
+          `UPDATE payment_events SET processing_status = 'applied' WHERE id = $1`,
+          [pevtId]
+        );
+        res.json({ status: 'applied', eventId });
+      } catch (actErr: any) {
+        console.error('[Webhook Activation Failure]:', actErr.message || actErr);
+        await queryPg(
+          `UPDATE payment_events SET processing_status = 'failed', error_message = $1 WHERE id = $2`,
+          [actErr.message || 'Activation failed', pevtId]
+        );
+        res.status(500).json({ error: 'Entitlement activation failed; webhook will retry.', eventId });
+      }
+      return;
     }
 
-    res.json({ status: 'processed', eventId });
+    // Other non-payment event types safely ignored
+    await queryPg(
+      `UPDATE payment_events SET processing_status = 'ignored' WHERE id = $1`,
+      [pevtId]
+    );
+    res.json({ status: 'ignored', eventId });
   } catch (err: any) {
     console.error('Webhook error:', err);
     res.status(500).json({ error: 'Internal webhook error' });
@@ -3754,6 +3896,7 @@ app.post('/api/image-studio/generate', authenticateToken, async (req: Authentica
 
 // 3. Iterative Conversational Editing
 app.post('/api/image-studio/edit', authenticateToken, async (req: AuthenticatedRequest, res: Response) => {
+  let reservation: { reservationId: string } | null = null;
   try {
     const userId = req.user!.id;
     const { previousAssetId, userInstruction, currentImage, originalImage, aspectRatio } = req.body;
@@ -3769,6 +3912,17 @@ app.post('/api/image-studio/edit', authenticateToken, async (req: AuthenticatedR
       return;
     }
 
+    // Reserve AI image credit server-side
+    try {
+      reservation = await entitlementService.reserveUsage(userId, 'ai_image', 'image_studio_edit');
+    } catch (limitErr: any) {
+      if (limitErr instanceof QuotaExceededError) {
+        res.status(403).json(limitErr.details);
+        return;
+      }
+      throw limitErr;
+    }
+
     // Call generation engine with user modification
     const result = await imageGenService.generate({
       originalImage: baseImage,
@@ -3776,6 +3930,14 @@ app.post('/api/image-studio/edit', authenticateToken, async (req: AuthenticatedR
       aspectRatio,
       operationId: 'ADVANCED_EDITING',
     });
+
+    if (reservation) {
+      if (result.modelUsed === 'krivio-studio-engine') {
+        await entitlementService.releaseUsage(reservation.reservationId, 'canvas_fallback');
+      } else {
+        await entitlementService.commitUsage(reservation.reservationId, result.modelUsed || 'imagen-3', 0.03);
+      }
+    }
 
     // Save record in PostgreSQL
     await queryPg(
@@ -3803,6 +3965,9 @@ app.post('/api/image-studio/edit', authenticateToken, async (req: AuthenticatedR
       asset: result,
     });
   } catch (err: any) {
+    if (reservation) {
+      await entitlementService.releaseUsage(reservation.reservationId, 'edit_failed').catch(() => {});
+    }
     console.error('Image Studio edit error:', err.message || err);
     res.status(500).json({
       error: 'Could not apply your edit right now. Your previous image is still preserved.',
@@ -3980,15 +4145,59 @@ Return ONLY the raw spoken text. If the audio is completely silent or unrecogniz
   }
 });
 
+// Guest Voice Demo Rate Limiter (Max 3 queries per 24 hours per IP)
+const guestVoiceRateLimit = new Map<string, { count: number; resetAt: number }>();
+function checkGuestVoiceRateLimit(ip: string): boolean {
+  const now = Date.now();
+  const entry = guestVoiceRateLimit.get(ip);
+  if (!entry || entry.resetAt < now) {
+    guestVoiceRateLimit.set(ip, { count: 1, resetAt: now + 24 * 60 * 60 * 1000 });
+    return true;
+  }
+  if (entry.count >= 3) {
+    return false;
+  }
+  entry.count++;
+  return true;
+}
+
 // 2. Respond to Confirmed Voice Query
 app.post('/api/voice/respond', optionalAuthenticateToken, async (req: AuthenticatedRequest, res: Response) => {
+  let reservation: { reservationId: string } | null = null;
   try {
     const userId = req.user?.id || 'artisan_guest';
-    const { transcript, language = 'Hindi', context } = req.body;
+    const transcript = (req.body.transcript || req.body.prompt || '').trim();
+    const { language = 'Hindi', context } = req.body;
 
-    if (!transcript || !transcript.trim()) {
+    if (!transcript) {
       res.status(400).json({ error: 'Transcript is required.' });
       return;
+    }
+
+    // Server-Side Metering & Anti-Abuse Rate Limiting
+    const isGuest = !req.user || req.user.id === 'artisan_guest';
+    const clientIp = (req.headers['x-forwarded-for'] as string || req.socket.remoteAddress || 'guest').split(',')[0].trim();
+
+    if (isGuest) {
+      if (!checkGuestVoiceRateLimit(clientIp)) {
+        res.status(429).json({
+          error: 'Free voice demo query limit reached (3 queries per day). Please sign in to use your free monthly business mentor allowance.',
+          code: 'GUEST_RATE_LIMIT_EXCEEDED',
+          limitCode: 'GUEST_LIMIT_REACHED',
+          requiresAuth: true
+        });
+        return;
+      }
+    } else {
+      try {
+        reservation = await entitlementService.reserveUsage(req.user.id, 'ai_text', 'voice_mentor');
+      } catch (limitErr: any) {
+        if (limitErr instanceof QuotaExceededError) {
+          res.status(403).json(limitErr.details);
+          return;
+        }
+        throw limitErr;
+      }
     }
 
     if (!geminiService.isAvailable()) {
@@ -4053,28 +4262,34 @@ Analyze this query and respond with valid JSON:
     const entities = parsed.entities || {};
     const replyText = parsed.reply || cleanRaw;
 
+    if (reservation) {
+      await entitlementService.commitUsage(reservation.reservationId, 'gemini-2.5-flash', 0.00025);
+    }
+
     const assetId = `vast_${Date.now()}_${Math.random().toString(36).slice(2, 7)}`;
 
-    // Save to PostgreSQL voice_assets safely if available
-    await queryPg(
-      `INSERT INTO voice_assets (
-        id, user_id, transcript, intent, entities, response_text, created_at, updated_at
-      ) VALUES ($1, $2, $3, $4, $5, $6, NOW(), NOW())`,
-      [assetId, userId, transcript.trim(), intent, JSON.stringify(entities), replyText]
-    ).catch((dbErr) => console.warn('DB voice asset save note:', dbErr.message));
+    // Save to PostgreSQL voice_assets and activity log safely if authenticated
+    if (userId !== 'artisan_guest') {
+      await queryPg(
+        `INSERT INTO voice_assets (
+          id, user_id, transcript, intent, entities, response_text, created_at, updated_at
+        ) VALUES ($1, $2, $3, $4, $5, $6, NOW(), NOW())`,
+        [assetId, userId, transcript.trim(), intent, JSON.stringify(entities), replyText]
+      ).catch((dbErr) => console.warn('DB voice asset save note:', dbErr.message));
 
-    // Log Activity safely
-    await queryPg(
-      `INSERT INTO activities (id, user_id, title, description, event_type, created_at)
-       VALUES ($1, $2, $3, $4, $5, NOW())`,
-      [
-        `act_${Date.now()}`,
-        userId,
-        `Voice Query: ${intent}`,
-        `Asked: "${transcript.slice(0, 50)}..."`,
-        'voice_interaction',
-      ]
-    ).catch(() => {});
+      // Log Activity safely
+      await queryPg(
+        `INSERT INTO activities (id, user_id, title, description, event_type, created_at)
+         VALUES ($1, $2, $3, $4, $5, NOW())`,
+        [
+          `act_${Date.now()}`,
+          userId,
+          `Voice Query: ${intent}`,
+          `Asked: "${transcript.slice(0, 50)}..."`,
+          'voice_interaction',
+        ]
+      ).catch(() => {});
+    }
 
     res.json({
       success: true,
@@ -4086,6 +4301,9 @@ Analyze this query and respond with valid JSON:
       language,
     });
   } catch (err: any) {
+    if (reservation) {
+      await entitlementService.releaseUsage(reservation.reservationId, 'voice_failed').catch(() => {});
+    }
     console.error('Voice respond error:', err.message || err);
     res.status(503).json({ error: 'Failed to process voice response: ' + (err.message || 'Service error') });
   }
@@ -4767,6 +4985,8 @@ async function initPgDatabase() {
     await pgPool.query(`CREATE INDEX IF NOT EXISTS idx_usage_ledger_req ON usage_ledger(request_id)`).catch(() => {});
     await pgPool.query(`CREATE INDEX IF NOT EXISTS idx_usage_ledger_user ON usage_ledger(user_id)`).catch(() => {});
     await pgPool.query(`CREATE INDEX IF NOT EXISTS idx_credit_packs_user ON credit_packs(user_id)`).catch(() => {});
+    await pgPool.query(`ALTER TABLE credit_packs ADD COLUMN IF NOT EXISTS quantity_reserved INT NOT NULL DEFAULT 0`).catch(() => {});
+    await pgPool.query(`ALTER TABLE usage_ledger ADD COLUMN IF NOT EXISTS credit_pack_id VARCHAR(255)`).catch(() => {});
 
     // Seed canonical plans into plans table
     for (const plan of getAllPublicPlans()) {

@@ -112,12 +112,12 @@ export const PublicStorefront: React.FC<PublicStorefrontProps> = ({
       const total = unitPrice * orderQuantity;
       const typeTitle =
         inquiryType === 'custom'
-          ? '🎨 CUSTOM CRAFT REQUEST'
+          ? 'CUSTOM CRAFT REQUEST'
           : inquiryType === 'bulk'
-          ? '📦 BULK / WHOLESALE INQUIRY'
+          ? 'BULK / WHOLESALE INQUIRY'
           : inquiryType === 'question'
-          ? '💬 PRODUCT INQUIRY'
-          : '🛍️ DIRECT PURCHASE ORDER';
+          ? 'PRODUCT INQUIRY'
+          : 'DIRECT PURCHASE ORDER';
 
       const lines = [
         `*${typeTitle}*`,
@@ -565,7 +565,7 @@ export const PublicStorefront: React.FC<PublicStorefrontProps> = ({
                 aria-label="Close dialog"
                 className="p-1.5 rounded-xl text-stone-400 hover:text-stone-700 hover:bg-stone-100 cursor-pointer"
               >
-                ✕
+                <X className="w-5 h-5" />
               </button>
             </div>
 
@@ -671,10 +671,10 @@ export const PublicStorefront: React.FC<PublicStorefrontProps> = ({
               </label>
               <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
                 {[
-                  { id: 'order', label: '🛍️ Buy Item' },
-                  { id: 'custom', label: '🎨 Custom Color/Size' },
-                  { id: 'bulk', label: '📦 Bulk / Wholesale' },
-                  { id: 'question', label: '💬 Ask Question' },
+                  { id: 'order', label: 'Buy Item' },
+                  { id: 'custom', label: 'Custom Order' },
+                  { id: 'bulk', label: 'Bulk Wholesale' },
+                  { id: 'question', label: 'Inquiry' },
                 ].map((t) => (
                   <button
                     key={t.id}

@@ -323,8 +323,16 @@ async function runMonetizationTestSuite() {
     // TEST 6: Early Manual Renewal Extension (Never Lose Paid Days)
     // -------------------------------------------------------------------------
     console.log('\n▶ 6. Early Manual Renewal Extension (Never Lose Paid Days)');
+    const renewalOrderRes = await makeRequest('/api/payments/create-order', {
+      method: 'POST',
+      token: tokenPro,
+      body: {
+        plan: 'artisan_pro',
+      },
+    });
+    assert.strictEqual(renewalOrderRes.status, 200, 'Renewal order creation succeeds');
+    const secondOrderId = renewalOrderRes.data.orderId;
     const secondPaymentId = `pay_${Date.now()}_renewal`;
-    const secondOrderId = `order_${Date.now()}_renewal`;
     const secondSignature = crypto
       .createHmac('sha256', secret)
       .update(`${secondOrderId}|${secondPaymentId}`)
@@ -351,6 +359,18 @@ async function runMonetizationTestSuite() {
     // TEST 7: Webhook Signature Verification & Idempotency
     // -------------------------------------------------------------------------
     console.log('\n▶ 7. Razorpay Webhook Verification & Idempotent Event Processing');
+    // Pre-create an authoritative order for testUserFree
+    const webhookOrderRes = await makeRequest('/api/payments/create-order', {
+      method: 'POST',
+      token: tokenFree,
+      body: {
+        plan: 'artisan_pro',
+      },
+    });
+    assert.strictEqual(webhookOrderRes.status, 200, 'Webhook order creation succeeds');
+    const webhookOrderId = webhookOrderRes.data.orderId;
+    const webhookPaymentId = `pay_webhook_${Date.now()}`;
+
     const webhookSecret = process.env.RAZORPAY_WEBHOOK_SECRET!;
     const webhookPayload = JSON.stringify({
       event: 'order.paid',
@@ -358,8 +378,8 @@ async function runMonetizationTestSuite() {
       payload: {
         payment: {
           entity: {
-            id: `pay_webhook_${Date.now()}`,
-            order_id: `order_webhook_${Date.now()}`,
+            id: webhookPaymentId,
+            order_id: webhookOrderId,
             notes: { userId: testUserFree },
           },
         },
@@ -380,14 +400,14 @@ async function runMonetizationTestSuite() {
     assert.strictEqual(badWebhookRes.status, 400, 'Invalid webhook signature MUST return 400');
     console.log('  ✔ Invalid webhook signature rejected with 400');
 
-    // 7.2 Valid webhook processed
+    // 7.2 Valid webhook processed and applied
     const goodWebhookRes = await makeRequest('/api/payments/webhook', {
       method: 'POST',
       body: webhookPayload,
       headers: { 'x-razorpay-signature': validWebhookSig },
     });
     assert.strictEqual(goodWebhookRes.status, 200, 'Valid webhook processed');
-    assert.strictEqual(goodWebhookRes.data.status, 'processed');
+    assert.strictEqual(goodWebhookRes.data.status, 'applied', 'Status must be applied');
 
     // 7.3 Duplicate webhook safely ignored
     const dupWebhookRes = await makeRequest('/api/payments/webhook', {
@@ -430,6 +450,184 @@ async function runMonetizationTestSuite() {
     assert.ok(usageRes.data.aiImage.allowance === 5, 'Pro user has 5 AI image allowance');
     assert.ok(usageRes.data.products.max === 100, 'Pro user has 100 product limit');
     console.log('  ✔ Real-time usage snapshot accurately returned from database');
+
+    // -------------------------------------------------------------------------
+    // TEST 10: Payment Verification Without Stored Order (404)
+    // -------------------------------------------------------------------------
+    console.log('\n▶ 10. Payment Verification Without Matching Stored Order (404)');
+    const nonExistentOrderId = `order_phantom_${Date.now()}`;
+    const nonExistentPaymentId = `pay_phantom_${Date.now()}`;
+    const phantomSig = crypto
+      .createHmac('sha256', secret)
+      .update(`${nonExistentOrderId}|${nonExistentPaymentId}`)
+      .digest('hex');
+
+    const phantomVerifyRes = await makeRequest('/api/payments/verify', {
+      method: 'POST',
+      token: tokenPro,
+      body: {
+        razorpayPaymentId: nonExistentPaymentId,
+        razorpayOrderId: nonExistentOrderId,
+        razorpaySignature: phantomSig,
+      },
+    });
+    assert.strictEqual(phantomVerifyRes.status, 404, 'Payment without matching internal order MUST return 404');
+    console.log('  ✔ Phantom order correctly rejected with 404');
+
+    // -------------------------------------------------------------------------
+    // TEST 11: Wrong Order Owner Verification Rejection (403)
+    // -------------------------------------------------------------------------
+    console.log('\n▶ 11. Wrong Order Owner Cross-Tenant Verification Rejection (403)');
+    const victimOrderRes = await makeRequest('/api/payments/create-order', {
+      method: 'POST',
+      token: tokenPro,
+      body: { plan: 'artisan_pro' },
+    });
+    assert.strictEqual(victimOrderRes.status, 200);
+    const victimOrderId = victimOrderRes.data.orderId;
+    const hijackPaymentId = `pay_hijack_${Date.now()}`;
+    const hijackSig = crypto
+      .createHmac('sha256', secret)
+      .update(`${victimOrderId}|${hijackPaymentId}`)
+      .digest('hex');
+
+    const hijackRes = await makeRequest('/api/payments/verify', {
+      method: 'POST',
+      token: tokenFree, // Attacker trying to verify victim's order!
+      body: {
+        razorpayPaymentId: hijackPaymentId,
+        razorpayOrderId: victimOrderId,
+        razorpaySignature: hijackSig,
+      },
+    });
+    assert.strictEqual(hijackRes.status, 403, 'Cross-tenant verification MUST return 403 Forbidden');
+    console.log('  ✔ Attacker cannot claim or activate an order created by another user');
+
+    // -------------------------------------------------------------------------
+    // TEST 12: Concurrency-Safe Product Cap Under Parallel Race Condition
+    // -------------------------------------------------------------------------
+    console.log('\n▶ 12. Concurrency-Safe Product Cap Under Parallel Race Condition');
+    // Create a new free user who starts with 4 products (has exactly 1 slot left for 5)
+    const testRaceUser = `usr_race_${Date.now()}`;
+    const tokenRace = createTestToken(testRaceUser, 'artisan');
+    await pgPool.query(
+      `INSERT INTO users (id, email, full_name, role) VALUES ($1, $2, $3, $4)`,
+      [testRaceUser, `${testRaceUser}@test.krivio.org`, 'Race User', 'artisan']
+    );
+    for (let p = 1; p <= 4; p++) {
+      const pRes = await makeRequest('/api/products', {
+        method: 'POST',
+        token: tokenRace,
+        body: { title: `Pre-seed Product ${p}`, category: 'Woodcraft', price: 500 },
+      });
+      assert.ok(pRes.status === 200 || pRes.status === 201);
+    }
+
+    // Now fire 10 simultaneous requests to create product #5
+    console.log('  Firing 10 concurrent requests to contest the single remaining product slot...');
+    const raceRequests = Array.from({ length: 10 }, (_, i) =>
+      makeRequest('/api/products', {
+        method: 'POST',
+        token: tokenRace,
+        body: { title: `Concurrent Product ${i + 1}`, category: 'Woodcraft', price: 600 },
+      })
+    );
+    const raceResults = await Promise.all(raceRequests);
+    const successCount = raceResults.filter((r) => r.status === 200 || r.status === 201).length;
+    const rejectedCount = raceResults.filter((r) => r.status === 403).length;
+
+    console.log(`  Concurrent results: ${successCount} succeeded, ${rejectedCount} rejected with 403`);
+    assert.strictEqual(successCount, 1, 'Exactly ONE concurrent request must succeed to fill the 5th slot');
+    assert.strictEqual(rejectedCount, 9, 'All 9 remaining concurrent requests must be rejected with 403');
+
+    // Verify DB count is exactly 5
+    const countCheck = await pgPool.query('SELECT COUNT(*) FROM products WHERE user_id = $1', [testRaceUser]);
+    assert.strictEqual(parseInt(countCheck.rows[0].count, 10), 5, 'Total database count must be exactly 5');
+    console.log('  ✔ Transactional advisory locking prevented concurrent cap violation');
+
+    // -------------------------------------------------------------------------
+    // TEST 13: Concurrent Webhook & Checkout Verification Race
+    // -------------------------------------------------------------------------
+    console.log('\n▶ 13. Concurrent Webhook & Checkout Verification Race Condition');
+    const raceOrderRes = await makeRequest('/api/payments/create-order', {
+      method: 'POST',
+      token: tokenRace,
+      body: { plan: 'artisan_pro' },
+    });
+    assert.strictEqual(raceOrderRes.status, 200);
+    const raceOrderId = raceOrderRes.data.orderId;
+    const racePaymentId = `pay_race_${Date.now()}`;
+    const raceSig = crypto
+      .createHmac('sha256', secret)
+      .update(`${raceOrderId}|${racePaymentId}`)
+      .digest('hex');
+
+    const raceWebhookPayload = JSON.stringify({
+      event: 'order.paid',
+      event_id: `evt_race_${Date.now()}`,
+      payload: {
+        payment: {
+          entity: {
+            id: racePaymentId,
+            order_id: raceOrderId,
+            notes: { userId: testRaceUser },
+          },
+        },
+      },
+    });
+    const raceWebhookSig = crypto
+      .createHmac('sha256', webhookSecret)
+      .update(raceWebhookPayload)
+      .digest('hex');
+
+    // Fire checkout verify and webhook concurrently
+    const [raceVerifyResult, raceWebhookResult] = await Promise.all([
+      makeRequest('/api/payments/verify', {
+        method: 'POST',
+        token: tokenRace,
+        body: {
+          razorpayPaymentId: racePaymentId,
+          razorpayOrderId: raceOrderId,
+          razorpaySignature: raceSig,
+        },
+      }),
+      makeRequest('/api/payments/webhook', {
+        method: 'POST',
+        body: raceWebhookPayload,
+        headers: { 'x-razorpay-signature': raceWebhookSig },
+      }),
+    ]);
+
+    // Both should succeed gracefully without errors or duplicate subscription extension
+    assert.ok(raceVerifyResult.status === 200 || raceVerifyResult.status === 409);
+    assert.strictEqual(raceWebhookResult.status, 200);
+    console.log(`  Verify status: ${raceVerifyResult.status}, Webhook status: ${raceWebhookResult.data.status}`);
+
+    // Verify exactly one subscription row for this payment ID exists
+    const subCheck = await pgPool.query('SELECT COUNT(*) FROM subscriptions WHERE razorpay_payment_id = $1', [racePaymentId]);
+    assert.strictEqual(parseInt(subCheck.rows[0].count, 10), 1, 'Exactly one subscription record created');
+    console.log('  ✔ Row locking & unique constraints guaranteed single entitlement grant');
+
+    // -------------------------------------------------------------------------
+    // TEST 14: Guest Voice Daily Rate Limiter (Max 3/day)
+    // -------------------------------------------------------------------------
+    console.log('\n▶ 14. Guest Voice Daily Rate Limiter Protection');
+    const guestIpHeader = { 'x-forwarded-for': '192.0.2.42' };
+    let rateLimited = false;
+    for (let g = 1; g <= 4; g++) {
+      const gRes = await makeRequest('/api/voice/respond', {
+        method: 'POST',
+        headers: guestIpHeader,
+        body: { prompt: `Hello query ${g}`, language: 'en' },
+      });
+      if (gRes.status === 429) {
+        rateLimited = true;
+        assert.strictEqual(gRes.data.code, 'GUEST_RATE_LIMIT_EXCEEDED');
+        break;
+      }
+    }
+    assert.strictEqual(rateLimited, true, 'Guest must be rate-limited after exceeding daily limit');
+    console.log('  ✔ Guest voice query daily rate limit successfully triggered with HTTP 429');
 
     console.log('\n===============================================================');
     console.log('  ALL 9 MONETIZATION & BILLING REGRESSION SUITES PASSED CLEANLY!');

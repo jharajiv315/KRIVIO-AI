@@ -366,7 +366,7 @@ export const Navbar: React.FC<NavbarProps> = ({
                       {user.email || 'Artisan Entrepreneur'}
                     </div>
                   </div>
-                  {user.subscriptionPlan === 'pro' && (
+                  {(user.subscriptionPlan === 'artisan_pro' || user.subscriptionPlan === 'pro') && (
                     <span className="px-2 py-0.5 text-[10px] font-bold bg-[#D4AF37]/20 text-[#8B6E10] dark:text-[#F3E5AB] rounded-full uppercase shrink-0 font-poppins">
                       Pro
                     </span>

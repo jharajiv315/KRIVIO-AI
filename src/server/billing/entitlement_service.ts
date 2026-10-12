@@ -230,7 +230,7 @@ export class EntitlementService {
 
     // Optional purchased extra image credits
     const creditRes = await this.pool.query(
-      `SELECT COALESCE(SUM(quantity_granted - quantity_consumed), 0)::int as available
+      `SELECT COALESCE(SUM(quantity_granted - quantity_consumed - quantity_reserved), 0)::int as available
        FROM credit_packs
        WHERE user_id = $1 AND status = 'active'`,
       [userId]
@@ -383,9 +383,9 @@ export class EntitlementService {
         // If monthly allowance in period is exhausted and resource is ai_image, check credit packs
         if (resourceType === 'ai_image') {
           const packRes = await client.query(
-            `SELECT id, quantity_granted, quantity_consumed
+            `SELECT id, quantity_granted, quantity_consumed, quantity_reserved
              FROM credit_packs
-             WHERE user_id = $1 AND status = 'active' AND (quantity_granted - quantity_consumed) > 0
+             WHERE user_id = $1 AND status = 'active' AND (quantity_granted - quantity_consumed - quantity_reserved) > 0
              ORDER BY created_at ASC
              LIMIT 1
              FOR UPDATE`,
@@ -395,14 +395,23 @@ export class EntitlementService {
           if (packRes.rows.length > 0) {
             isCreditPack = true;
             creditPackId = packRes.rows[0].id;
-            // Record reservation
+
+            // Atomically lock and reserve from credit pack balance
+            await client.query(
+              `UPDATE credit_packs
+               SET quantity_reserved = quantity_reserved + 1
+               WHERE id = $1`,
+              [creditPackId]
+            );
+
+            // Record reservation in ledger linked to credit_pack_id
             await client.query(
               `INSERT INTO usage_ledger (
-                id, user_id, billing_owner_id, usage_period_id, resource_type,
+                id, user_id, billing_owner_id, usage_period_id, credit_pack_id, resource_type,
                 operation_type, request_id, units_reserved, units_committed, units_released,
                 status, created_at, updated_at
-              ) VALUES ($1, $2, $2, $3, $4, $5, $1, 1, 0, 0, 'reserved', NOW(), NOW())`,
-              [reservationId, userId, period.id, resourceType, operationType]
+              ) VALUES ($1, $2, $2, $3, $4, $5, $6, $1, 1, 0, 0, 'reserved', NOW(), NOW())`,
+              [reservationId, userId, period.id, creditPackId, resourceType, operationType]
             );
             await client.query('COMMIT');
             return { reservationId, periodId: period.id, isCreditPack, creditPackId };
@@ -418,7 +427,7 @@ export class EntitlementService {
         throw new QuotaExceededError({
           error: resourceType === 'ai_text'
             ? `You have reached your 30-day AI text assistance limit (${plan.limits.aiTextOperations} requests). Your allowance resets on ${new Date(pData.period_end).toLocaleDateString()}.`
-            : `You have used your ${sub.plan === 'free' ? 'free' : 'included'} AI image generation allowance.`,
+            : `You have used your ${sub.plan === 'free' ? 'free' : 'included'} AI image generation allowance. Upgrade to Artisan Pro for 5 monthly AI studio images or use Free Studio Canvas composition.`,
           limitCode: 'QUOTA_EXHAUSTED',
           resourceType,
           currentPlan: sub.plan,
@@ -480,25 +489,38 @@ export class EntitlementService {
 
       const resourceType = ledger.resource_type;
       const periodId = ledger.usage_period_id;
+      const creditPackId = ledger.credit_pack_id;
 
-      if (resourceType === 'ai_text') {
+      if (creditPackId) {
+        // Commit against credit pack balance, leaving included monthly period untouched
         await client.query(
-          `UPDATE usage_periods
-           SET ai_text_reserved = GREATEST(0, ai_text_reserved - 1),
-               ai_text_committed = ai_text_committed + 1,
-               updated_at = NOW()
+          `UPDATE credit_packs
+           SET quantity_reserved = GREATEST(0, quantity_reserved - 1),
+               quantity_consumed = quantity_consumed + 1
            WHERE id = $1`,
-          [periodId]
+          [creditPackId]
         );
-      } else if (resourceType === 'ai_image') {
-        await client.query(
-          `UPDATE usage_periods
-           SET ai_image_reserved = GREATEST(0, ai_image_reserved - 1),
-               ai_image_committed = ai_image_committed + 1,
-               updated_at = NOW()
-           WHERE id = $1`,
-          [periodId]
-        );
+      } else {
+        // Commit against included monthly usage period
+        if (resourceType === 'ai_text') {
+          await client.query(
+            `UPDATE usage_periods
+             SET ai_text_reserved = GREATEST(0, ai_text_reserved - 1),
+                 ai_text_committed = ai_text_committed + 1,
+                 updated_at = NOW()
+             WHERE id = $1`,
+            [periodId]
+          );
+        } else if (resourceType === 'ai_image') {
+          await client.query(
+            `UPDATE usage_periods
+             SET ai_image_reserved = GREATEST(0, ai_image_reserved - 1),
+                 ai_image_committed = ai_image_committed + 1,
+                 updated_at = NOW()
+             WHERE id = $1`,
+            [periodId]
+          );
+        }
       }
 
       await client.query(
@@ -549,23 +571,35 @@ export class EntitlementService {
 
       const resourceType = ledger.resource_type;
       const periodId = ledger.usage_period_id;
+      const creditPackId = ledger.credit_pack_id;
 
-      if (resourceType === 'ai_text') {
+      if (creditPackId) {
+        // Release from credit pack balance
         await client.query(
-          `UPDATE usage_periods
-           SET ai_text_reserved = GREATEST(0, ai_text_reserved - 1),
-               updated_at = NOW()
+          `UPDATE credit_packs
+           SET quantity_reserved = GREATEST(0, quantity_reserved - 1)
            WHERE id = $1`,
-          [periodId]
+          [creditPackId]
         );
-      } else if (resourceType === 'ai_image') {
-        await client.query(
-          `UPDATE usage_periods
-           SET ai_image_reserved = GREATEST(0, ai_image_reserved - 1),
-               updated_at = NOW()
-           WHERE id = $1`,
-          [periodId]
-        );
+      } else {
+        // Release from included monthly usage period
+        if (resourceType === 'ai_text') {
+          await client.query(
+            `UPDATE usage_periods
+             SET ai_text_reserved = GREATEST(0, ai_text_reserved - 1),
+                 updated_at = NOW()
+             WHERE id = $1`,
+            [periodId]
+          );
+        } else if (resourceType === 'ai_image') {
+          await client.query(
+            `UPDATE usage_periods
+             SET ai_image_reserved = GREATEST(0, ai_image_reserved - 1),
+                 updated_at = NOW()
+             WHERE id = $1`,
+            [periodId]
+          );
+        }
       }
 
       await client.query(
@@ -593,6 +627,7 @@ export class EntitlementService {
    * If customer renews early before current access period expires:
    * new_end_date = GREATEST(current_end_date, NOW()) + 30 days.
    * Customer never loses paid days remaining.
+   * Usage quota periods are scheduled sequentially to prevent conflicting overlapping cycles.
    */
   async applyPaymentEntitlement(
     userId: string,
@@ -604,25 +639,70 @@ export class EntitlementService {
     try {
       await client.query('BEGIN');
 
-      // Update payment_orders table
-      await client.query(
-        `UPDATE payment_orders
-         SET status = 'paid', razorpay_payment_id = $1, updated_at = NOW()
-         WHERE (id = $2 OR razorpay_order_id = $3) AND user_id = $4`,
-        [razorpayPaymentId, orderId, razorpayOrderId, userId]
+      // 1. Authoritative Stored Order Verification with Row Locking
+      const orderRes = await client.query(
+        `SELECT * FROM payment_orders
+         WHERE (id = $1 OR razorpay_order_id = $2) AND user_id = $3
+         FOR UPDATE`,
+        [orderId, razorpayOrderId, userId]
       );
 
-      // Check current subscription for early renewal extension
+      if (orderRes.rows.length === 0) {
+        throw new Error(`ORDER_NOT_FOUND: No stored payment order matches ID ${orderId} or Razorpay order ${razorpayOrderId} for user ${userId}.`);
+      }
+
+      const storedOrder = orderRes.rows[0];
+
+      // Replay/idempotency check on order
+      if (storedOrder.status === 'paid' && storedOrder.razorpay_payment_id === razorpayPaymentId) {
+        // Already paid and processed: return existing subscription duration idempotently
+        const existingSub = await client.query(
+          `SELECT start_date, end_date FROM subscriptions WHERE user_id = $1`,
+          [userId]
+        );
+        await client.query('COMMIT');
+        if (existingSub.rows.length > 0) {
+          return {
+            plan: 'artisan_pro',
+            startDate: new Date(existingSub.rows[0].start_date).toISOString(),
+            endDate: new Date(existingSub.rows[0].end_date).toISOString(),
+          };
+        }
+      }
+
+      if (storedOrder.status !== 'created') {
+        throw new Error(`ORDER_INVALID_STATE: Order is in non-payable state '${storedOrder.status}'.`);
+      }
+
+      if (storedOrder.plan_code !== 'artisan_pro' || storedOrder.amount_paise !== 29900) {
+        throw new Error(`ORDER_PLAN_MISMATCH: Order is for plan ${storedOrder.plan_code} (${storedOrder.amount_paise} paise), expected artisan_pro.`);
+      }
+
+      // 2. Atomically transition payment order to paid
+      const updateOrder = await client.query(
+        `UPDATE payment_orders
+         SET status = 'paid', razorpay_payment_id = $1, updated_at = NOW()
+         WHERE id = $2 AND status = 'created'
+         RETURNING id`,
+        [razorpayPaymentId, storedOrder.id]
+      );
+
+      if (updateOrder.rowCount !== 1) {
+        throw new Error('CONCURRENT_ACTIVATION: Order was updated concurrently.');
+      }
+
+      // 3. Compute Subscription End Date (Access Duration)
       const curSub = await client.query(
-        `SELECT end_date FROM subscriptions WHERE user_id = $1 LIMIT 1`,
+        `SELECT end_date, plan, status FROM subscriptions WHERE user_id = $1 LIMIT 1`,
         [userId]
       );
 
       let targetEndDate: Date;
+      let isEarlyRenewal = false;
       if (curSub.rows.length > 0 && curSub.rows[0].end_date) {
         const curEnd = new Date(curSub.rows[0].end_date);
         if (curEnd.getTime() > Date.now()) {
-          // Early renewal: extend from current end date by exactly 30 days
+          isEarlyRenewal = true;
           targetEndDate = new Date(curEnd.getTime() + 30 * 24 * 60 * 60 * 1000);
         } else {
           targetEndDate = new Date(Date.now() + 30 * 24 * 60 * 60 * 1000);
@@ -653,23 +733,59 @@ export class EntitlementService {
 
       const activatedPeriod = subRes.rows[0];
 
-      // Refresh or initialize usage period for new Pro cycle with 75 AI texts and 5 AI images
+      // 4. Non-Overlapping Quota Usage Period Allocation (Stage C1)
       const proPlan = getPlan('artisan_pro');
-      const periodId = `period_${Date.now()}_${crypto.randomBytes(4).toString('hex')}`;
-      await client.query(
-        `INSERT INTO usage_periods (
-          id, user_id, billing_owner_id, plan_code, period_start, period_end,
-          ai_text_allowance, ai_text_committed, ai_text_reserved,
-          ai_image_allowance, ai_image_committed, ai_image_reserved
-        ) VALUES ($1, $2, $2, 'artisan_pro', NOW(), $3, $4, 0, 0, $5, 0, 0)`,
-        [
-          periodId,
-          userId,
-          activatedPeriod.end_date,
-          proPlan.limits.aiTextOperations,
-          proPlan.limits.aiImageOperations,
-        ]
-      );
+      if (isEarlyRenewal) {
+        // Find latest existing usage period to chain subsequent 30-day allowance period
+        const latestPeriodRes = await client.query(
+          `SELECT period_end FROM usage_periods
+           WHERE user_id = $1
+           ORDER BY period_end DESC
+           LIMIT 1`,
+          [userId]
+        );
+        let periodStart = new Date();
+        if (latestPeriodRes.rows.length > 0 && new Date(latestPeriodRes.rows[0].period_end).getTime() > Date.now()) {
+          periodStart = new Date(latestPeriodRes.rows[0].period_end);
+        }
+        const periodEnd = new Date(periodStart.getTime() + 30 * 24 * 60 * 60 * 1000);
+        const periodId = `period_${Date.now()}_${crypto.randomBytes(4).toString('hex')}`;
+        await client.query(
+          `INSERT INTO usage_periods (
+            id, user_id, billing_owner_id, plan_code, period_start, period_end,
+            ai_text_allowance, ai_text_committed, ai_text_reserved,
+            ai_image_allowance, ai_image_committed, ai_image_reserved
+          ) VALUES ($1, $2, $2, 'artisan_pro', $3, $4, $5, 0, 0, $6, 0, 0)`,
+          [
+            periodId,
+            userId,
+            periodStart.toISOString(),
+            periodEnd.toISOString(),
+            proPlan.limits.aiTextOperations,
+            proPlan.limits.aiImageOperations,
+          ]
+        );
+      } else {
+        // First-time Pro activation or renewal after expiration: start new active 30-day period immediately
+        const periodId = `period_${Date.now()}_${crypto.randomBytes(4).toString('hex')}`;
+        const periodStart = new Date();
+        const periodEnd = new Date(periodStart.getTime() + 30 * 24 * 60 * 60 * 1000);
+        await client.query(
+          `INSERT INTO usage_periods (
+            id, user_id, billing_owner_id, plan_code, period_start, period_end,
+            ai_text_allowance, ai_text_committed, ai_text_reserved,
+            ai_image_allowance, ai_image_committed, ai_image_reserved
+          ) VALUES ($1, $2, $2, 'artisan_pro', $3, $4, $5, 0, 0, $6, 0, 0)`,
+          [
+            periodId,
+            userId,
+            periodStart.toISOString(),
+            periodEnd.toISOString(),
+            proPlan.limits.aiTextOperations,
+            proPlan.limits.aiImageOperations,
+          ]
+        );
+      }
 
       await client.query('COMMIT');
       return {

@@ -5,7 +5,7 @@ import { useI18n } from '../i18n/LanguageContext';
 import {
   Upload, Camera, ChevronRight, ChevronLeft, Sparkles, RefreshCw,
   CheckCircle2, AlertCircle, Save, X, Tag, Star, Wand2, Package,
-  Globe, Lightbulb, ShieldCheck, Info,
+  Globe, Lightbulb, ShieldCheck, Info, ShoppingCart, MessageCircle, FileText, Zap,
 } from 'lucide-react';
 
 interface BrandSuggestion {
@@ -35,12 +35,12 @@ interface ProductIdentityData {
 type WizardStep = 1 | 2 | 3 | 4 | 5;
 type ListingMode = 'marketplace' | 'instagram' | 'whatsapp' | 'catalogue' | 'short';
 
-const LISTING_MODES: { id: ListingMode; label: string; emoji: string }[] = [
-  { id: 'marketplace', label: 'Marketplace', emoji: '🛒' },
-  { id: 'instagram', label: 'Instagram', emoji: '📸' },
-  { id: 'whatsapp', label: 'WhatsApp', emoji: '💬' },
-  { id: 'catalogue', label: 'Catalogue', emoji: '📄' },
-  { id: 'short', label: 'Short', emoji: '⚡' },
+const LISTING_MODES: { id: ListingMode; label: string; icon: React.FC<{ className?: string }> }[] = [
+  { id: 'marketplace', label: 'Marketplace', icon: ShoppingCart },
+  { id: 'instagram', label: 'Instagram', icon: Camera },
+  { id: 'whatsapp', label: 'WhatsApp', icon: MessageCircle },
+  { id: 'catalogue', label: 'Catalogue', icon: FileText },
+  { id: 'short', label: 'Short', icon: Zap },
 ];
 
 const BRAND_PERSONALITIES = ['Traditional', 'Modern', 'Premium', 'Natural', 'Handmade', 'Cultural', 'Minimal', 'Friendly'];
@@ -401,7 +401,7 @@ export const ProductIdentityWizard: React.FC<ProductIdentityWizardProps> = ({
                 {supportedLanguages.map((lang) => (
                   <button key={lang.code} onClick={() => setLanguage(lang.name)}
                     className={`px-3 py-1.5 rounded-xl text-xs font-semibold border transition-all font-poppins cursor-pointer ${language === lang.name ? 'bg-[#0F5132] text-white border-[#0F5132]' : 'bg-[#F8F9F5] dark:bg-[#0E2016] text-stone-600 dark:text-emerald-300/80 border-[#0F5132]/15 dark:border-emerald-900/40 hover:border-[#0F5132]'}`}>
-                    {lang.flagEmoji || '🇮🇳'} {lang.nativeName}
+                    {lang.nativeName}
                   </button>
                 ))}
               </div>
@@ -523,18 +523,21 @@ export const ProductIdentityWizard: React.FC<ProductIdentityWizardProps> = ({
           <div className="bg-white dark:bg-[#13251B] p-3.5 sm:p-4 rounded-2xl border border-[#0F5132]/15 dark:border-emerald-800/60 font-inter">
             <div className="flex flex-col sm:flex-row gap-3 justify-between">
               <div className="flex gap-1.5 overflow-x-auto pb-1 no-scrollbar">
-                {LISTING_MODES.map((m) => (
-                  <button key={m.id} onClick={() => { setListingMode(m.id); if (identity) handleGenerateIdentity(m.id); }} disabled={loadingIdentity}
-                    className={`px-3 py-1.5 rounded-xl text-[11px] font-bold whitespace-nowrap flex items-center gap-1 shrink-0 transition-all font-poppins cursor-pointer ${listingMode === m.id ? 'bg-[#0F5132] text-white shadow-xs' : 'bg-stone-100 dark:bg-[#0E2016] text-stone-600 dark:text-emerald-300/80 hover:bg-stone-200'}`}>
-                    <span>{m.emoji}</span><span>{m.label}</span>
-                  </button>
-                ))}
+                {LISTING_MODES.map((m) => {
+                  const Icon = m.icon;
+                  return (
+                    <button key={m.id} onClick={() => { setListingMode(m.id); if (identity) handleGenerateIdentity(m.id); }} disabled={loadingIdentity}
+                      className={`px-3 py-1.5 rounded-xl text-[11px] font-bold whitespace-nowrap flex items-center gap-1.5 shrink-0 transition-all font-poppins cursor-pointer ${listingMode === m.id ? 'bg-[#0F5132] text-white shadow-xs' : 'bg-stone-100 dark:bg-[#0E2016] text-stone-600 dark:text-emerald-300/80 hover:bg-stone-200'}`}>
+                      <Icon className="w-3.5 h-3.5" /><span>{m.label}</span>
+                    </button>
+                  );
+                })}
               </div>
               <div className="flex gap-1.5 overflow-x-auto pb-1 shrink-0 no-scrollbar">
                 {supportedLanguages.map((lang) => (
                   <button key={lang.code} onClick={() => { setLanguage(lang.name); if (identity) handleGenerateIdentity(undefined, lang.name); }} disabled={loadingIdentity}
                     className={`px-2.5 py-1.5 rounded-xl text-[11px] font-bold transition-all font-poppins cursor-pointer ${language === lang.name ? 'bg-[#0F5132] text-white' : 'bg-stone-100 dark:bg-[#0E2016] text-stone-600 dark:text-emerald-300/80 hover:bg-stone-200'}`}>
-                    {lang.flagEmoji || '🇮🇳'} {lang.nativeName}
+                    {lang.nativeName}
                   </button>
                 ))}
               </div>

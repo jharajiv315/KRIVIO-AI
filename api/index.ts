@@ -13,6 +13,7 @@ function extractExpress(candidate: any) {
 }
 
 let cachedApp: any = null;
+let dbInitPromise: Promise<void> | null = null;
 
 export default async function handler(req: IncomingMessage, res: ServerResponse) {
   const url = req.url || '';
@@ -43,6 +44,13 @@ export default async function handler(req: IncomingMessage, res: ServerResponse)
 
   // 2. Return cached instance if available
   if (cachedApp) {
+    if (dbInitPromise && !url.includes('/api/ping') && !url.endsWith('/ping')) {
+      try {
+        await dbInitPromise;
+      } catch (err: any) {
+        console.warn('[Vercel DB Init Await Warning]:', err?.message || err);
+      }
+    }
     if (typeof cachedApp === 'function') {
       return cachedApp(req, res);
     } else if (cachedApp && typeof cachedApp.handle === 'function') {
@@ -50,12 +58,12 @@ export default async function handler(req: IncomingMessage, res: ServerResponse)
     }
   }
 
-  // 3. Load Express application with full diagnostic capture
+  // 3. Load Express application with deterministic loading and sanitized diagnostics
   try {
     let app: any = null;
-    const attempts: Record<string, any> = {};
+    const internalAttempts: Record<string, any> = {};
 
-    // Attempt 1: Co-located server.cjs inside api/
+    // Strategy 1: Co-located server.cjs inside api/
     try {
       // @ts-ignore
       const mod = await import('./server.cjs');
@@ -63,15 +71,15 @@ export default async function handler(req: IncomingMessage, res: ServerResponse)
       if (app) {
         cachedApp = app;
         const dbInit = mod.ensureDbInitialized || mod.default?.ensureDbInitialized;
-        if (typeof dbInit === 'function') {
-          dbInit().catch((e: any) => console.warn('[Vercel DB Init Warmup Warning]:', e?.message || e));
+        if (typeof dbInit === 'function' && !dbInitPromise) {
+          dbInitPromise = dbInit().catch((e: any) => console.warn('[Vercel DB Init Warmup Warning]:', e?.message || e));
         }
       }
     } catch (e: any) {
-      attempts['./server.cjs'] = { message: e?.message, name: e?.name, stack: e?.stack };
+      internalAttempts['./server.cjs'] = { message: e?.message, name: e?.name };
     }
 
-    // Attempt 2: Pre-bundled dist/server.cjs fallback
+    // Strategy 2: Pre-bundled dist/server.cjs fallback
     if (!app) {
       try {
         // @ts-ignore
@@ -80,16 +88,16 @@ export default async function handler(req: IncomingMessage, res: ServerResponse)
         if (app) {
           cachedApp = app;
           const dbInit = mod.ensureDbInitialized || mod.default?.ensureDbInitialized;
-          if (typeof dbInit === 'function') {
-            dbInit().catch((e: any) => console.warn('[Vercel DB Init Warmup Warning]:', e?.message || e));
+          if (typeof dbInit === 'function' && !dbInitPromise) {
+            dbInitPromise = dbInit().catch((e: any) => console.warn('[Vercel DB Init Warmup Warning]:', e?.message || e));
           }
         }
       } catch (e: any) {
-        attempts['../dist/server.cjs'] = { message: e?.message, name: e?.name, stack: e?.stack };
+        internalAttempts['../dist/server.cjs'] = { message: e?.message, name: e?.name };
       }
     }
 
-    // Attempt 3: Direct TypeScript source fallback
+    // Strategy 3: Direct TypeScript source fallback
     if (!app) {
       try {
         // @ts-ignore
@@ -98,26 +106,35 @@ export default async function handler(req: IncomingMessage, res: ServerResponse)
         if (app) {
           cachedApp = app;
           const dbInit = (mod as any).ensureDbInitialized || (mod as any).default?.ensureDbInitialized;
-          if (typeof dbInit === 'function') {
-            dbInit().catch((e: any) => console.warn('[Vercel DB Init Warmup Warning]:', e?.message || e));
+          if (typeof dbInit === 'function' && !dbInitPromise) {
+            dbInitPromise = dbInit().catch((e: any) => console.warn('[Vercel DB Init Warmup Warning]:', e?.message || e));
           }
         }
       } catch (e: any) {
-        attempts['../server'] = { message: e?.message, name: e?.name, stack: e?.stack };
+        internalAttempts['../server'] = { message: e?.message, name: e?.name };
       }
     }
 
     if (!app) {
+      console.error('[Serverless Loader Resolution Failure]:', internalAttempts);
       res.statusCode = 500;
       res.setHeader('Content-Type', 'application/json');
       res.end(
         JSON.stringify({
           error: 'SERVERLESS_MODULE_NOT_RESOLVED',
           message: 'Could not resolve server application instance in serverless runtime.',
-          attempts,
-        }, null, 2)
+        })
       );
       return;
+    }
+
+    // Ensure database initialization finishes before processing live business requests
+    if (dbInitPromise && !url.includes('/api/ping') && !url.endsWith('/ping')) {
+      try {
+        await dbInitPromise;
+      } catch (err: any) {
+        console.warn('[Vercel DB Init Await Warning]:', err?.message || err);
+      }
     }
 
     if (typeof app === 'function') {
@@ -126,18 +143,16 @@ export default async function handler(req: IncomingMessage, res: ServerResponse)
       return app.handle(req, res);
     }
   } catch (fatalErr: any) {
-    console.error('[Serverless Fatal Error]:', fatalErr?.message || fatalErr);
+    console.error('[Serverless Fatal Error]:', fatalErr?.message || fatalErr, fatalErr?.stack);
     if (!res.headersSent) {
       res.statusCode = 500;
       res.setHeader('Content-Type', 'application/json');
       res.end(
         JSON.stringify({
           error: 'INTERNAL_SERVER_ERROR',
-          message: fatalErr?.message || 'An unexpected runtime error occurred.',
-          stack: fatalErr?.stack,
-        }, null, 2)
+          message: 'An unexpected runtime error occurred.',
+        })
       );
     }
   }
 }
-

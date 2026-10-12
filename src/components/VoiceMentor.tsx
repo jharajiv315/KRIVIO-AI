@@ -21,6 +21,8 @@ import {
   ShieldCheck,
   MessageSquare,
   Info,
+  X,
+  Globe,
 } from 'lucide-react';
 
 export const VoiceMentor: React.FC = () => {
@@ -407,7 +409,7 @@ export const VoiceMentor: React.FC = () => {
 
             {/* Regional Voice Selector */}
             <div className="flex items-center gap-2 bg-[#F8F9F5] dark:bg-[#0E2016] p-1.5 rounded-2xl border border-[#0F5132]/15 dark:border-emerald-900/40 w-full sm:w-auto">
-              <span className="text-base ml-1.5 shrink-0">{currentLanguageConfig?.flagEmoji || '🇮🇳'}</span>
+              <Globe className="w-4 h-4 ml-1.5 shrink-0 text-[#0F5132] dark:text-emerald-400" />
               <select
                 value={language}
                 onChange={(e) => setLanguage(e.target.value as any)}
@@ -663,9 +665,10 @@ export const VoiceMentor: React.FC = () => {
               </div>
               <button
                 onClick={() => setShowHistoryModal(false)}
-                className="text-stone-400 hover:text-stone-600 dark:hover:text-white text-lg font-bold p-1 cursor-pointer"
+                className="text-stone-400 hover:text-stone-600 dark:hover:text-white p-1 cursor-pointer"
+                aria-label="Close history modal"
               >
-                ✕
+                <X className="w-5 h-5" />
               </button>
             </div>
 
@@ -783,9 +786,10 @@ export const VoiceMentor: React.FC = () => {
               </div>
               <button
                 onClick={() => setShowWhatsAppModal(false)}
-                className="text-stone-400 hover:text-stone-600 dark:hover:text-white text-lg font-bold p-1 cursor-pointer"
+                className="text-stone-400 hover:text-stone-600 dark:hover:text-white p-1 cursor-pointer"
+                aria-label="Close WhatsApp modal"
               >
-                ✕
+                <X className="w-5 h-5" />
               </button>
             </div>
 

@@ -29,9 +29,12 @@ var __toCommonJS = (mod) => __copyProps(__defProp({}, "__esModule", { value: tru
 // server.ts
 var server_exports = {};
 __export(server_exports, {
+  JWT_SECRET: () => JWT_SECRET,
+  SUPABASE_JWT_SECRET: () => SUPABASE_JWT_SECRET,
   app: () => app,
   default: () => server_default,
-  ensureDbInitialized: () => ensureDbInitialized
+  ensureDbInitialized: () => ensureDbInitialized,
+  getJwtSecret: () => getJwtSecret
 });
 module.exports = __toCommonJS(server_exports);
 var import_express = __toESM(require("express"), 1);
@@ -1847,7 +1850,7 @@ var GenerationService = class {
   <rect x="${width * 0.03}" y="${height * 0.03}" width="${width * 0.94}" height="${height * 0.94}" fill="none" stroke="#D4AF37" stroke-width="2" stroke-opacity="0.4" rx="20" />
   
   <!-- Festive Header Banner -->
-  <text x="${width * 0.5}" y="${height * 0.085}" text-anchor="middle" font-family="system-ui, -apple-system, sans-serif" font-weight="bold" font-size="${Math.round(width * 0.038)}" fill="#D4AF37">\u2728 ${festival} Special \u2728</text>
+  <text x="${width * 0.5}" y="${height * 0.085}" text-anchor="middle" font-family="system-ui, -apple-system, sans-serif" font-weight="bold" font-size="${Math.round(width * 0.038)}" fill="#D4AF37">${festival} Special</text>
   <text x="${width * 0.5}" y="${height * 0.12}" text-anchor="middle" font-family="system-ui, -apple-system, sans-serif" font-size="${Math.round(width * 0.024)}" fill="#FEF3C7">${brandName}</text>
   
   <!-- Product Image -->
@@ -5002,7 +5005,7 @@ var EntitlementService = class {
     );
     const quoteCount = quoteRes.rows[0]?.count || 0;
     const creditRes = await this.pool.query(
-      `SELECT COALESCE(SUM(quantity_granted - quantity_consumed), 0)::int as available
+      `SELECT COALESCE(SUM(quantity_granted - quantity_consumed - quantity_reserved), 0)::int as available
        FROM credit_packs
        WHERE user_id = $1 AND status = 'active'`,
       [userId]
@@ -5132,9 +5135,9 @@ var EntitlementService = class {
       if (updateRes.rows.length === 0) {
         if (resourceType === "ai_image") {
           const packRes = await client.query(
-            `SELECT id, quantity_granted, quantity_consumed
+            `SELECT id, quantity_granted, quantity_consumed, quantity_reserved
              FROM credit_packs
-             WHERE user_id = $1 AND status = 'active' AND (quantity_granted - quantity_consumed) > 0
+             WHERE user_id = $1 AND status = 'active' AND (quantity_granted - quantity_consumed - quantity_reserved) > 0
              ORDER BY created_at ASC
              LIMIT 1
              FOR UPDATE`,
@@ -5144,12 +5147,18 @@ var EntitlementService = class {
             isCreditPack = true;
             creditPackId = packRes.rows[0].id;
             await client.query(
+              `UPDATE credit_packs
+               SET quantity_reserved = quantity_reserved + 1
+               WHERE id = $1`,
+              [creditPackId]
+            );
+            await client.query(
               `INSERT INTO usage_ledger (
-                id, user_id, billing_owner_id, usage_period_id, resource_type,
+                id, user_id, billing_owner_id, usage_period_id, credit_pack_id, resource_type,
                 operation_type, request_id, units_reserved, units_committed, units_released,
                 status, created_at, updated_at
-              ) VALUES ($1, $2, $2, $3, $4, $5, $1, 1, 0, 0, 'reserved', NOW(), NOW())`,
-              [reservationId, userId, period.id, resourceType, operationType]
+              ) VALUES ($1, $2, $2, $3, $4, $5, $6, $1, 1, 0, 0, 'reserved', NOW(), NOW())`,
+              [reservationId, userId, period.id, creditPackId, resourceType, operationType]
             );
             await client.query("COMMIT");
             return { reservationId, periodId: period.id, isCreditPack, creditPackId };
@@ -5159,7 +5168,7 @@ var EntitlementService = class {
         const periodRow = await this.pool.query(`SELECT * FROM usage_periods WHERE id = $1`, [period.id]);
         const pData = periodRow.rows[0] || period;
         throw new QuotaExceededError({
-          error: resourceType === "ai_text" ? `You have reached your 30-day AI text assistance limit (${plan.limits.aiTextOperations} requests). Your allowance resets on ${new Date(pData.period_end).toLocaleDateString()}.` : `You have used your ${sub.plan === "free" ? "free" : "included"} AI image generation allowance.`,
+          error: resourceType === "ai_text" ? `You have reached your 30-day AI text assistance limit (${plan.limits.aiTextOperations} requests). Your allowance resets on ${new Date(pData.period_end).toLocaleDateString()}.` : `You have used your ${sub.plan === "free" ? "free" : "included"} AI image generation allowance. Upgrade to Artisan Pro for 5 monthly AI studio images or use Free Studio Canvas composition.`,
           limitCode: "QUOTA_EXHAUSTED",
           resourceType,
           currentPlan: sub.plan,
@@ -5209,24 +5218,35 @@ var EntitlementService = class {
       }
       const resourceType = ledger.resource_type;
       const periodId = ledger.usage_period_id;
-      if (resourceType === "ai_text") {
+      const creditPackId = ledger.credit_pack_id;
+      if (creditPackId) {
         await client.query(
-          `UPDATE usage_periods
-           SET ai_text_reserved = GREATEST(0, ai_text_reserved - 1),
-               ai_text_committed = ai_text_committed + 1,
-               updated_at = NOW()
+          `UPDATE credit_packs
+           SET quantity_reserved = GREATEST(0, quantity_reserved - 1),
+               quantity_consumed = quantity_consumed + 1
            WHERE id = $1`,
-          [periodId]
+          [creditPackId]
         );
-      } else if (resourceType === "ai_image") {
-        await client.query(
-          `UPDATE usage_periods
-           SET ai_image_reserved = GREATEST(0, ai_image_reserved - 1),
-               ai_image_committed = ai_image_committed + 1,
-               updated_at = NOW()
-           WHERE id = $1`,
-          [periodId]
-        );
+      } else {
+        if (resourceType === "ai_text") {
+          await client.query(
+            `UPDATE usage_periods
+             SET ai_text_reserved = GREATEST(0, ai_text_reserved - 1),
+                 ai_text_committed = ai_text_committed + 1,
+                 updated_at = NOW()
+             WHERE id = $1`,
+            [periodId]
+          );
+        } else if (resourceType === "ai_image") {
+          await client.query(
+            `UPDATE usage_periods
+             SET ai_image_reserved = GREATEST(0, ai_image_reserved - 1),
+                 ai_image_committed = ai_image_committed + 1,
+                 updated_at = NOW()
+             WHERE id = $1`,
+            [periodId]
+          );
+        }
       }
       await client.query(
         `UPDATE usage_ledger
@@ -5271,22 +5291,32 @@ var EntitlementService = class {
       }
       const resourceType = ledger.resource_type;
       const periodId = ledger.usage_period_id;
-      if (resourceType === "ai_text") {
+      const creditPackId = ledger.credit_pack_id;
+      if (creditPackId) {
         await client.query(
-          `UPDATE usage_periods
-           SET ai_text_reserved = GREATEST(0, ai_text_reserved - 1),
-               updated_at = NOW()
+          `UPDATE credit_packs
+           SET quantity_reserved = GREATEST(0, quantity_reserved - 1)
            WHERE id = $1`,
-          [periodId]
+          [creditPackId]
         );
-      } else if (resourceType === "ai_image") {
-        await client.query(
-          `UPDATE usage_periods
-           SET ai_image_reserved = GREATEST(0, ai_image_reserved - 1),
-               updated_at = NOW()
-           WHERE id = $1`,
-          [periodId]
-        );
+      } else {
+        if (resourceType === "ai_text") {
+          await client.query(
+            `UPDATE usage_periods
+             SET ai_text_reserved = GREATEST(0, ai_text_reserved - 1),
+                 updated_at = NOW()
+             WHERE id = $1`,
+            [periodId]
+          );
+        } else if (resourceType === "ai_image") {
+          await client.query(
+            `UPDATE usage_periods
+             SET ai_image_reserved = GREATEST(0, ai_image_reserved - 1),
+                 updated_at = NOW()
+             WHERE id = $1`,
+            [periodId]
+          );
+        }
       }
       await client.query(
         `UPDATE usage_ledger
@@ -5312,25 +5342,62 @@ var EntitlementService = class {
    * If customer renews early before current access period expires:
    * new_end_date = GREATEST(current_end_date, NOW()) + 30 days.
    * Customer never loses paid days remaining.
+   * Usage quota periods are scheduled sequentially to prevent conflicting overlapping cycles.
    */
   async applyPaymentEntitlement(userId, orderId, razorpayPaymentId, razorpayOrderId) {
     const client = await this.pool.connect();
     try {
       await client.query("BEGIN");
-      await client.query(
+      const orderRes = await client.query(
+        `SELECT * FROM payment_orders
+         WHERE (id = $1 OR razorpay_order_id = $2) AND user_id = $3
+         FOR UPDATE`,
+        [orderId, razorpayOrderId, userId]
+      );
+      if (orderRes.rows.length === 0) {
+        throw new Error(`ORDER_NOT_FOUND: No stored payment order matches ID ${orderId} or Razorpay order ${razorpayOrderId} for user ${userId}.`);
+      }
+      const storedOrder = orderRes.rows[0];
+      if (storedOrder.status === "paid" && storedOrder.razorpay_payment_id === razorpayPaymentId) {
+        const existingSub = await client.query(
+          `SELECT start_date, end_date FROM subscriptions WHERE user_id = $1`,
+          [userId]
+        );
+        await client.query("COMMIT");
+        if (existingSub.rows.length > 0) {
+          return {
+            plan: "artisan_pro",
+            startDate: new Date(existingSub.rows[0].start_date).toISOString(),
+            endDate: new Date(existingSub.rows[0].end_date).toISOString()
+          };
+        }
+      }
+      if (storedOrder.status !== "created") {
+        throw new Error(`ORDER_INVALID_STATE: Order is in non-payable state '${storedOrder.status}'.`);
+      }
+      if (storedOrder.plan_code !== "artisan_pro" || storedOrder.amount_paise !== 29900) {
+        throw new Error(`ORDER_PLAN_MISMATCH: Order is for plan ${storedOrder.plan_code} (${storedOrder.amount_paise} paise), expected artisan_pro.`);
+      }
+      const updateOrder = await client.query(
         `UPDATE payment_orders
          SET status = 'paid', razorpay_payment_id = $1, updated_at = NOW()
-         WHERE (id = $2 OR razorpay_order_id = $3) AND user_id = $4`,
-        [razorpayPaymentId, orderId, razorpayOrderId, userId]
+         WHERE id = $2 AND status = 'created'
+         RETURNING id`,
+        [razorpayPaymentId, storedOrder.id]
       );
+      if (updateOrder.rowCount !== 1) {
+        throw new Error("CONCURRENT_ACTIVATION: Order was updated concurrently.");
+      }
       const curSub = await client.query(
-        `SELECT end_date FROM subscriptions WHERE user_id = $1 LIMIT 1`,
+        `SELECT end_date, plan, status FROM subscriptions WHERE user_id = $1 LIMIT 1`,
         [userId]
       );
       let targetEndDate;
+      let isEarlyRenewal = false;
       if (curSub.rows.length > 0 && curSub.rows[0].end_date) {
         const curEnd = new Date(curSub.rows[0].end_date);
         if (curEnd.getTime() > Date.now()) {
+          isEarlyRenewal = true;
           targetEndDate = new Date(curEnd.getTime() + 30 * 24 * 60 * 60 * 1e3);
         } else {
           targetEndDate = new Date(Date.now() + 30 * 24 * 60 * 60 * 1e3);
@@ -5359,21 +5426,55 @@ var EntitlementService = class {
       );
       const activatedPeriod = subRes.rows[0];
       const proPlan = getPlan("artisan_pro");
-      const periodId = `period_${Date.now()}_${import_crypto.default.randomBytes(4).toString("hex")}`;
-      await client.query(
-        `INSERT INTO usage_periods (
-          id, user_id, billing_owner_id, plan_code, period_start, period_end,
-          ai_text_allowance, ai_text_committed, ai_text_reserved,
-          ai_image_allowance, ai_image_committed, ai_image_reserved
-        ) VALUES ($1, $2, $2, 'artisan_pro', NOW(), $3, $4, 0, 0, $5, 0, 0)`,
-        [
-          periodId,
-          userId,
-          activatedPeriod.end_date,
-          proPlan.limits.aiTextOperations,
-          proPlan.limits.aiImageOperations
-        ]
-      );
+      if (isEarlyRenewal) {
+        const latestPeriodRes = await client.query(
+          `SELECT period_end FROM usage_periods
+           WHERE user_id = $1
+           ORDER BY period_end DESC
+           LIMIT 1`,
+          [userId]
+        );
+        let periodStart = /* @__PURE__ */ new Date();
+        if (latestPeriodRes.rows.length > 0 && new Date(latestPeriodRes.rows[0].period_end).getTime() > Date.now()) {
+          periodStart = new Date(latestPeriodRes.rows[0].period_end);
+        }
+        const periodEnd = new Date(periodStart.getTime() + 30 * 24 * 60 * 60 * 1e3);
+        const periodId = `period_${Date.now()}_${import_crypto.default.randomBytes(4).toString("hex")}`;
+        await client.query(
+          `INSERT INTO usage_periods (
+            id, user_id, billing_owner_id, plan_code, period_start, period_end,
+            ai_text_allowance, ai_text_committed, ai_text_reserved,
+            ai_image_allowance, ai_image_committed, ai_image_reserved
+          ) VALUES ($1, $2, $2, 'artisan_pro', $3, $4, $5, 0, 0, $6, 0, 0)`,
+          [
+            periodId,
+            userId,
+            periodStart.toISOString(),
+            periodEnd.toISOString(),
+            proPlan.limits.aiTextOperations,
+            proPlan.limits.aiImageOperations
+          ]
+        );
+      } else {
+        const periodId = `period_${Date.now()}_${import_crypto.default.randomBytes(4).toString("hex")}`;
+        const periodStart = /* @__PURE__ */ new Date();
+        const periodEnd = new Date(periodStart.getTime() + 30 * 24 * 60 * 60 * 1e3);
+        await client.query(
+          `INSERT INTO usage_periods (
+            id, user_id, billing_owner_id, plan_code, period_start, period_end,
+            ai_text_allowance, ai_text_committed, ai_text_reserved,
+            ai_image_allowance, ai_image_committed, ai_image_reserved
+          ) VALUES ($1, $2, $2, 'artisan_pro', $3, $4, $5, 0, 0, $6, 0, 0)`,
+          [
+            periodId,
+            userId,
+            periodStart.toISOString(),
+            periodEnd.toISOString(),
+            proPlan.limits.aiTextOperations,
+            proPlan.limits.aiImageOperations
+          ]
+        );
+      }
       await client.query("COMMIT");
       return {
         plan: "artisan_pro",
@@ -5425,6 +5526,9 @@ var getJwtSecret = () => {
   const INSECURE_DEFAULTS = ["krivio_secret_key_2026", "krivio_secret_key_change_in_production", "krivio_secret_key_dev_testing_only"];
   if (secret && !INSECURE_DEFAULTS.includes(secret) && secret.length >= 32) {
     return secret;
+  }
+  if ((process.env.NODE_ENV === "production" || process.env.VERCEL) && !process.env.ALLOW_RUNTIME_JWT_SECRET) {
+    throw new Error("[FATAL SECURITY CONFIGURATION]: High-entropy JWT_SECRET (>= 32 chars) must be configured in production environment.");
   }
   if (!runtimeFallbackSecret) {
     runtimeFallbackSecret = import_crypto2.default.randomBytes(32).toString("hex");
@@ -5562,10 +5666,13 @@ async function ensureDbInitialized() {
   }
   return dbInitPromise;
 }
-app.use((req, res, next) => {
-  if (req.url && req.url.startsWith("/api")) {
-    ensureDbInitialized().catch(() => {
-    });
+app.use(async (req, res, next) => {
+  if (req.url && req.url.startsWith("/api") && !req.url.startsWith("/api/ping") && !req.url.endsWith("/ping")) {
+    try {
+      await ensureDbInitialized();
+    } catch (dbErr) {
+      console.warn("[PostgreSQL Init Wait Warning]:", dbErr?.message || dbErr);
+    }
   }
   next();
 });
@@ -6613,23 +6720,6 @@ app.post("/api/products", authenticateToken, async (req, res) => {
       res.status(400).json({ error: "Product title is required" });
       return;
     }
-    try {
-      await entitlementService.assertCanCreateProduct(userId);
-    } catch (limitErr) {
-      if (limitErr instanceof QuotaExceededError) {
-        res.status(403).json(limitErr.details);
-        return;
-      }
-      throw limitErr;
-    }
-    await queryPg(
-      `INSERT INTO users (id, email, full_name, role, is_active, is_verified, created_at, updated_at)
-       VALUES ($1, $2, $3, 'artisan', true, true, NOW(), NOW())
-       ON CONFLICT (id) DO UPDATE SET updated_at = NOW()`,
-      [userId, req.user?.email || `${userId}@artisan.krivio.local`, req.user?.name || "Krivio Artisan"]
-    ).catch((uErr) => {
-      console.warn("Notice ensuring user for product creation:", uErr.message || uErr);
-    });
     const prodId = `prod_${Date.now()}_${Math.random().toString(36).slice(2, 7)}`;
     const effectiveShortDesc = shortDescription || short_description || "";
     const effectiveCraftStory = craftStory || craft_story || "";
@@ -6649,9 +6739,39 @@ app.post("/api/products", authenticateToken, async (req, res) => {
     const validCandidateUrls = rawImageUrls.map((item) => normalizeCandidateUrl(item)).filter((u) => Boolean(u && isValidImageUrl(u)));
     const safeImageUrls = validCandidateUrls.length > 0 ? validCandidateUrls : [getContextualCraftImage({ title, category, material: effectiveMaterial, description })];
     const safeMarketplaces = Array.isArray(marketplaces) ? marketplaces : typeof marketplaces === "string" && marketplaces ? marketplaces.startsWith("[") ? JSON.parse(marketplaces) : [marketplaces] : ["ONDC"];
+    const client = await pgPool.connect();
     let row = null;
     try {
-      const insertRes = await queryPg(
+      await client.query("BEGIN");
+      await client.query(`SELECT pg_advisory_xact_lock(hashtext('krivio_prod_cap_' || $1))`, [userId]);
+      const sub = await entitlementService.getEffectiveSubscription(userId);
+      const plan = getPlan(sub.plan);
+      const countRes = await client.query(
+        `SELECT COUNT(*)::int as count FROM products WHERE user_id = $1`,
+        [userId]
+      );
+      const count = countRes.rows[0]?.count || 0;
+      if (count >= plan.limits.maxProducts) {
+        await client.query("ROLLBACK");
+        res.status(403).json({
+          error: `Product limit reached for ${plan.name}. You have stored ${count} of ${plan.limits.maxProducts} allowed products.`,
+          limitCode: "PRODUCT_LIMIT_REACHED",
+          resourceType: "product",
+          currentPlan: sub.plan,
+          limit: plan.limits.maxProducts,
+          currentCount: count,
+          upgradeAvailable: sub.plan === "free"
+        });
+        return;
+      }
+      await client.query(
+        `INSERT INTO users (id, email, full_name, role, is_active, is_verified, created_at, updated_at)
+         VALUES ($1, $2, $3, 'artisan', true, true, NOW(), NOW())
+         ON CONFLICT (id) DO UPDATE SET updated_at = NOW()`,
+        [userId, req.user?.email || `${userId}@artisan.krivio.local`, req.user?.name || "Krivio Artisan"]
+      ).catch(() => {
+      });
+      const insertRes = await client.query(
         `INSERT INTO products (
           id, user_id, title, description, category, price, currency, stock, sku, weight, dimensions,
           status, keywords, image_urls, is_marketplace_ready, readiness_score, marketplaces,
@@ -6693,43 +6813,13 @@ app.post("/api/products", authenticateToken, async (req, res) => {
         ]
       );
       row = insertRes.rows[0];
+      await client.query("COMMIT");
     } catch (insertErr) {
-      if (insertErr.message && (insertErr.message.includes("column") || insertErr.message.includes("does not exist"))) {
-        console.warn("Falling back to legacy product table schema for insert:", insertErr.message);
-        try {
-          const fallbackRes = await queryPg(
-            `INSERT INTO products (
-              id, user_id, title, description, category, price, currency, stock, sku, weight, dimensions,
-              status, keywords, image_urls, is_marketplace_ready, readiness_score, marketplaces,
-              created_at, updated_at
-            ) VALUES (
-              $1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, NOW(), NOW()
-            ) RETURNING *`,
-            [
-              prodId,
-              userId,
-              title,
-              description || "",
-              category || "Handicrafts & Art",
-              sanitizedPrice,
-              currency || "INR",
-              sanitizedStock,
-              sku || `SKU-${Date.now().toString().slice(-5)}`,
-              weight || "0.5 kg",
-              dimensions || "10x10x10 cm",
-              status || "published",
-              JSON.stringify(safeKeywords),
-              JSON.stringify(safeImageUrls),
-              isMarketplaceReady ?? true,
-              readinessScore || 85,
-              JSON.stringify(safeMarketplaces)
-            ]
-          );
-          row = fallbackRes.rows[0];
-        } catch (legacyErr) {
-          console.warn("Legacy insert also failed:", legacyErr);
-        }
-      }
+      await client.query("ROLLBACK").catch(() => {
+      });
+      throw insertErr;
+    } finally {
+      client.release();
     }
     if (!row) {
       console.warn("[Product Storage]: Storing product in active session memory store");
@@ -7062,17 +7152,41 @@ app.delete("/api/products/:id", authenticateToken, async (req, res) => {
   }
 });
 app.post("/api/products/:id/duplicate", authenticateToken, async (req, res) => {
+  const client = await pgPool.connect();
   try {
     const { id } = req.params;
     const userId = req.user.id;
-    const origRes = await queryPg(`SELECT * FROM products WHERE id = $1 AND user_id = $2`, [id, userId]);
+    await client.query("BEGIN");
+    await client.query(`SELECT pg_advisory_xact_lock(hashtext('krivio_prod_cap_' || $1))`, [userId]);
+    const sub = await entitlementService.getEffectiveSubscription(userId);
+    const plan = getPlan(sub.plan);
+    const countRes = await client.query(
+      `SELECT COUNT(*)::int as count FROM products WHERE user_id = $1`,
+      [userId]
+    );
+    const count = countRes.rows[0]?.count || 0;
+    if (count >= plan.limits.maxProducts) {
+      await client.query("ROLLBACK");
+      res.status(403).json({
+        error: `Product limit reached for ${plan.name}. You have stored ${count} of ${plan.limits.maxProducts} allowed products.`,
+        limitCode: "PRODUCT_LIMIT_REACHED",
+        resourceType: "product",
+        currentPlan: sub.plan,
+        limit: plan.limits.maxProducts,
+        currentCount: count,
+        upgradeAvailable: sub.plan === "free"
+      });
+      return;
+    }
+    const origRes = await client.query(`SELECT * FROM products WHERE id = $1 AND user_id = $2`, [id, userId]);
     if (origRes.rows.length === 0) {
+      await client.query("ROLLBACK");
       res.status(404).json({ error: "Product not found" });
       return;
     }
     const orig = origRes.rows[0];
     const newId = `prod_${Date.now()}_${Math.random().toString(36).slice(2, 7)}`;
-    const dupRes = await queryPg(
+    const dupRes = await client.query(
       `INSERT INTO products (
         id, user_id, title, description, category, price, currency, stock, sku, weight, dimensions,
         status, keywords, image_urls, is_marketplace_ready, readiness_score, marketplaces,
@@ -7113,6 +7227,7 @@ app.post("/api/products/:id/duplicate", authenticateToken, async (req, res) => {
         orig.origin_state || ""
       ]
     );
+    await client.query("COMMIT");
     const row = dupRes.rows[0];
     res.json({
       product: {
@@ -7151,7 +7266,11 @@ app.post("/api/products/:id/duplicate", authenticateToken, async (req, res) => {
       message: "Product duplicated successfully"
     });
   } catch (err) {
+    await client.query("ROLLBACK").catch(() => {
+    });
     res.status(500).json({ error: "Failed to duplicate product" });
+  } finally {
+    client.release();
   }
 });
 app.post("/api/products/:id/archive", authenticateToken, async (req, res) => {
@@ -7801,18 +7920,32 @@ app.post("/api/ai/mentor", optionalAuthenticateToken, async (req, res) => {
     const bizName = prof?.business_name || req.user?.name || "Handicrafts & Rural Enterprise";
     const craftType = prof?.business_type || "Rural Enterprise & Crafts";
     const prodList = prodsRes.rows.map((p) => `${p.title} (\u20B9${p.price})`).join(", ") || "No products listed yet";
+    const isGuest = !req.user || req.user.id === "artisan_guest";
+    const clientIp = (req.headers["x-forwarded-for"] || req.socket.remoteAddress || "guest").split(",")[0].trim();
+    if (isGuest) {
+      if (!checkGuestVoiceRateLimit(clientIp)) {
+        res.status(429).json({
+          error: "Free AI mentor demo limit reached (3 queries per day). Please sign in to use your free monthly business mentor allowance.",
+          code: "GUEST_RATE_LIMIT_EXCEEDED",
+          limitCode: "GUEST_LIMIT_REACHED",
+          requiresAuth: true
+        });
+        return;
+      }
+    } else {
+      try {
+        reservation = await entitlementService.reserveUsage(userId, "ai_text", "mentor");
+      } catch (limitErr) {
+        if (limitErr instanceof QuotaExceededError) {
+          res.status(403).json(limitErr.details);
+          return;
+        }
+        throw limitErr;
+      }
+    }
     if (!geminiService.isAvailable()) {
       res.status(503).json({ error: "AI Mentor service is temporarily unavailable. Server API key is not configured." });
       return;
-    }
-    try {
-      reservation = await entitlementService.reserveUsage(userId, "ai_text", "mentor");
-    } catch (limitErr) {
-      if (limitErr instanceof QuotaExceededError) {
-        res.status(403).json(limitErr.details);
-        return;
-      }
-      throw limitErr;
     }
     const mentorResult = await AITaskRouter.handle({
       task: "MENTOR",
@@ -8171,13 +8304,6 @@ app.post("/api/payments/verify", authenticateToken, async (req, res) => {
       res.status(503).json({ error: "Payment gateway configuration is currently unavailable for verification." });
       return;
     }
-    const expectedSignature = import_crypto2.default.createHmac("sha256", secret).update(`${razorpayOrderId}|${razorpayPaymentId}`).digest("hex");
-    const expectedBuf = Buffer.from(expectedSignature, "utf-8");
-    const signatureBuf = Buffer.from(String(razorpaySignature), "utf-8");
-    if (expectedBuf.length !== signatureBuf.length || !import_crypto2.default.timingSafeEqual(expectedBuf, signatureBuf)) {
-      res.status(400).json({ error: "Invalid payment signature. Verification failed." });
-      return;
-    }
     const existingPayment = await queryPg(
       `SELECT user_id FROM subscriptions WHERE razorpay_payment_id = $1 LIMIT 1`,
       [razorpayPaymentId]
@@ -8186,19 +8312,72 @@ app.post("/api/payments/verify", authenticateToken, async (req, res) => {
       res.status(409).json({ error: "This payment transaction ID has already been applied to another account." });
       return;
     }
-    if (existingPayment.rows.length > 0 && existingPayment.rows[0].user_id === userId) {
+    const orderCheck = await queryPg(
+      `SELECT * FROM payment_orders WHERE razorpay_order_id = $1 LIMIT 1`,
+      [razorpayOrderId]
+    );
+    if (orderCheck.rows.length === 0) {
+      res.status(404).json({ error: "No matching internal payment order was found for this transaction." });
+      return;
+    }
+    const matchedOrder = orderCheck.rows[0];
+    if (matchedOrder.user_id !== userId) {
+      res.status(403).json({ error: "This payment order belongs to a different account." });
+      return;
+    }
+    if (matchedOrder.plan_code !== "artisan_pro" || matchedOrder.amount_paise !== 29900) {
+      res.status(400).json({ error: "Order plan or amount does not match approved commercial catalog." });
+      return;
+    }
+    if (matchedOrder.status === "paid") {
       const snapshot2 = await entitlementService.getUsageSnapshot(userId);
       res.json({
         success: true,
         subscriptionPlan: "artisan_pro",
-        message: "Payment verified and Pro access active.",
+        message: "Payment already verified and Artisan Pro access active.",
         usage: snapshot2
       });
       return;
     }
+    const expectedSignature = import_crypto2.default.createHmac("sha256", secret).update(`${razorpayOrderId}|${razorpayPaymentId}`).digest("hex");
+    const expectedBuf = Buffer.from(expectedSignature, "utf-8");
+    const signatureBuf = Buffer.from(String(razorpaySignature), "utf-8");
+    if (expectedBuf.length !== signatureBuf.length || !import_crypto2.default.timingSafeEqual(expectedBuf, signatureBuf)) {
+      res.status(400).json({ error: "Invalid payment signature. Verification failed." });
+      return;
+    }
+    const keyId = process.env.RAZORPAY_KEY_ID || "";
+    const isRzpConfigured = Boolean(
+      keyId && keyId !== "rzp_test_krivio123" && secret && secret !== "krivio_razorpay_secret_123"
+    );
+    if (isRzpConfigured) {
+      try {
+        const basicAuth = Buffer.from(`${keyId}:${secret}`).toString("base64");
+        const payResp = await fetch(`https://api.razorpay.com/v1/payments/${razorpayPaymentId}`, {
+          headers: { "Authorization": `Basic ${basicAuth}` }
+        });
+        if (payResp.ok) {
+          const payData = await payResp.json();
+          if (payData.order_id && payData.order_id !== razorpayOrderId) {
+            res.status(400).json({ error: "Upstream payment does not match the specified order ID." });
+            return;
+          }
+          if (payData.status !== "captured" && payData.status !== "authorized") {
+            res.status(402).json({ error: `Payment is in non-successful state: ${payData.status}` });
+            return;
+          }
+          if (payData.amount && payData.amount !== matchedOrder.amount_paise) {
+            res.status(400).json({ error: "Captured payment amount mismatch against authoritative order." });
+            return;
+          }
+        }
+      } catch (rzpCheckErr) {
+        console.warn("[Razorpay Live Check Notice]:", rzpCheckErr?.message || rzpCheckErr);
+      }
+    }
     const activation = await entitlementService.applyPaymentEntitlement(
       userId,
-      razorpayOrderId,
+      matchedOrder.id,
       razorpayPaymentId,
       razorpayOrderId
     );
@@ -8225,7 +8404,7 @@ app.post("/api/payments/verify", authenticateToken, async (req, res) => {
     });
   } catch (err) {
     console.error("Failed to verify payment:", err);
-    res.status(500).json({ error: "Failed to verify payment" });
+    res.status(500).json({ error: err.message || "Failed to verify payment" });
   }
 });
 app.post("/api/payments/webhook", async (req, res) => {
@@ -8256,7 +8435,7 @@ app.post("/api/payments/webhook", async (req, res) => {
     const eventId = event?.event_id || event?.id || `evt_${Date.now()}_${import_crypto2.default.randomBytes(4).toString("hex")}`;
     const eventType = event?.event || "unknown";
     const existingEvt = await queryPg(
-      `SELECT id FROM payment_events WHERE provider_event_id = $1 LIMIT 1`,
+      `SELECT id, processing_status FROM payment_events WHERE provider_event_id = $1 LIMIT 1`,
       [eventId]
     );
     if (existingEvt.rows.length > 0) {
@@ -8267,14 +8446,26 @@ app.post("/api/payments/webhook", async (req, res) => {
     const orderEntity = event?.payload?.order?.entity || {};
     const rzpOrderId = paymentEntity.order_id || orderEntity.id;
     const rzpPaymentId = paymentEntity.id;
-    const userId = paymentEntity.notes?.userId || orderEntity.notes?.userId;
+    let targetUserId = paymentEntity.notes?.userId || orderEntity.notes?.userId;
+    let internalOrderId = rzpOrderId;
+    if (rzpOrderId) {
+      const orderLookup = await queryPg(
+        `SELECT id, user_id FROM payment_orders WHERE razorpay_order_id = $1 LIMIT 1`,
+        [rzpOrderId]
+      );
+      if (orderLookup.rows.length > 0) {
+        targetUserId = orderLookup.rows[0].user_id;
+        internalOrderId = orderLookup.rows[0].id;
+      }
+    }
+    const pevtId = `pevt_${Date.now()}_${import_crypto2.default.randomBytes(3).toString("hex")}`;
     await queryPg(
       `INSERT INTO payment_events (
         id, provider_event_id, event_type, razorpay_order_id, razorpay_payment_id,
         signature_verified, processing_status, payload, created_at
-      ) VALUES ($1, $2, $3, $4, $5, true, 'processed', $6, NOW())`,
+      ) VALUES ($1, $2, $3, $4, $5, true, 'received', $6, NOW())`,
       [
-        `pevt_${Date.now()}`,
+        pevtId,
         eventId,
         eventType,
         rzpOrderId || null,
@@ -8282,12 +8473,37 @@ app.post("/api/payments/webhook", async (req, res) => {
         JSON.stringify(event)
       ]
     );
-    if ((eventType === "order.paid" || eventType === "payment.captured") && userId && rzpPaymentId && rzpOrderId) {
-      await entitlementService.applyPaymentEntitlement(userId, rzpOrderId, rzpPaymentId, rzpOrderId).catch((aErr) => {
-        console.warn("Webhook entitlement activation note:", aErr.message);
-      });
+    if (eventType === "order.paid" || eventType === "payment.captured") {
+      if (!targetUserId || !rzpPaymentId || !rzpOrderId) {
+        await queryPg(
+          `UPDATE payment_events SET processing_status = 'recorded_failure', error_message = 'Missing order or user identifiers' WHERE id = $1`,
+          [pevtId]
+        );
+        res.json({ status: "ignored", reason: "unrecognized_identifiers", eventId });
+        return;
+      }
+      try {
+        await entitlementService.applyPaymentEntitlement(targetUserId, internalOrderId, rzpPaymentId, rzpOrderId);
+        await queryPg(
+          `UPDATE payment_events SET processing_status = 'applied' WHERE id = $1`,
+          [pevtId]
+        );
+        res.json({ status: "applied", eventId });
+      } catch (actErr) {
+        console.error("[Webhook Activation Failure]:", actErr.message || actErr);
+        await queryPg(
+          `UPDATE payment_events SET processing_status = 'failed', error_message = $1 WHERE id = $2`,
+          [actErr.message || "Activation failed", pevtId]
+        );
+        res.status(500).json({ error: "Entitlement activation failed; webhook will retry.", eventId });
+      }
+      return;
     }
-    res.json({ status: "processed", eventId });
+    await queryPg(
+      `UPDATE payment_events SET processing_status = 'ignored' WHERE id = $1`,
+      [pevtId]
+    );
+    res.json({ status: "ignored", eventId });
   } catch (err) {
     console.error("Webhook error:", err);
     res.status(500).json({ error: "Internal webhook error" });
@@ -8598,6 +8814,7 @@ app.post("/api/image-studio/generate", authenticateToken, async (req, res) => {
   }
 });
 app.post("/api/image-studio/edit", authenticateToken, async (req, res) => {
+  let reservation = null;
   try {
     const userId = req.user.id;
     const { previousAssetId, userInstruction, currentImage, originalImage, aspectRatio } = req.body;
@@ -8610,12 +8827,28 @@ app.post("/api/image-studio/edit", authenticateToken, async (req, res) => {
       res.status(400).json({ error: "Image source is missing for editing." });
       return;
     }
+    try {
+      reservation = await entitlementService.reserveUsage(userId, "ai_image", "image_studio_edit");
+    } catch (limitErr) {
+      if (limitErr instanceof QuotaExceededError) {
+        res.status(403).json(limitErr.details);
+        return;
+      }
+      throw limitErr;
+    }
     const result = await imageGenService.generate({
       originalImage: baseImage,
       userInstruction,
       aspectRatio,
       operationId: "ADVANCED_EDITING"
     });
+    if (reservation) {
+      if (result.modelUsed === "krivio-studio-engine") {
+        await entitlementService.releaseUsage(reservation.reservationId, "canvas_fallback");
+      } else {
+        await entitlementService.commitUsage(reservation.reservationId, result.modelUsed || "imagen-3", 0.03);
+      }
+    }
     await queryPg(
       `INSERT INTO image_studio_assets (
         id, user_id, operation_id, category, original_asset, generated_asset,
@@ -8641,6 +8874,10 @@ app.post("/api/image-studio/edit", authenticateToken, async (req, res) => {
       asset: result
     });
   } catch (err) {
+    if (reservation) {
+      await entitlementService.releaseUsage(reservation.reservationId, "edit_failed").catch(() => {
+      });
+    }
     console.error("Image Studio edit error:", err.message || err);
     res.status(500).json({
       error: "Could not apply your edit right now. Your previous image is still preserved."
@@ -8787,13 +9024,52 @@ Return ONLY the raw spoken text. If the audio is completely silent or unrecogniz
     res.status(503).json({ error: "Failed to transcribe audio with Voice AI: " + (err.message || "Service error") });
   }
 });
+var guestVoiceRateLimit = /* @__PURE__ */ new Map();
+function checkGuestVoiceRateLimit(ip) {
+  const now = Date.now();
+  const entry = guestVoiceRateLimit.get(ip);
+  if (!entry || entry.resetAt < now) {
+    guestVoiceRateLimit.set(ip, { count: 1, resetAt: now + 24 * 60 * 60 * 1e3 });
+    return true;
+  }
+  if (entry.count >= 3) {
+    return false;
+  }
+  entry.count++;
+  return true;
+}
 app.post("/api/voice/respond", optionalAuthenticateToken, async (req, res) => {
+  let reservation = null;
   try {
     const userId = req.user?.id || "artisan_guest";
-    const { transcript, language = "Hindi", context } = req.body;
-    if (!transcript || !transcript.trim()) {
+    const transcript = (req.body.transcript || req.body.prompt || "").trim();
+    const { language = "Hindi", context } = req.body;
+    if (!transcript) {
       res.status(400).json({ error: "Transcript is required." });
       return;
+    }
+    const isGuest = !req.user || req.user.id === "artisan_guest";
+    const clientIp = (req.headers["x-forwarded-for"] || req.socket.remoteAddress || "guest").split(",")[0].trim();
+    if (isGuest) {
+      if (!checkGuestVoiceRateLimit(clientIp)) {
+        res.status(429).json({
+          error: "Free voice demo query limit reached (3 queries per day). Please sign in to use your free monthly business mentor allowance.",
+          code: "GUEST_RATE_LIMIT_EXCEEDED",
+          limitCode: "GUEST_LIMIT_REACHED",
+          requiresAuth: true
+        });
+        return;
+      }
+    } else {
+      try {
+        reservation = await entitlementService.reserveUsage(req.user.id, "ai_text", "voice_mentor");
+      } catch (limitErr) {
+        if (limitErr instanceof QuotaExceededError) {
+          res.status(403).json(limitErr.details);
+          return;
+        }
+        throw limitErr;
+      }
     }
     if (!geminiService.isAvailable()) {
       res.status(503).json({ error: "Voice AI service is temporarily unavailable. Server API key is not configured." });
@@ -8849,25 +9125,30 @@ Analyze this query and respond with valid JSON:
     const intent = parsed.intent || "GeneralMentorship";
     const entities = parsed.entities || {};
     const replyText = parsed.reply || cleanRaw;
+    if (reservation) {
+      await entitlementService.commitUsage(reservation.reservationId, "gemini-2.5-flash", 25e-5);
+    }
     const assetId = `vast_${Date.now()}_${Math.random().toString(36).slice(2, 7)}`;
-    await queryPg(
-      `INSERT INTO voice_assets (
-        id, user_id, transcript, intent, entities, response_text, created_at, updated_at
-      ) VALUES ($1, $2, $3, $4, $5, $6, NOW(), NOW())`,
-      [assetId, userId, transcript.trim(), intent, JSON.stringify(entities), replyText]
-    ).catch((dbErr) => console.warn("DB voice asset save note:", dbErr.message));
-    await queryPg(
-      `INSERT INTO activities (id, user_id, title, description, event_type, created_at)
-       VALUES ($1, $2, $3, $4, $5, NOW())`,
-      [
-        `act_${Date.now()}`,
-        userId,
-        `Voice Query: ${intent}`,
-        `Asked: "${transcript.slice(0, 50)}..."`,
-        "voice_interaction"
-      ]
-    ).catch(() => {
-    });
+    if (userId !== "artisan_guest") {
+      await queryPg(
+        `INSERT INTO voice_assets (
+          id, user_id, transcript, intent, entities, response_text, created_at, updated_at
+        ) VALUES ($1, $2, $3, $4, $5, $6, NOW(), NOW())`,
+        [assetId, userId, transcript.trim(), intent, JSON.stringify(entities), replyText]
+      ).catch((dbErr) => console.warn("DB voice asset save note:", dbErr.message));
+      await queryPg(
+        `INSERT INTO activities (id, user_id, title, description, event_type, created_at)
+         VALUES ($1, $2, $3, $4, $5, NOW())`,
+        [
+          `act_${Date.now()}`,
+          userId,
+          `Voice Query: ${intent}`,
+          `Asked: "${transcript.slice(0, 50)}..."`,
+          "voice_interaction"
+        ]
+      ).catch(() => {
+      });
+    }
     res.json({
       success: true,
       asset_id: assetId,
@@ -8878,6 +9159,10 @@ Analyze this query and respond with valid JSON:
       language
     });
   } catch (err) {
+    if (reservation) {
+      await entitlementService.releaseUsage(reservation.reservationId, "voice_failed").catch(() => {
+      });
+    }
     console.error("Voice respond error:", err.message || err);
     res.status(503).json({ error: "Failed to process voice response: " + (err.message || "Service error") });
   }
@@ -9546,6 +9831,10 @@ async function initPgDatabase() {
     });
     await pgPool.query(`CREATE INDEX IF NOT EXISTS idx_credit_packs_user ON credit_packs(user_id)`).catch(() => {
     });
+    await pgPool.query(`ALTER TABLE credit_packs ADD COLUMN IF NOT EXISTS quantity_reserved INT NOT NULL DEFAULT 0`).catch(() => {
+    });
+    await pgPool.query(`ALTER TABLE usage_ledger ADD COLUMN IF NOT EXISTS credit_pack_id VARCHAR(255)`).catch(() => {
+    });
     for (const plan of getAllPublicPlans()) {
       await pgPool.query(
         `INSERT INTO plans (
@@ -9618,7 +9907,10 @@ if (!process.env.VERCEL && isMainModule && process.env.NODE_ENV !== "test") {
 var server_default = app;
 // Annotate the CommonJS export names for ESM import in node:
 0 && (module.exports = {
+  JWT_SECRET,
+  SUPABASE_JWT_SECRET,
   app,
-  ensureDbInitialized
+  ensureDbInitialized,
+  getJwtSecret
 });
 //# sourceMappingURL=server.cjs.map

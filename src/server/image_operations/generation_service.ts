@@ -314,7 +314,7 @@ export class GenerationService {
   <rect x="${width * 0.03}" y="${height * 0.03}" width="${width * 0.94}" height="${height * 0.94}" fill="none" stroke="#D4AF37" stroke-width="2" stroke-opacity="0.4" rx="20" />
   
   <!-- Festive Header Banner -->
-  <text x="${width * 0.5}" y="${height * 0.085}" text-anchor="middle" font-family="system-ui, -apple-system, sans-serif" font-weight="bold" font-size="${Math.round(width * 0.038)}" fill="#D4AF37">✨ ${festival} Special ✨</text>
+  <text x="${width * 0.5}" y="${height * 0.085}" text-anchor="middle" font-family="system-ui, -apple-system, sans-serif" font-weight="bold" font-size="${Math.round(width * 0.038)}" fill="#D4AF37">${festival} Special</text>
   <text x="${width * 0.5}" y="${height * 0.12}" text-anchor="middle" font-family="system-ui, -apple-system, sans-serif" font-size="${Math.round(width * 0.024)}" fill="#FEF3C7">${brandName}</text>
   
   <!-- Product Image -->

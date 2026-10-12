@@ -9,7 +9,6 @@ export const SUPPORTED_LANGUAGES: LanguageOption[] = [
     nativeName: 'English',
     script: 'Latin',
     speechCode: 'en-IN',
-    flagEmoji: '🌐',
   },
   {
     code: 'hi',
@@ -17,7 +16,6 @@ export const SUPPORTED_LANGUAGES: LanguageOption[] = [
     nativeName: 'हिन्दी',
     script: 'Devanagari',
     speechCode: 'hi-IN',
-    flagEmoji: '🇮🇳',
   },
   {
     code: 'mr',
@@ -25,7 +23,6 @@ export const SUPPORTED_LANGUAGES: LanguageOption[] = [
     nativeName: 'मराठी',
     script: 'Devanagari',
     speechCode: 'mr-IN',
-    flagEmoji: '🇮🇳',
   },
   {
     code: 'gu',
@@ -33,7 +30,6 @@ export const SUPPORTED_LANGUAGES: LanguageOption[] = [
     nativeName: 'ગુજરાતી',
     script: 'Gujarati',
     speechCode: 'gu-IN',
-    flagEmoji: '🇮🇳',
   },
   {
     code: 'ta',
@@ -41,7 +37,6 @@ export const SUPPORTED_LANGUAGES: LanguageOption[] = [
     nativeName: 'தமிழ்',
     script: 'Tamil',
     speechCode: 'ta-IN',
-    flagEmoji: '🇮🇳',
   },
   {
     code: 'bn',
@@ -49,7 +44,6 @@ export const SUPPORTED_LANGUAGES: LanguageOption[] = [
     nativeName: 'বাংলা',
     script: 'Bengali',
     speechCode: 'bn-IN',
-    flagEmoji: '🇮🇳',
   },
   {
     code: 'as',
@@ -57,7 +51,6 @@ export const SUPPORTED_LANGUAGES: LanguageOption[] = [
     nativeName: 'অসমীয়া',
     script: 'Bengali-Assamese',
     speechCode: 'as-IN',
-    flagEmoji: '🇮🇳',
   },
 ];
 
