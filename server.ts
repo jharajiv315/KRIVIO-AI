@@ -22,6 +22,14 @@ import { geminiService } from './src/server/ai/gemini_client';
 import { aiObservability } from './src/server/ai/observability';
 import { PricingEngine } from './src/server/pricing/pricing_engine';
 import { getContextualCraftImage, isValidImageUrl, normalizeCandidateUrl } from './src/utils/productThumbnail';
+import {
+  EntitlementService,
+  QuotaExceededError,
+  PLAN_CATALOGUE,
+  getPlan,
+  getAllPublicPlans,
+  CREDIT_PACKS,
+} from './src/server/billing/index';
 
 dotenv.config();
 
@@ -57,6 +65,7 @@ pgPool.on('error', (err) => {
 });
 
 const quotationService = new QuotationService(pgPool);
+const entitlementService = new EntitlementService(pgPool);
 
 const app = express();
 const PORT = process.env.PORT ? parseInt(process.env.PORT, 10) : 3000;
@@ -135,7 +144,12 @@ app.use((req: Request, res: Response, next: NextFunction) => {
   next();
 });
 
-app.use(express.json({ limit: '25mb' }));
+app.use(express.json({
+  limit: '25mb',
+  verify: (req: any, _res, buf) => {
+    req.rawBody = buf;
+  }
+}));
 app.use(express.urlencoded({ extended: true, limit: '25mb' }));
 
 // Standard Email Validation Pattern
@@ -1186,6 +1200,18 @@ app.post('/api/products/generate-details', authenticateToken, async (req: Authen
       return;
     }
 
+    // Server-enforced AI text quota reservation
+    let reservation: { reservationId: string } | null = null;
+    try {
+      reservation = await entitlementService.reserveUsage(req.user!.id, 'ai_text', 'product_details');
+    } catch (limitErr: any) {
+      if (limitErr instanceof QuotaExceededError) {
+        res.status(403).json(limitErr.details);
+        return;
+      }
+      throw limitErr;
+    }
+
     // Deterministic price estimation if costs are provided
     let calculatedPrice: number | undefined = undefined;
     if (typeof materialCost === 'number' && typeof laborCost === 'number') {
@@ -1226,6 +1252,11 @@ Rules:
     if (calculatedPrice) {
       parsed.suggestedPrice = calculatedPrice;
     }
+
+    if (reservation) {
+      await entitlementService.commitUsage(reservation.reservationId, 'gemini-1.5-flash', 0.0001);
+    }
+
     res.json({ data: parsed });
   } catch (err: any) {
     console.error('Failed to generate product details:', err.message || err);
@@ -1234,6 +1265,7 @@ Rules:
 });
 
 app.post('/api/products/suggest-brand', authenticateToken, async (req: AuthenticatedRequest, res: Response) => {
+  let reservation: { reservationId: string } | null = null;
   try {
     const { craftType = 'Handicrafts', region = 'Rural India', personality = 'Authentic & Cultural', language = 'en', productName } = req.body;
     const targetLang = normalizeLanguageName(language || req.user?.preferredLanguage || 'en');
@@ -1241,6 +1273,16 @@ app.post('/api/products/suggest-brand', authenticateToken, async (req: Authentic
     if (!geminiService.isAvailable()) {
       res.status(503).json({ error: 'AI service is currently unavailable. Server API key is not configured.' });
       return;
+    }
+
+    try {
+      reservation = await entitlementService.reserveUsage(req.user!.id, 'ai_text', 'brand_suggestion');
+    } catch (limitErr: any) {
+      if (limitErr instanceof QuotaExceededError) {
+        res.status(403).json(limitErr.details);
+        return;
+      }
+      throw limitErr;
     }
 
     const brandResult = await AITaskRouter.handle({
@@ -1258,14 +1300,22 @@ app.post('/api/products/suggest-brand', authenticateToken, async (req: Authentic
       parameters: { personality },
     });
 
+    if (reservation) {
+      await entitlementService.commitUsage(reservation.reservationId, 'gemini-1.5-flash', 0.0001);
+    }
+
     res.json({ suggestions: brandResult.suggestions });
   } catch (err: any) {
+    if (reservation) {
+      await entitlementService.releaseUsage(reservation.reservationId, 'provider_error').catch(() => {});
+    }
     console.error('Failed to suggest brand names:', err.message || err);
     res.status(503).json({ error: 'Failed to generate brand suggestions: ' + (err.message || 'Service error') });
   }
 });
 
 app.post('/api/products/generate-identity', authenticateToken, async (req: AuthenticatedRequest, res: Response) => {
+  let reservation: { reservationId: string } | null = null;
   try {
     const { productName, detectedSubject, materials = 'Natural traditional materials', region = 'Rural India', brandName = 'Artisan Collective', targetAudience = 'Home décor enthusiasts & conscious buyers', language = 'en', targetPrice, materialCost, laborCost } = req.body;
     const targetLang = normalizeLanguageName(language || req.user?.preferredLanguage || 'en');
@@ -1274,6 +1324,16 @@ app.post('/api/products/generate-identity', authenticateToken, async (req: Authe
     if (!geminiService.isAvailable()) {
       res.status(503).json({ error: 'AI service is currently unavailable. Server API key is not configured.' });
       return;
+    }
+
+    try {
+      reservation = await entitlementService.reserveUsage(req.user!.id, 'ai_text', 'product_identity');
+    } catch (limitErr: any) {
+      if (limitErr instanceof QuotaExceededError) {
+        res.status(403).json(limitErr.details);
+        return;
+      }
+      throw limitErr;
     }
 
     // Deterministic price estimation if costs are provided
@@ -1300,6 +1360,10 @@ app.post('/api/products/generate-identity', authenticateToken, async (req: Authe
       userInput: `Generate full e-commerce catalog identity for ${title} made with ${materials} targeting ${targetAudience}.`,
     });
 
+    if (reservation) {
+      await entitlementService.commitUsage(reservation.reservationId, 'gemini-1.5-flash', 0.0001);
+    }
+
     const formattedData = {
       productTitle: identityResult.title,
       shortDescription: identityResult.shortDescription,
@@ -1318,6 +1382,9 @@ app.post('/api/products/generate-identity', authenticateToken, async (req: Authe
 
     res.json({ data: formattedData });
   } catch (err: any) {
+    if (reservation) {
+      await entitlementService.releaseUsage(reservation.reservationId, 'provider_error').catch(() => {});
+    }
     console.error('Failed to generate product identity:', err.message || err);
     res.status(503).json({ error: 'Failed to generate product identity: ' + (err.message || 'Service error') });
   }
@@ -1414,6 +1481,17 @@ app.post('/api/products', authenticateToken, async (req: AuthenticatedRequest, r
     if (!title) {
       res.status(400).json({ error: 'Product title is required' });
       return;
+    }
+
+    // Enforce server-side product creation entitlement quota
+    try {
+      await entitlementService.assertCanCreateProduct(userId);
+    } catch (limitErr: any) {
+      if (limitErr instanceof QuotaExceededError) {
+        res.status(403).json(limitErr.details);
+        return;
+      }
+      throw limitErr;
     }
 
     // Ensure user row exists in PostgreSQL to avoid foreign key constraint failure
@@ -2172,6 +2250,18 @@ app.get('/api/marketplace/exports', authenticateToken, async (req: Authenticated
 app.post('/api/quotations', authenticateToken, async (req: AuthenticatedRequest, res: Response) => {
   try {
     const userId = req.user!.id;
+
+    // Enforce quotation trial entitlement limit
+    try {
+      await entitlementService.assertCanCreateQuotation(userId);
+    } catch (limitErr: any) {
+      if (limitErr instanceof QuotaExceededError) {
+        res.status(403).json(limitErr.details);
+        return;
+      }
+      throw limitErr;
+    }
+
     const quotation = await quotationService.createQuotation(userId, req.body);
 
     // Record Activity
@@ -2690,6 +2780,7 @@ app.post('/api/tasks/toggle', authenticateToken, async (req: AuthenticatedReques
 // --- AI MENTOR & CONVERSATIONS ---
 
 app.post('/api/ai/mentor', optionalAuthenticateToken, async (req: AuthenticatedRequest, res: Response) => {
+  let reservation: { reservationId: string } | null = null;
   try {
     const userId = req.user?.id || 'artisan_guest';
     const { message, language = 'English', conversationHistory = [] } = req.body;
@@ -2711,6 +2802,17 @@ app.post('/api/ai/mentor', optionalAuthenticateToken, async (req: AuthenticatedR
     if (!geminiService.isAvailable()) {
       res.status(503).json({ error: 'AI Mentor service is temporarily unavailable. Server API key is not configured.' });
       return;
+    }
+
+    // Server-enforced AI text quota reservation
+    try {
+      reservation = await entitlementService.reserveUsage(userId, 'ai_text', 'mentor');
+    } catch (limitErr: any) {
+      if (limitErr instanceof QuotaExceededError) {
+        res.status(403).json(limitErr.details);
+        return;
+      }
+      throw limitErr;
     }
 
     const mentorResult = await AITaskRouter.handle({
@@ -2738,6 +2840,10 @@ app.post('/api/ai/mentor', optionalAuthenticateToken, async (req: AuthenticatedR
         content: msg.text || '',
       })),
     });
+
+    if (reservation) {
+      await entitlementService.commitUsage(reservation.reservationId, 'gemini-1.5-flash', 0.0001);
+    }
 
     const replyText = mentorResult.response;
     const timestamp = new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
@@ -2783,6 +2889,9 @@ app.post('/api/ai/mentor', optionalAuthenticateToken, async (req: AuthenticatedR
       timestamp
     });
   } catch (err: any) {
+    if (reservation) {
+      await entitlementService.releaseUsage(reservation.reservationId, 'provider_error').catch(() => {});
+    }
     console.error('Failed to process AI mentorship request:', err.message || err);
     res.status(503).json({ error: 'Failed to process AI mentorship request: ' + (err.message || 'Service error') });
   }
@@ -2951,95 +3060,172 @@ app.post('/api/storefront/inquiry', async (req: Request, res: Response) => {
   }
 });
 
-// --- SUBSCRIPTIONS & PAYMENTS ---
+// --- AUTHORITATIVE MONETIZATION, BILLING & USAGE METERING ---
 
-app.get('/api/subscriptions', authenticateToken, async (req: AuthenticatedRequest, res: Response) => {
-  try {
-    const userId = req.user!.id;
-    const subRes = await queryPg(`SELECT * FROM subscriptions WHERE user_id = $1`, [userId]);
-    const sub = subRes.rows[0] || {
-      id: `sub_${userId}`,
-      userId,
-      plan: 'free',
-      status: 'active',
-      startDate: new Date().toISOString()
-    };
-    res.json({ subscription: sub });
-  } catch (err) {
-    res.status(500).json({ error: 'Failed to retrieve subscription' });
-  }
-});
-
-app.post('/api/payments/create-order', authenticateToken, async (req: AuthenticatedRequest, res: Response) => {
-  const plan = 'pro';
-  const amount = 299; // Server authoritative pricing: INR 299
-  const keyId = process.env.RAZORPAY_KEY_ID || '';
-  const keySecret = process.env.RAZORPAY_KEY_SECRET || '';
-
-  const isRazorpayConfigured = Boolean(
-    keyId &&
-    keyId !== 'rzp_test_krivio123' &&
-    keySecret &&
-    keySecret !== 'krivio_razorpay_secret_123'
-  );
-
-  // In production, keep checkout safely unavailable if merchant gateway is not verified
-  if (!isRazorpayConfigured && process.env.NODE_ENV === 'production') {
-    res.status(503).json({
-      error: 'Online checkout is currently unavailable. Please contact support or try again later.'
-    });
-    return;
-  }
-
-  // Attempt to create authoritative order through Razorpay API if credentials are provided
-  if (isRazorpayConfigured) {
-    try {
-      const basicAuth = Buffer.from(`${keyId}:${keySecret}`).toString('base64');
-      const orderResp = await fetch('https://api.razorpay.com/v1/orders', {
-        method: 'POST',
-        headers: {
-          'Authorization': `Basic ${basicAuth}`,
-          'Content-Type': 'application/json'
-        },
-        body: JSON.stringify({
-          amount: amount * 100,
-          currency: 'INR',
-          receipt: `rcpt_${req.user!.id}_${Date.now()}`.slice(0, 40),
-          notes: {
-            userId: req.user!.id,
-            plan
-          }
-        })
-      });
-
-      if (orderResp.ok) {
-        const orderData = await orderResp.json() as any;
-        res.json({
-          id: orderData.id,
-          orderId: orderData.id,
-          amount: orderData.amount,
-          currency: orderData.currency,
-          keyId,
-          plan
-        });
-        return;
-      }
-    } catch (orderErr) {
-      console.warn('[Razorpay API Warning]: Could not reach upstream Razorpay Orders API:', orderErr);
-    }
-  }
-
-  // Development/Test fallback with deterministic identifier
+/**
+ * 1. Canonical Plan Catalogue
+ * Serves canonical public plans, pricing, limits, and feature flags.
+ */
+app.get('/api/plans', (_req: Request, res: Response) => {
   res.json({
-    id: `order_${Date.now()}`,
-    orderId: `order_${Date.now()}`,
-    amount: amount * 100,
-    currency: 'INR',
-    keyId: keyId || 'rzp_test_krivio123',
-    plan
+    plans: getAllPublicPlans(),
+    creditPacks: CREDIT_PACKS,
+    taxPolicy: 'Prices listed are exclusive of applicable GST as determined at checkout.',
+    renewalPolicy: 'All paid plans are prepaid 30-day access passes with manual renewal.'
   });
 });
 
+/**
+ * 2. Subscription Status & Real-time Entitlement Snapshot
+ */
+app.get('/api/subscriptions', authenticateToken, async (req: AuthenticatedRequest, res: Response) => {
+  try {
+    const userId = req.user!.id;
+    const snapshot = await entitlementService.getUsageSnapshot(userId);
+    res.json({
+      subscription: snapshot.subscription,
+      usage: snapshot
+    });
+  } catch (err: any) {
+    console.error('Failed to retrieve subscription:', err);
+    res.status(500).json({ error: 'Failed to retrieve subscription snapshot' });
+  }
+});
+
+/**
+ * 3. Dedicated Usage Dashboard Endpoint
+ */
+app.get('/api/subscriptions/usage', authenticateToken, async (req: AuthenticatedRequest, res: Response) => {
+  try {
+    const userId = req.user!.id;
+    const snapshot = await entitlementService.getUsageSnapshot(userId);
+    res.json(snapshot);
+  } catch (err: any) {
+    console.error('Failed to retrieve usage:', err);
+    res.status(500).json({ error: 'Failed to retrieve usage data' });
+  }
+});
+
+/**
+ * 4. Authoritative Payment Order Creation
+ * Server resolves plan price (paise) from canonical catalogue. Client amount is never trusted.
+ */
+app.post('/api/payments/create-order', authenticateToken, async (req: AuthenticatedRequest, res: Response) => {
+  try {
+    const userId = req.user!.id;
+    const requestedPlanCode = req.body.plan || 'artisan_pro';
+    const plan = getPlan(requestedPlanCode);
+
+    if (plan.code === 'free') {
+      res.status(400).json({ error: 'The Artisan Free plan does not require a payment transaction.' });
+      return;
+    }
+
+    if (!plan.isSelfServe) {
+      res.status(400).json({
+        error: `${plan.name} is currently available via group onboarding and inquiry only. Please submit an inquiry.`,
+        enquiryRequired: true,
+        plan: plan.code
+      });
+      return;
+    }
+
+    // Authoritative pricing directly from backend catalogue (29900 paise = ₹299.00)
+    const amountPaise = plan.pricePaise;
+    const currency = plan.currency;
+    const keyId = process.env.RAZORPAY_KEY_ID || '';
+    const keySecret = process.env.RAZORPAY_KEY_SECRET || '';
+
+    const isRazorpayConfigured = Boolean(
+      keyId &&
+      keyId !== 'rzp_test_krivio123' &&
+      keySecret &&
+      keySecret !== 'krivio_razorpay_secret_123'
+    );
+
+    // In production, fail closed if payment gateway is unconfigured
+    if (!isRazorpayConfigured && process.env.NODE_ENV === 'production') {
+      res.status(503).json({
+        error: 'Online checkout is currently unavailable. Please contact support or try again later.'
+      });
+      return;
+    }
+
+    const internalOrderId = `ord_int_${Date.now()}_${crypto.randomBytes(4).toString('hex')}`;
+    let razorpayOrderId = `order_${Date.now()}_${crypto.randomBytes(3).toString('hex')}`;
+
+    if (isRazorpayConfigured) {
+      try {
+        const basicAuth = Buffer.from(`${keyId}:${keySecret}`).toString('base64');
+        const orderResp = await fetch('https://api.razorpay.com/v1/orders', {
+          method: 'POST',
+          headers: {
+            'Authorization': `Basic ${basicAuth}`,
+            'Content-Type': 'application/json'
+          },
+          body: JSON.stringify({
+            amount: amountPaise,
+            currency,
+            receipt: internalOrderId.slice(0, 40),
+            notes: {
+              userId,
+              plan: plan.code,
+              internalOrderId
+            }
+          })
+        });
+
+        if (orderResp.ok) {
+          const rzpData = await orderResp.json() as any;
+          razorpayOrderId = rzpData.id;
+        }
+      } catch (orderErr) {
+        console.warn('[Razorpay API Warning]: Could not reach upstream Razorpay Orders API:', orderErr);
+      }
+    }
+
+    // Durable record in internal payment_orders table
+    await queryPg(
+      `INSERT INTO payment_orders (
+        id, user_id, billing_owner_id, plan_code, amount_paise, currency,
+        razorpay_order_id, status, metadata, created_at, updated_at
+      ) VALUES ($1, $2, $2, $3, $4, $5, $6, 'created', $7, NOW(), NOW())`,
+      [
+        internalOrderId,
+        userId,
+        plan.code,
+        amountPaise,
+        currency,
+        razorpayOrderId,
+        JSON.stringify({
+          planName: plan.name,
+          durationDays: plan.durationDays,
+          renewalMode: plan.renewalMode
+        })
+      ]
+    );
+
+    res.json({
+      id: razorpayOrderId,
+      orderId: razorpayOrderId,
+      internalOrderId,
+      amount: amountPaise,
+      currency,
+      keyId: keyId || 'rzp_test_krivio123',
+      plan: plan.code,
+      durationDays: plan.durationDays,
+      renewalMode: 'manual',
+    });
+  } catch (err: any) {
+    console.error('Failed to create payment order:', err);
+    res.status(500).json({ error: 'Failed to create payment order' });
+  }
+});
+
+/**
+ * 5. Payment Signature Verification & Subscription Activation
+ * Verifies HMAC signature, enforces replay protection, applies early renewal extension, and resets usage allowances.
+ */
 app.post('/api/payments/verify', authenticateToken, async (req: AuthenticatedRequest, res: Response) => {
   try {
     const userId = req.user!.id;
@@ -3079,21 +3265,183 @@ app.post('/api/payments/verify', authenticateToken, async (req: AuthenticatedReq
       return;
     }
 
-    await queryPg(
-      `INSERT INTO subscriptions (id, user_id, plan, status, razorpay_payment_id, start_date, end_date)
-       VALUES ($1, $2, 'pro', 'active', $3, NOW(), NOW() + INTERVAL '30 days')
-       ON CONFLICT (user_id) DO UPDATE SET
-        plan = 'pro', status = 'active', razorpay_payment_id = $3, start_date = NOW(), end_date = NOW() + INTERVAL '30 days'`,
-      [`sub_${Date.now()}`, userId, razorpayPaymentId]
+    // Check if this payment was already processed for this user (Idempotent safe response)
+    if (existingPayment.rows.length > 0 && existingPayment.rows[0].user_id === userId) {
+      const snapshot = await entitlementService.getUsageSnapshot(userId);
+      res.json({
+        success: true,
+        subscriptionPlan: 'artisan_pro',
+        message: 'Payment verified and Pro access active.',
+        usage: snapshot
+      });
+      return;
+    }
+
+    // Apply Authoritative Entitlement & Renewal Extension via EntitlementService
+    const activation = await entitlementService.applyPaymentEntitlement(
+      userId,
+      razorpayOrderId,
+      razorpayPaymentId,
+      razorpayOrderId
     );
+
+    const snapshot = await entitlementService.getUsageSnapshot(userId);
+
+    // Record Activity
+    await queryPg(
+      `INSERT INTO activities (id, user_id, title, description, event_type, created_at)
+       VALUES ($1, $2, $3, $4, $5, NOW())`,
+      [
+        `act_${Date.now()}`,
+        userId,
+        'Activated Artisan Pro Access',
+        `30-day access active until ${new Date(activation.endDate).toLocaleDateString()}.`,
+        'subscription_activated'
+      ]
+    ).catch(() => {});
 
     res.json({
       success: true,
-      subscriptionPlan: 'pro',
-      message: 'Subscription upgraded to Pro successfully!'
+      subscriptionPlan: 'artisan_pro',
+      startDate: activation.startDate,
+      endDate: activation.endDate,
+      message: 'Subscription upgraded to Artisan Pro successfully for 30 days.',
+      usage: snapshot
     });
-  } catch (err) {
+  } catch (err: any) {
+    console.error('Failed to verify payment:', err);
     res.status(500).json({ error: 'Failed to verify payment' });
+  }
+});
+
+/**
+ * 6. Razorpay Webhook Endpoint
+ * Validates HMAC signature against raw request bytes. Idempotently reconciles orders.
+ */
+app.post('/api/payments/webhook', async (req: Request, res: Response) => {
+  try {
+    const signature = req.headers['x-razorpay-signature'] as string;
+    const webhookSecret = process.env.RAZORPAY_WEBHOOK_SECRET || process.env.RAZORPAY_KEY_SECRET;
+
+    if (!webhookSecret || webhookSecret === 'krivio_razorpay_secret_123') {
+      res.status(503).json({ error: 'Webhook processing secret is unconfigured' });
+      return;
+    }
+
+    if (!signature) {
+      res.status(400).json({ error: 'Missing x-razorpay-signature header' });
+      return;
+    }
+
+    const rawBody = (req as any).rawBody;
+    if (!rawBody) {
+      res.status(400).json({ error: 'Raw request body unavailable for signature verification' });
+      return;
+    }
+
+    const expectedSignature = crypto
+      .createHmac('sha256', webhookSecret)
+      .update(rawBody)
+      .digest('hex');
+
+    const expectedBuf = Buffer.from(expectedSignature, 'utf-8');
+    const signatureBuf = Buffer.from(signature, 'utf-8');
+
+    if (expectedBuf.length !== signatureBuf.length || !crypto.timingSafeEqual(expectedBuf, signatureBuf)) {
+      res.status(400).json({ error: 'Invalid webhook signature' });
+      return;
+    }
+
+    const event = req.body;
+    const eventId = event?.event_id || event?.id || `evt_${Date.now()}_${crypto.randomBytes(4).toString('hex')}`;
+    const eventType = event?.event || 'unknown';
+
+    // Deduplicate event in payment_events table
+    const existingEvt = await queryPg(
+      `SELECT id FROM payment_events WHERE provider_event_id = $1 LIMIT 1`,
+      [eventId]
+    );
+
+    if (existingEvt.rows.length > 0) {
+      // Idempotently ignore already processed event
+      res.json({ status: 'ignored_duplicate', eventId });
+      return;
+    }
+
+    const paymentEntity = event?.payload?.payment?.entity || {};
+    const orderEntity = event?.payload?.order?.entity || {};
+    const rzpOrderId = paymentEntity.order_id || orderEntity.id;
+    const rzpPaymentId = paymentEntity.id;
+    const userId = paymentEntity.notes?.userId || orderEntity.notes?.userId;
+
+    await queryPg(
+      `INSERT INTO payment_events (
+        id, provider_event_id, event_type, razorpay_order_id, razorpay_payment_id,
+        signature_verified, processing_status, payload, created_at
+      ) VALUES ($1, $2, $3, $4, $5, true, 'processed', $6, NOW())`,
+      [
+        `pevt_${Date.now()}`,
+        eventId,
+        eventType,
+        rzpOrderId || null,
+        rzpPaymentId || null,
+        JSON.stringify(event)
+      ]
+    );
+
+    if ((eventType === 'order.paid' || eventType === 'payment.captured') && userId && rzpPaymentId && rzpOrderId) {
+      await entitlementService.applyPaymentEntitlement(userId, rzpOrderId, rzpPaymentId, rzpOrderId).catch((aErr) => {
+        console.warn('Webhook entitlement activation note:', aErr.message);
+      });
+    }
+
+    res.json({ status: 'processed', eventId });
+  } catch (err: any) {
+    console.error('Webhook error:', err);
+    res.status(500).json({ error: 'Internal webhook error' });
+  }
+});
+
+/**
+ * 7. Admin Observability & Financial Metrics Endpoint
+ * Role-protected: Restricted to authenticated administrators.
+ */
+app.get('/api/admin/billing/metrics', authenticateToken, async (req: AuthenticatedRequest, res: Response) => {
+  try {
+    const userRole = req.user?.role;
+    if (userRole !== 'admin') {
+      res.status(403).json({ error: 'Administrative authorization required to access business analytics.' });
+      return;
+    }
+
+    const [userCounts, subCounts, orderStats, ledgerStats, productCount] = await Promise.all([
+      queryPg(`SELECT role, COUNT(*)::int as count FROM users GROUP BY role`),
+      queryPg(`SELECT plan, status, COUNT(*)::int as count FROM subscriptions GROUP BY plan, status`),
+      queryPg(`SELECT status, COUNT(*)::int as count, COALESCE(SUM(amount_paise), 0)::bigint as total_paise FROM payment_orders GROUP BY status`),
+      queryPg(`SELECT resource_type, operation_type, status, COUNT(*)::int as count, COALESCE(SUM(estimated_cost_usd), 0)::numeric as cost_usd FROM usage_ledger GROUP BY resource_type, operation_type, status`),
+      queryPg(`SELECT COUNT(*)::int as count FROM products`),
+    ]);
+
+    const grossPaidPaise = orderStats.rows.find((r) => r.status === 'paid')?.total_paise || 0;
+    const grossPaidInr = Number(grossPaidPaise) / 100;
+
+    res.json({
+      summary: {
+        totalProducts: productCount.rows[0]?.count || 0,
+        grossRevenueInr: grossPaidInr,
+        activeProSubscriptions: subCounts.rows.find((r) => (r.plan === 'pro' || r.plan === 'artisan_pro') && r.status === 'active')?.count || 0,
+        freeUsers: subCounts.rows.find((r) => r.plan === 'free')?.count || 0,
+        expiredSubscriptions: subCounts.rows.find((r) => r.status === 'expired')?.count || 0,
+      },
+      userBreakdown: userCounts.rows,
+      subscriptionBreakdown: subCounts.rows,
+      orderBreakdown: orderStats.rows,
+      usageLedgerBreakdown: ledgerStats.rows,
+      generatedAt: new Date().toISOString(),
+    });
+  } catch (err: any) {
+    console.error('Admin metrics error:', err);
+    res.status(500).json({ error: 'Failed to retrieve administrative billing metrics' });
   }
 });
 
@@ -3168,6 +3516,7 @@ app.get('/api/marketplace/recommendations', authenticateToken, async (req: Authe
 });
 
 app.post('/api/images/analyze', authenticateToken, async (req: AuthenticatedRequest, res: Response) => {
+  let reservation: { reservationId: string } | null = null;
   try {
     const { imageBase64 } = req.body;
     if (!imageBase64) {
@@ -3178,6 +3527,17 @@ app.post('/api/images/analyze', authenticateToken, async (req: AuthenticatedRequ
     if (!geminiService.isAvailable()) {
       res.status(503).json({ error: 'Vision AI service is currently unavailable. Server API key is not configured.' });
       return;
+    }
+
+    // Server-enforced AI text/vision quota reservation
+    try {
+      reservation = await entitlementService.reserveUsage(req.user!.id, 'ai_text', 'image_analysis');
+    } catch (limitErr: any) {
+      if (limitErr instanceof QuotaExceededError) {
+        res.status(403).json(limitErr.details);
+        return;
+      }
+      throw limitErr;
     }
 
     let mimeType = 'image/jpeg';
@@ -3201,6 +3561,10 @@ app.post('/api/images/analyze', authenticateToken, async (req: AuthenticatedRequ
         language: req.user?.preferredLanguage || 'en',
       }),
     ]);
+
+    if (reservation) {
+      await entitlementService.commitUsage(reservation.reservationId, 'gemini-1.5-flash', 0.0002);
+    }
 
     const analysis = {
       id: `img_${Date.now()}`,
@@ -3228,6 +3592,9 @@ app.post('/api/images/analyze', authenticateToken, async (req: AuthenticatedRequ
 
     res.json({ analysis });
   } catch (err: any) {
+    if (reservation) {
+      await entitlementService.releaseUsage(reservation.reservationId, 'provider_error').catch(() => {});
+    }
     console.error('Failed to analyze product image:', err.message || err);
     res.status(503).json({ error: 'Failed to analyze product image with Vision AI: ' + (err.message || 'Service error') });
   }
@@ -3245,6 +3612,7 @@ app.get('/api/image-studio/operations', (req: Request, res: Response) => {
 
 // 2. Generate an intelligent studio asset
 app.post('/api/image-studio/generate', authenticateToken, async (req: AuthenticatedRequest, res: Response) => {
+  let reservation: { reservationId: string } | null = null;
   try {
     const userId = req.user!.id;
     const {
@@ -3258,11 +3626,28 @@ app.post('/api/image-studio/generate', authenticateToken, async (req: Authentica
       brandContext,
       festivalOrOccasion,
       marketingText,
+      mode,
     } = req.body;
 
     if (!originalImage) {
       res.status(400).json({ error: 'An original product image is required.' });
       return;
+    }
+
+    const sub = await entitlementService.getEffectiveSubscription(userId);
+    const isStudioCanvasMode = mode === 'studio_canvas';
+
+    // If client is not explicitly requesting a basic studio canvas composition, reserve paid AI image credit
+    if (!isStudioCanvasMode) {
+      try {
+        reservation = await entitlementService.reserveUsage(userId, 'ai_image', 'image_studio');
+      } catch (limitErr: any) {
+        if (limitErr instanceof QuotaExceededError) {
+          res.status(403).json(limitErr.details);
+          return;
+        }
+        throw limitErr;
+      }
     }
 
     // Auto-enrich brand context from user business profile if not passed
@@ -3294,6 +3679,17 @@ app.post('/api/image-studio/generate', authenticateToken, async (req: Authentica
       marketingText,
     });
 
+    // Zero-Charge Fallback Guarantee (Section 9):
+    // When generative AI models fail or fallback to local canvas studio composition,
+    // NEVER deduct a paid AI image generation credit.
+    if (reservation) {
+      if (result.modelUsed === 'krivio-studio-engine') {
+        await entitlementService.releaseUsage(reservation.reservationId, 'canvas_fallback');
+      } else {
+        await entitlementService.commitUsage(reservation.reservationId, result.modelUsed || 'imagen-3', 0.03);
+      }
+    }
+
     // Save record in PostgreSQL scoped to authenticated user
     await queryPg(
       `INSERT INTO image_studio_assets (
@@ -3316,6 +3712,7 @@ app.post('/api/image-studio/generate', authenticateToken, async (req: Authentica
           operationLabel: result.operationLabel,
           brandUsed: Boolean(effectiveBrand?.brandName),
           festival: festivalOrOccasion || null,
+          isStudioCanvasFallback: result.modelUsed === 'krivio-studio-engine',
         }),
       ]
     ).catch((dbErr) => {
@@ -3338,8 +3735,12 @@ app.post('/api/image-studio/generate', authenticateToken, async (req: Authentica
     res.json({
       success: true,
       asset: result,
+      isStudioCanvasFallback: result.modelUsed === 'krivio-studio-engine',
     });
   } catch (err: any) {
+    if (reservation) {
+      await entitlementService.releaseUsage(reservation.reservationId, 'provider_error').catch(() => {});
+    }
     console.error('Image Studio generation error:', err.message || err);
     res.status(500).json({
       error: 'The enhancement could not be completed right now. Your original image is still safe.',
@@ -4209,6 +4610,118 @@ async function initPgDatabase() {
         updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
         PRIMARY KEY (user_id, task_id)
       );
+
+      CREATE TABLE IF NOT EXISTS plans (
+        code VARCHAR(50) PRIMARY KEY,
+        name VARCHAR(100) NOT NULL,
+        price_paise INT NOT NULL,
+        currency VARCHAR(10) DEFAULT 'INR',
+        duration_days INT DEFAULT 30,
+        max_seats INT DEFAULT 1,
+        product_allowance INT NOT NULL,
+        ai_text_allowance INT NOT NULL,
+        ai_image_allowance INT NOT NULL,
+        quotations_trial_limit INT NOT NULL,
+        feature_flags JSONB DEFAULT '{}'::jsonb,
+        is_active BOOLEAN DEFAULT TRUE,
+        version INT DEFAULT 1,
+        created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
+        updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
+      );
+
+      CREATE TABLE IF NOT EXISTS payment_orders (
+        id VARCHAR(255) PRIMARY KEY,
+        user_id VARCHAR(255) NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+        billing_owner_id VARCHAR(255) NOT NULL,
+        plan_code VARCHAR(50) NOT NULL,
+        amount_paise INT NOT NULL,
+        currency VARCHAR(10) DEFAULT 'INR',
+        razorpay_order_id VARCHAR(255) UNIQUE,
+        razorpay_payment_id VARCHAR(255),
+        status VARCHAR(50) DEFAULT 'created',
+        idempotency_key VARCHAR(255) UNIQUE,
+        metadata JSONB DEFAULT '{}'::jsonb,
+        created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
+        updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
+      );
+
+      CREATE TABLE IF NOT EXISTS payment_events (
+        id VARCHAR(255) PRIMARY KEY,
+        provider_event_id VARCHAR(255) UNIQUE NOT NULL,
+        event_type VARCHAR(100) NOT NULL,
+        razorpay_order_id VARCHAR(255),
+        razorpay_payment_id VARCHAR(255),
+        signature_verified BOOLEAN DEFAULT FALSE,
+        processing_status VARCHAR(50) DEFAULT 'pending',
+        payload JSONB DEFAULT '{}'::jsonb,
+        error_message TEXT,
+        created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
+      );
+
+      CREATE TABLE IF NOT EXISTS usage_periods (
+        id VARCHAR(255) PRIMARY KEY,
+        user_id VARCHAR(255) NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+        billing_owner_id VARCHAR(255) NOT NULL,
+        plan_code VARCHAR(50) NOT NULL,
+        period_start TIMESTAMP WITH TIME ZONE NOT NULL,
+        period_end TIMESTAMP WITH TIME ZONE NOT NULL,
+        ai_text_allowance INT NOT NULL,
+        ai_text_committed INT NOT NULL DEFAULT 0,
+        ai_text_reserved INT NOT NULL DEFAULT 0,
+        ai_image_allowance INT NOT NULL,
+        ai_image_committed INT NOT NULL DEFAULT 0,
+        ai_image_reserved INT NOT NULL DEFAULT 0,
+        created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
+        updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
+      );
+
+      CREATE TABLE IF NOT EXISTS usage_ledger (
+        id VARCHAR(255) PRIMARY KEY,
+        user_id VARCHAR(255) NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+        billing_owner_id VARCHAR(255) NOT NULL,
+        usage_period_id VARCHAR(255) REFERENCES usage_periods(id) ON DELETE SET NULL,
+        resource_type VARCHAR(50) NOT NULL,
+        operation_type VARCHAR(100) NOT NULL,
+        request_id VARCHAR(255) UNIQUE NOT NULL,
+        units_reserved INT NOT NULL DEFAULT 1,
+        units_committed INT NOT NULL DEFAULT 0,
+        units_released INT NOT NULL DEFAULT 0,
+        status VARCHAR(50) NOT NULL DEFAULT 'reserved',
+        model_used VARCHAR(100),
+        estimated_cost_usd NUMERIC(10, 6) DEFAULT 0,
+        created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
+        updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
+      );
+
+      CREATE TABLE IF NOT EXISTS credit_packs (
+        id VARCHAR(255) PRIMARY KEY,
+        user_id VARCHAR(255) NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+        pack_id VARCHAR(100) NOT NULL,
+        resource_type VARCHAR(50) NOT NULL DEFAULT 'ai_image',
+        quantity_granted INT NOT NULL,
+        quantity_consumed INT NOT NULL DEFAULT 0,
+        razorpay_payment_id VARCHAR(255),
+        status VARCHAR(50) DEFAULT 'active',
+        created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
+        expires_at TIMESTAMP WITH TIME ZONE
+      );
+
+      CREATE TABLE IF NOT EXISTS organizations (
+        id VARCHAR(255) PRIMARY KEY,
+        name VARCHAR(255) NOT NULL,
+        owner_user_id VARCHAR(255) NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+        created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
+      );
+
+      CREATE TABLE IF NOT EXISTS organization_members (
+        id VARCHAR(255) PRIMARY KEY,
+        organization_id VARCHAR(255) NOT NULL REFERENCES organizations(id) ON DELETE CASCADE,
+        user_id VARCHAR(255) NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+        role VARCHAR(50) NOT NULL DEFAULT 'member',
+        status VARCHAR(50) NOT NULL DEFAULT 'active',
+        created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
+        UNIQUE(organization_id, user_id)
+      );
     `;
     await pgPool.query(createTablesQuery);
     await pgPool.query(`CREATE INDEX IF NOT EXISTS idx_user_tasks_user_id ON user_tasks(user_id)`).catch(() => {});
@@ -4240,6 +4753,47 @@ async function initPgDatabase() {
     await pgPool.query(`CREATE UNIQUE INDEX IF NOT EXISTS idx_voice_assets_wa_msg_id ON voice_assets(whatsapp_message_id) WHERE whatsapp_message_id IS NOT NULL`).catch(() => {});
     await pgPool.query(`CREATE INDEX IF NOT EXISTS idx_voice_assets_status ON voice_assets(processing_status)`).catch(() => {});
     await pgPool.query(`CREATE INDEX IF NOT EXISTS idx_voice_assets_sender ON voice_assets(whatsapp_sender_id)`).catch(() => {});
+    await pgPool.query(`ALTER TABLE subscriptions ADD COLUMN IF NOT EXISTS renewal_mode VARCHAR(50) DEFAULT 'manual'`).catch(() => {});
+    await pgPool.query(`ALTER TABLE subscriptions ADD COLUMN IF NOT EXISTS plan_version INT DEFAULT 1`).catch(() => {});
+    await pgPool.query(`ALTER TABLE subscriptions ADD COLUMN IF NOT EXISTS organization_id VARCHAR(255)`).catch(() => {});
+    await pgPool.query(`CREATE INDEX IF NOT EXISTS idx_payment_orders_user ON payment_orders(user_id)`).catch(() => {});
+    await pgPool.query(`CREATE INDEX IF NOT EXISTS idx_payment_orders_rzp_ord ON payment_orders(razorpay_order_id)`).catch(() => {});
+    await pgPool.query(`CREATE INDEX IF NOT EXISTS idx_payment_events_prov ON payment_events(provider_event_id)`).catch(() => {});
+    await pgPool.query(`CREATE INDEX IF NOT EXISTS idx_usage_periods_user_time ON usage_periods(user_id, period_start, period_end)`).catch(() => {});
+    await pgPool.query(`CREATE INDEX IF NOT EXISTS idx_usage_ledger_req ON usage_ledger(request_id)`).catch(() => {});
+    await pgPool.query(`CREATE INDEX IF NOT EXISTS idx_usage_ledger_user ON usage_ledger(user_id)`).catch(() => {});
+    await pgPool.query(`CREATE INDEX IF NOT EXISTS idx_credit_packs_user ON credit_packs(user_id)`).catch(() => {});
+
+    // Seed canonical plans into plans table
+    for (const plan of getAllPublicPlans()) {
+      await pgPool.query(
+        `INSERT INTO plans (
+          code, name, price_paise, currency, duration_days, max_seats,
+          product_allowance, ai_text_allowance, ai_image_allowance,
+          quotations_trial_limit, feature_flags, is_active, version, updated_at
+        ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, true, $12, NOW())
+        ON CONFLICT (code) DO UPDATE SET
+          name = $2, price_paise = $3, duration_days = $5, max_seats = $6,
+          product_allowance = $7, ai_text_allowance = $8, ai_image_allowance = $9,
+          quotations_trial_limit = $10, feature_flags = $11, version = $12, updated_at = NOW()`,
+        [
+          plan.code,
+          plan.name,
+          plan.pricePaise,
+          plan.currency,
+          plan.durationDays,
+          plan.limits.maxSeats,
+          plan.limits.maxProducts,
+          plan.limits.aiTextOperations,
+          plan.limits.aiImageOperations,
+          plan.limits.quotationsTrialLimit,
+          JSON.stringify(plan.featureFlags),
+          plan.version
+        ]
+      ).catch((pErr: any) => {
+        console.warn('Notice seeding plan catalogue:', pErr.message || pErr);
+      });
+    }
     console.log('PostgreSQL production database tables verified.');
   } catch (err: any) {
     console.warn('PostgreSQL initialization notice:', err.message || err);
