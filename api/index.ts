@@ -1,21 +1,9 @@
 import type { IncomingMessage, ServerResponse } from 'http';
-import app, { ensureDbInitialized } from '../server';
-
-let dbInitPromise: Promise<void> | null = null;
-
-function ensureDb() {
-  if (!dbInitPromise && typeof ensureDbInitialized === 'function') {
-    dbInitPromise = ensureDbInitialized().catch((err: any) => {
-      console.warn('[Vercel Serverless DB Warmup Warning]:', err?.message || err);
-    });
-  }
-  return dbInitPromise;
-}
 
 export default async function handler(req: IncomingMessage, res: ServerResponse) {
   const url = req.url || '';
 
-  // 1. Production Health & Environment Diagnostic Route (Fast ping)
+  // 1. Fast Diagnostic Route (Guaranteed to succeed independently of database or heavy dependencies)
   if (url.includes('/api/ping') || url.endsWith('/ping')) {
     res.statusCode = 200;
     res.setHeader('Content-Type', 'application/json');
@@ -32,33 +20,59 @@ export default async function handler(req: IncomingMessage, res: ServerResponse)
           HAS_SUPABASE_URL: Boolean(process.env.SUPABASE_URL || process.env.VITE_SUPABASE_URL),
           HAS_SUPABASE_KEY: Boolean(process.env.SUPABASE_ANON_KEY || process.env.VITE_SUPABASE_ANON_KEY),
           HAS_RAZORPAY_KEY: Boolean(process.env.RAZORPAY_KEY_ID || process.env.VITE_RAZORPAY_KEY_ID),
+          HAS_JWT_SECRET: Boolean(process.env.JWT_SECRET && process.env.JWT_SECRET.length >= 32),
         },
       })
     );
     return;
   }
 
-  // 2. Ensure DB tables initialized once per serverless instance
+  // 2. Load Express application with full error diagnostic capture
   try {
-    ensureDb();
-  } catch (dbErr) {
-    console.warn('[Vercel Serverless DB Warmup Warning]:', dbErr);
-  }
+    let app: any = null;
+    let loadErr: any = null;
 
-  // 3. Delegate to main Express application
-  try {
+    try {
+      // @ts-ignore
+      const mod = await import('../server');
+      app = mod.default || mod.app || (typeof mod === 'function' ? mod : null);
+      if (app && app.default && typeof app.default === 'function') {
+        app = app.default;
+      }
+      if (mod.ensureDbInitialized && typeof mod.ensureDbInitialized === 'function') {
+        mod.ensureDbInitialized().catch((e: any) => {
+          console.warn('[Vercel DB Init Warmup Warning]:', e?.message || e);
+        });
+      }
+    } catch (e: any) {
+      loadErr = { message: e?.message, name: e?.name, stack: e?.stack };
+    }
+
+    if (!app && loadErr) {
+      res.statusCode = 500;
+      res.setHeader('Content-Type', 'application/json');
+      res.end(
+        JSON.stringify({
+          error: 'SERVER_BOOT_CRASH',
+          details: loadErr,
+        }, null, 2)
+      );
+      return;
+    }
+
     if (typeof app === 'function') {
-      return (app as any)(req, res);
-    } else if (app && typeof (app as any).handle === 'function') {
-      return (app as any).handle(req, res);
+      return app(req, res);
+    } else if (app && typeof app.handle === 'function') {
+      return app.handle(req, res);
     } else {
       res.statusCode = 500;
       res.setHeader('Content-Type', 'application/json');
       res.end(
         JSON.stringify({
-          error: 'SERVERLESS_APP_NOT_CALLABLE',
-          message: 'The Express application instance could not be invoked.',
-        })
+          error: 'SERVERLESS_APP_NOT_EXTRACTED',
+          message: 'The Express application instance could not be extracted.',
+          appType: typeof app,
+        }, null, 2)
       );
     }
   } catch (fatalErr: any) {
@@ -70,7 +84,8 @@ export default async function handler(req: IncomingMessage, res: ServerResponse)
         JSON.stringify({
           error: 'INTERNAL_SERVER_ERROR',
           message: fatalErr?.message || 'An unexpected runtime error occurred.',
-        })
+          stack: fatalErr?.stack,
+        }, null, 2)
       );
     }
   }
