@@ -33,6 +33,14 @@ export const LandingPage: React.FC<LandingPageProps> = ({ setCurrentTab, openPri
 
   const handlePrimaryCTA = () => {
     if (user) {
+      setCurrentTab('products');
+    } else {
+      openAuthModal();
+    }
+  };
+
+  const handleVoiceMentorCTA = () => {
+    if (user) {
       setCurrentTab('mentor');
     } else {
       openAuthModal();
@@ -134,19 +142,30 @@ export const LandingPage: React.FC<LandingPageProps> = ({ setCurrentTab, openPri
                   onClick={handlePrimaryCTA}
                   className="w-full sm:w-auto inline-flex items-center justify-center gap-2 px-6 py-3.5 bg-[#0F5132] hover:bg-[#0B3D26] text-white font-poppins font-bold text-sm rounded-xl shadow-md transition-all active:scale-98 cursor-pointer"
                 >
-                  <Mic className="w-4 h-4 text-[#D4AF37]" />
-                  <span>{t('landing.ctaStartFree') || 'Start Voice Mentor Free'}</span>
+                  <Package className="w-4 h-4 text-[#D4AF37]" />
+                  <span>Prepare Your First Product</span>
                   <ArrowRight className="w-4 h-4 ml-1" />
+                </button>
+
+                <button
+                  id="btn-hero-try-mentor"
+                  onClick={handleVoiceMentorCTA}
+                  className="w-full sm:w-auto inline-flex items-center justify-center gap-2 px-5 py-3.5 bg-white dark:bg-[#13251B] hover:bg-stone-50 dark:hover:bg-emerald-900/30 text-stone-800 dark:text-emerald-100 font-poppins font-semibold text-xs rounded-xl border border-stone-200 dark:border-emerald-800/60 shadow-2xs transition-all cursor-pointer"
+                >
+                  <Mic className="w-4 h-4 text-[#0F5132] dark:text-emerald-400" />
+                  <span>Try Voice AI Mentor</span>
                 </button>
 
                 <button
                   id="btn-hero-watch-demo"
                   onClick={playDemoAudio}
                   disabled={demoPlaying}
-                  className="w-full sm:w-auto inline-flex items-center justify-center gap-2 px-5 py-3.5 bg-white dark:bg-[#13251B] hover:bg-stone-50 dark:hover:bg-emerald-900/30 text-stone-800 dark:text-emerald-100 font-poppins font-semibold text-xs rounded-xl border border-stone-200 dark:border-emerald-800/60 shadow-2xs transition-all cursor-pointer"
+                  title="Hear Voice Mentor Sample Audio"
+                  aria-label="Hear Voice Mentor Sample Audio"
+                  className="w-full sm:w-auto inline-flex items-center justify-center gap-2 px-3.5 py-3.5 bg-stone-100 dark:bg-emerald-950/60 hover:bg-stone-200 dark:hover:bg-emerald-900/40 text-stone-700 dark:text-emerald-200 font-poppins font-medium text-xs rounded-xl transition-all cursor-pointer"
                 >
                   <Volume2 className={`w-4 h-4 text-[#0F5132] dark:text-emerald-400 ${demoPlaying ? 'animate-pulse text-[#D4AF37]' : ''}`} />
-                  <span>{demoPlaying ? t('mentor.micListening') || 'Speaking Sample...' : 'Hear Voice Mentor Sample'}</span>
+                  <span>{demoPlaying ? 'Speaking Sample...' : 'Hear Audio'}</span>
                 </button>
               </div>
 
