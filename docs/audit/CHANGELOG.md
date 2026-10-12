@@ -68,4 +68,41 @@
 - Incorporated `test:security` into the primary `"npm test"` regression pipeline.
 
 ### `tests/security_remediation.test.ts`
-- Authored a dedicated 9-point security regression test suite covering SEC-01, SEC-02, SEC-05, and SEC-06 with negative and positive cryptographic controls.
+- Authored a dedicated 10-point security regression test suite covering SEC-01, SEC-02, SEC-05, and SEC-06 with negative and positive cryptographic controls, replay protection, and CORS verification.
+
+---
+
+## 4. Stage 0 Security Delta Remediation
+
+### `server.ts`
+- **0.1 JWT Fallback Prevention:** `getJwtSecret()` strictly disallows known fallback signing secrets (`krivio_secret_key_2026`, `krivio_secret_key_change_in_production`) or keys shorter than 32 characters when `NODE_ENV === 'production'`.
+- **0.2 Database TLS:** `getDbSslConfig()` supports `DATABASE_CA_CERT` and `DATABASE_SSL_REJECT_UNAUTHORIZED`. Confirmed Supabase pooler certificate chain validation requirements.
+- **0.3 Payment Replay Protection:** `POST /api/payments/verify` checks if `razorpayPaymentId` has already been applied to any user account; rejects duplicate claims with `409 Conflict`.
+- **0.4 Account-Linking Safety:** `POST /api/auth/supabase-sync` verifies that an existing account already associated with a different Supabase UID cannot be silently reassigned; returns `409 Conflict`.
+
+---
+
+## 5. Stage G Product Experience & UX Modernization
+
+### `src/components/LandingPage.tsx`
+- Established "Prepare Your First Product" as the single primary hero action (`setCurrentTab('products')`).
+- Added "Try Voice AI Mentor" as the secondary consultation action.
+- Grounded capability descriptions in real platform features.
+
+### `src/components/Dashboard.tsx`
+- Structured clear bifurcation: First-Time Artisan Onboarding (0 products) vs Returning Entrepreneur Active Workspace.
+- Replaced 6 competing quick actions with 1 primary recommended next step.
+- Displayed business health score honestly without arbitrary defaults (`stats?.healthScore ?? 'Calculating...'`).
+- Added optimistic rollback to growth tasks if server toggle fails.
+- Added explicit network/server error recovery state (`fetchError`) preserving user data.
+- Added one-click live storefront sharing with WhatsApp inquiry pre-formatting.
+
+### `src/components/ProductStudio.tsx`
+- Replaced congested 15-field vertical modal with an accessible 3-step progressive wizard:
+  - Step 1: Craft Identity & AI Assistant
+  - Step 2: Photos & Artisan Heritage Story
+  - Step 3: Fair Pricing, Inventory & Status
+- Added accessible stepper tabs enabling non-linear navigation for returning editors.
+- Added collapsible AI Assistant Auto-Fill tool with clear indication that output is an editable suggestion.
+- Added collapsible Advanced Logistics accordion (SKU, weight, dimensions).
+- Guaranteed full input preservation on validation and network errors.

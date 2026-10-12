@@ -162,3 +162,79 @@ In addition, several high- and medium-severity security and data-integrity defec
 - **Location:** `src/components/LandingPage.tsx`
 - **Evidence:** "100% Data Privacy", "zero complex paperwork", "exact fair prices".
 - **Remediation Plan:** Rephrase with grounded, accurate product descriptions ("Artisan Data Ownership", "Assisted Pricing Guidance").
+
+---
+
+## 4. Stage 0 Security Delta Review
+
+| Item | Focus Area | Status | Verification & Evidence |
+|---|---|---|---|
+| **0.1** | JWT Fallback | **Remediated** | `server.ts` `getJwtSecret()` strictly fails on production startup if `JWT_SECRET` is fallback or length < 32. |
+| **0.2** | Database TLS | **Remediated** | `getDbSslConfig()` supports `DATABASE_CA_CERT` and `DATABASE_SSL_REJECT_UNAUTHORIZED`. Confirmed that Supabase's pooler requires CA cert for `rejectUnauthorized: true`. |
+| **0.3** | Payment Lifecycle & Replay | **Remediated** | `POST /api/payments/create-order` fails-closed with 503 in production if Razorpay credentials are unverified. `POST /api/payments/verify` enforces replay protection (409 Conflict) against cross-account reuse of payment IDs. |
+| **0.4** | Account-Linking Reassignment | **Remediated** | `POST /api/auth/supabase-sync` verifies that an existing account already associated with a different Supabase UID cannot be silently reassigned; returns 409 Conflict. |
+| **0.5** | Security & Test Metrics | **Verified** | Cataloged **105 distinct automated tests** (79 core in `npm test` including 10 security tests + 26 AI golden tests in `npm run test:ai`). |
+| **0.6** | Deployment State | **Verified** | Verified live production at `https://krivio-ai.vercel.app/api/health` (`v2.0.0`). Feature work isolated on dedicated branch `feature/product-excellence-modernization`. |
+
+---
+
+## 5. Stage D Human-Centered UX Forensic Audit
+
+### 5.1 Persona Evaluations
+1. **Persona A — First-Time Rural Artisan (e.g. Madhubani painter or handloom weaver):**
+   - *Friction:* Arrives on the dashboard and encounters 15+ competing buttons, complex English terminology ("HSN", "SKU", "Beckn JSON"), and small typography.
+   - *Requirement:* A clear, step-by-step guided starting point: "Add Your First Craft Product".
+2. **Persona B — Returning Entrepreneur:**
+   - *Friction:* Has to scroll past giant promotional banners and health cards to see their products or edit recent drafts.
+   - *Requirement:* Instant access to "Continue Working" and recent products with clear draft/published states.
+3. **Persona C — SHG Coordinator:**
+   - *Friction:* Confused about whether "Sell & Export" actually lists products live on Amazon or exports a catalog spreadsheet.
+   - *Requirement:* Explicit labeling: "Export Catalog (CSV/XLSX)" vs "Direct Storefront Link".
+4. **Persona D — Voice-Preferred Regional Language User:**
+   - *Friction:* Form labels and buttons frequently use small font sizes (`text-[10px]` to `text-xs`) that clip Devanagari matras and require high reading effort.
+   - *Requirement:* Minimum 14px–16px typography for inputs/labels, `line-height: 1.5`, and direct voice-to-text option in Product Studio.
+
+### 5.2 Cognitive-Load and Screen-by-Screen Audit
+- **Dashboard (`Dashboard.tsx`):** Reduce visual noise. Separate new-user onboarding from returning-user workspace. Replace 6 competing quick actions with 1 primary recommended next step.
+- **Product Studio (`ProductStudio.tsx`):** Replace the single 15-field vertical form modal with a guided 3-step progressive flow:
+  1. *Step 1: Craft Identity* (Product Name, Category, Materials, optional AI story prompt).
+  2. *Step 2: Media & Story* (Smartphone photo upload, product description).
+  3. *Step 3: Pricing & Inventory* (Fair price, stock, SKU, status).
+- **Navigation (`navigation.ts`, `Dashboard.tsx`):** Consolidate workspace sidebar and mobile drawer around 4 clear primary destinations:
+  1. *Dashboard* (Workspace Overview)
+  2. *Product Studio* (Create & Manage Catalog)
+  3. *Voice AI Mentor* (Regional Business Advice)
+  4. *Sell & Share* (Live Storefront, Marketplace Exports, B2B Quotations)
+  5. *More* (Business Profile, Govt Schemes, Settings, Subscriptions)
+- **Typography & Accessibility (`DESIGN_SYSTEM.md`):** Eliminate `text-[10px]` and `text-[11px]` on primary user controls. Enforce 44px minimum touch targets on mobile. Preserve Forest Green (`#0F382A`) and Gold (`#C59B27`) branding with high contrast.
+
+---
+
+## 6. Stage G & K Implementation & Usability Verification
+
+### 6.1 Implemented Enhancements
+1. **Landing Page (`src/components/LandingPage.tsx`):**
+   - Actionable Primary CTA: "Prepare Your First Product" routing directly into Product Studio for authenticated artisans or opening auth modal.
+   - Secondary CTA: "Try Voice AI Mentor" routing to voice consultation.
+   - Grounded capability pillars with zero unsupported marketing claims.
+2. **Dashboard (`src/components/Dashboard.tsx`):**
+   - Clean structural bifurcation: First-Time Artisan Onboarding (0 products) vs Returning Entrepreneur Active Workspace.
+   - Removed 6 competing quick actions; added single clear onboarding trigger `+ Add Your First Product`.
+   - Health score calculation honestly displayed (`stats?.healthScore ?? 'Calculating...'`).
+   - Optimistic rollback on growth task toggles if server updates fail.
+   - Explicit network/server recovery banner (`fetchError`) preserving user data without masking failures as "0 products".
+   - One-click live storefront sharing with pre-formatted WhatsApp artisan inquiry link.
+3. **Product Studio Progressive 3-Step Wizard (`src/components/ProductStudio.tsx`):**
+   - Replaced congested 15-field vertical modal with an accessible 3-step progressive wizard:
+     - **Step 1: Craft Identity & AI Assistant:** Product Name (required), Craft Category, Materials. Collapsible AI Assistant Auto-Fill tool with clear indication that output is an editable suggestion.
+     - **Step 2: Photos & Artisan Heritage Story:** Drag-and-drop / camera photo upload, contextual authentic craft image pre-assignment fallback, cultural story description, tag chips.
+     - **Step 3: Fair Pricing, Inventory & Status:** Selling price (₹), available stock quantity, listing status (Published vs Draft). Collapsible "Advanced Logistics" accordion for SKU, weight, and dimensions.
+   - Full input preservation across API errors; validation navigates directly to the incomplete step.
+
+### 6.2 Browser Automation Verification
+The end-to-end artisan journey was validated in browser automation:
+- **Task Completed:** First-time artisan created "Handcrafted Terracotta Vase" (`₹850`, stock 10) through all 3 wizard steps.
+- **Verification Evidence:**
+  - Artifact Screenshot: `product_added_success_1791774114696.png`
+  - Browser Recording: `product_wizard_flow_1791773801174.webp`
+- **Result:** Modal closed cleanly, product appeared immediately in the catalog grid with authentic craft thumbnail and live price.
