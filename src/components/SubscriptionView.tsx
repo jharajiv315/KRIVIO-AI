@@ -31,6 +31,56 @@ export const SubscriptionView: React.FC<SubscriptionViewProps> = ({ openPricingM
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
+  const fallbackSnapshot = React.useMemo<UsageSnapshot>(() => {
+    const isProUser = user?.subscriptionPlan === 'artisan_pro' || user?.subscriptionPlan === 'pro';
+    const plan = isProUser ? PLAN_CATALOGUE.artisan_pro : PLAN_CATALOGUE.free;
+    const now = new Date();
+    const periodEnd = new Date(now.getTime() + 30 * 24 * 60 * 60 * 1000);
+    return {
+      plan,
+      subscription: {
+        id: `sub_local_${user?.id || 'artisan'}`,
+        userId: user?.id || 'artisan',
+        plan: isProUser ? 'artisan_pro' : 'free',
+        status: 'active',
+        startDate: user?.createdAt || now.toISOString(),
+        endDate: isProUser ? periodEnd.toISOString() : null,
+        renewalMode: 'manual',
+        isPro: isProUser,
+        isExpired: false,
+      },
+      periodStart: now.toISOString(),
+      periodEnd: periodEnd.toISOString(),
+      products: {
+        current: 0,
+        max: plan.limits.maxProducts,
+        remaining: plan.limits.maxProducts,
+        canCreate: true,
+      },
+      aiText: {
+        committed: 0,
+        reserved: 0,
+        allowance: plan.limits.aiTextOperations,
+        remaining: plan.limits.aiTextOperations,
+        canUse: true,
+      },
+      aiImage: {
+        committed: 0,
+        reserved: 0,
+        allowance: plan.limits.aiImageOperations,
+        extraCredits: 0,
+        remaining: plan.limits.aiImageOperations,
+        canUse: plan.limits.aiImageOperations > 0,
+      },
+      quotations: {
+        currentCount: 0,
+        trialLimit: plan.limits.quotationsTrialLimit,
+        unlimited: plan.limits.quotationsTrialLimit === -1,
+        canCreate: true,
+      },
+    };
+  }, [user]);
+
   const loadUsage = async () => {
     setLoading(true);
     setError(null);
@@ -39,7 +89,8 @@ export const SubscriptionView: React.FC<SubscriptionViewProps> = ({ openPricingM
       setUsage(data);
     } catch (err: any) {
       console.warn('Failed to load usage snapshot:', err.message || err);
-      setError('Unable to load current usage details from server.');
+      setError('Showing plan baseline allowances. Tap Retry to refresh authoritative metrics from server.');
+      setUsage((prev) => prev || fallbackSnapshot);
     } finally {
       setLoading(false);
     }
@@ -49,19 +100,20 @@ export const SubscriptionView: React.FC<SubscriptionViewProps> = ({ openPricingM
     loadUsage();
   }, []);
 
-  const isPro = usage?.subscription.isPro ?? (user?.subscriptionPlan === 'artisan_pro' || user?.subscriptionPlan === 'pro');
+  const activeUsage = usage || fallbackSnapshot;
+  const isPro = activeUsage.subscription.isPro ?? (user?.subscriptionPlan === 'artisan_pro' || user?.subscriptionPlan === 'pro');
   const planName = isPro ? 'Artisan Pro' : 'Artisan Free';
 
-  const periodEndFormatted = usage?.periodEnd
-    ? new Date(usage.periodEnd).toLocaleDateString(undefined, {
+  const periodEndFormatted = activeUsage.periodEnd
+    ? new Date(activeUsage.periodEnd).toLocaleDateString(undefined, {
         day: 'numeric',
         month: 'long',
         year: 'numeric',
       })
     : null;
 
-  const periodStartFormatted = usage?.periodStart
-    ? new Date(usage.periodStart).toLocaleDateString(undefined, {
+  const periodStartFormatted = activeUsage.periodStart
+    ? new Date(activeUsage.periodStart).toLocaleDateString(undefined, {
         day: 'numeric',
         month: 'long',
         year: 'numeric',
@@ -129,25 +181,28 @@ export const SubscriptionView: React.FC<SubscriptionViewProps> = ({ openPricingM
           </button>
         </div>
 
-        {loading ? (
-          <div className="p-8 text-center bg-white dark:bg-[#13251B] rounded-2xl border border-stone-200 dark:border-emerald-800/60 flex items-center justify-center gap-2 text-xs text-stone-500">
-            <Loader2 className="w-4 h-4 animate-spin text-[#0F5132]" />
-            <span>Loading authoritative usage snapshot...</span>
-          </div>
-        ) : error ? (
-          <div className="p-5 bg-red-50 dark:bg-red-950/40 rounded-2xl border border-red-200 dark:border-red-900 text-xs text-red-700 dark:text-red-300 flex items-center justify-between">
+        {error && (
+          <div className="p-4 bg-amber-50 dark:bg-amber-950/40 rounded-2xl border border-amber-200 dark:border-amber-900/60 text-xs text-amber-800 dark:text-amber-200 flex items-center justify-between gap-3 shadow-xs">
             <div className="flex items-center gap-2">
-              <AlertCircle className="w-4 h-4 shrink-0" />
+              <AlertCircle className="w-4 h-4 shrink-0 text-amber-600 dark:text-amber-400" />
               <span>{error}</span>
             </div>
             <button
               onClick={loadUsage}
-              className="px-3 py-1 bg-red-100 dark:bg-red-900 text-red-900 dark:text-white rounded-lg font-semibold"
+              disabled={loading}
+              className="px-3 py-1 bg-amber-100 hover:bg-amber-200 dark:bg-amber-900/60 dark:hover:bg-amber-800 text-amber-900 dark:text-amber-100 rounded-lg font-semibold text-xs transition-colors cursor-pointer"
             >
               Retry
             </button>
           </div>
-        ) : usage ? (
+        )}
+
+        {loading && !usage ? (
+          <div className="p-8 text-center bg-white dark:bg-[#13251B] rounded-2xl border border-stone-200 dark:border-emerald-800/60 flex items-center justify-center gap-2 text-xs text-stone-500">
+            <Loader2 className="w-4 h-4 animate-spin text-[#0F5132]" />
+            <span>Loading authoritative usage snapshot...</span>
+          </div>
+        ) : (
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
             {/* Products Card */}
             <div className="bg-white dark:bg-[#13251B] p-5 rounded-2xl border border-stone-200 dark:border-emerald-800/60 space-y-3 shadow-xs">
@@ -161,19 +216,19 @@ export const SubscriptionView: React.FC<SubscriptionViewProps> = ({ openPricingM
               </div>
               <div>
                 <div className="text-xl font-bold font-poppins text-stone-900 dark:text-white">
-                  {usage.products.current} <span className="text-xs font-normal text-stone-400 font-inter">of {usage.products.max}</span>
+                  {activeUsage.products.current} <span className="text-xs font-normal text-stone-400 font-inter">of {activeUsage.products.max}</span>
                 </div>
                 <div className="w-full bg-stone-100 dark:bg-[#0E2016] h-2 rounded-full mt-2 overflow-hidden">
                   <div
                     className="bg-[#0F5132] h-full rounded-full transition-all duration-300"
                     style={{
-                      width: `${Math.min(100, (usage.products.current / usage.products.max) * 100)}%`,
+                      width: `${Math.min(100, (activeUsage.products.current / activeUsage.products.max) * 100)}%`,
                     }}
                   />
                 </div>
               </div>
               <p className="text-[11px] text-stone-500 dark:text-emerald-300/70">
-                {usage.products.remaining} creations remaining.
+                {activeUsage.products.remaining} creations remaining.
               </p>
             </div>
 
@@ -189,19 +244,19 @@ export const SubscriptionView: React.FC<SubscriptionViewProps> = ({ openPricingM
               </div>
               <div>
                 <div className="text-xl font-bold font-poppins text-stone-900 dark:text-white">
-                  {usage.aiText.committed} <span className="text-xs font-normal text-stone-400 font-inter">of {usage.aiText.allowance}</span>
+                  {activeUsage.aiText.committed} <span className="text-xs font-normal text-stone-400 font-inter">of {activeUsage.aiText.allowance}</span>
                 </div>
                 <div className="w-full bg-stone-100 dark:bg-[#0E2016] h-2 rounded-full mt-2 overflow-hidden">
                   <div
                     className="bg-[#0F5132] h-full rounded-full transition-all duration-300"
                     style={{
-                      width: `${Math.min(100, (usage.aiText.committed / usage.aiText.allowance) * 100)}%`,
+                      width: `${Math.min(100, (activeUsage.aiText.committed / activeUsage.aiText.allowance) * 100)}%`,
                     }}
                   />
                 </div>
               </div>
               <p className="text-[11px] text-stone-500 dark:text-emerald-300/70">
-                {usage.aiText.remaining} requests left this period.
+                {activeUsage.aiText.remaining} requests left this period.
               </p>
             </div>
 
@@ -217,14 +272,14 @@ export const SubscriptionView: React.FC<SubscriptionViewProps> = ({ openPricingM
               </div>
               <div>
                 <div className="text-xl font-bold font-poppins text-stone-900 dark:text-white">
-                  {usage.aiImage.committed} <span className="text-xs font-normal text-stone-400 font-inter">of {usage.aiImage.allowance}</span>
+                  {activeUsage.aiImage.committed} <span className="text-xs font-normal text-stone-400 font-inter">of {activeUsage.aiImage.allowance}</span>
                 </div>
                 <div className="w-full bg-stone-100 dark:bg-[#0E2016] h-2 rounded-full mt-2 overflow-hidden">
                   <div
                     className="bg-[#0F5132] h-full rounded-full transition-all duration-300"
                     style={{
-                      width: usage.aiImage.allowance > 0
-                        ? `${Math.min(100, (usage.aiImage.committed / usage.aiImage.allowance) * 100)}%`
+                      width: activeUsage.aiImage.allowance > 0
+                        ? `${Math.min(100, (activeUsage.aiImage.committed / activeUsage.aiImage.allowance) * 100)}%`
                         : '0%',
                     }}
                   />
@@ -232,7 +287,7 @@ export const SubscriptionView: React.FC<SubscriptionViewProps> = ({ openPricingM
               </div>
               <p className="text-[11px] text-stone-500 dark:text-emerald-300/70">
                 {isPro
-                  ? `${usage.aiImage.remaining} generations left.`
+                  ? `${activeUsage.aiImage.remaining} generations left.`
                   : 'Included on Artisan Pro.'}
               </p>
             </div>
@@ -249,29 +304,29 @@ export const SubscriptionView: React.FC<SubscriptionViewProps> = ({ openPricingM
               </div>
               <div>
                 <div className="text-xl font-bold font-poppins text-stone-900 dark:text-white">
-                  {usage.quotations.unlimited
+                  {activeUsage.quotations.unlimited
                     ? 'Unlimited'
-                    : `${usage.quotations.currentCount} of ${usage.quotations.trialLimit}`}
+                    : `${activeUsage.quotations.currentCount} of ${activeUsage.quotations.trialLimit}`}
                 </div>
                 <div className="w-full bg-stone-100 dark:bg-[#0E2016] h-2 rounded-full mt-2 overflow-hidden">
                   <div
                     className="bg-[#0F5132] h-full rounded-full transition-all duration-300"
                     style={{
-                      width: usage.quotations.unlimited
+                      width: activeUsage.quotations.unlimited
                         ? '100%'
-                        : `${Math.min(100, (usage.quotations.currentCount / (usage.quotations.trialLimit || 1)) * 100)}%`,
+                        : `${Math.min(100, (activeUsage.quotations.currentCount / (activeUsage.quotations.trialLimit || 1)) * 100)}%`,
                     }}
                   />
                 </div>
               </div>
               <p className="text-[11px] text-stone-500 dark:text-emerald-300/70">
-                {usage.quotations.unlimited
+                {activeUsage.quotations.unlimited
                   ? 'Unlimited invoices & PDF exports.'
-                  : `${Math.max(0, usage.quotations.trialLimit - usage.quotations.currentCount)} trial quotes left.`}
+                  : `${Math.max(0, activeUsage.quotations.trialLimit - activeUsage.quotations.currentCount)} trial quotes left.`}
               </p>
             </div>
           </div>
-        ) : null}
+        )}
       </div>
 
       {/* Plan Capabilities & Comparison */}

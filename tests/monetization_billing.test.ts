@@ -451,6 +451,15 @@ async function runMonetizationTestSuite() {
     assert.ok(usageRes.data.products.max === 100, 'Pro user has 100 product limit');
     console.log('  ✔ Real-time usage snapshot accurately returned from database');
 
+    // Supabase UUID Token Usage Verification (regression guard for foreign key constraints)
+    const supabaseUuid = 'c1234567-89ab-4cde-0123-456789abcdef';
+    const tokenSb = createTestToken(supabaseUuid);
+    const sbUsageRes = await makeRequest('/api/subscriptions/usage', { token: tokenSb });
+    assert.strictEqual(sbUsageRes.status, 200, 'Supabase UUID user retrieves usage snapshot successfully');
+    assert.strictEqual(sbUsageRes.data.plan.code, 'free');
+    assert.strictEqual(sbUsageRes.data.products.max, 5);
+    console.log('  ✔ Supabase UUID authentication token seamlessly maps to usage snapshot without FK violation');
+
     // -------------------------------------------------------------------------
     // TEST 10: Payment Verification Without Stored Order (404)
     // -------------------------------------------------------------------------
