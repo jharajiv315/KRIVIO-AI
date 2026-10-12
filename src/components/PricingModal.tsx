@@ -2,18 +2,20 @@ import React, { useState } from 'react';
 import { paymentsApi } from '../services/api';
 import { useAuth } from '../context/AuthContext';
 import { useI18n } from '../i18n/LanguageContext';
+import { PLAN_CATALOGUE, Plan } from '../config/plans';
 import {
   X,
   Sparkles,
   CheckCircle2,
-  Crown,
-  CreditCard,
-  Lock,
-  Smartphone,
-  Building2,
+  Package,
+  FileText,
+  Users,
+  ShieldCheck,
   Check,
   AlertCircle,
   Loader2,
+  ArrowRight,
+  Mail,
 } from 'lucide-react';
 import { Logo } from './Logo';
 
@@ -24,50 +26,53 @@ interface PricingModalProps {
 
 export const PricingModal: React.FC<PricingModalProps> = ({ isOpen, onClose }) => {
   const { user, refreshUser } = useAuth();
-  const { t, formatCurrency } = useI18n();
+  const { t } = useI18n();
   const [submitting, setSubmitting] = useState(false);
-  const [paymentStep, setPaymentStep] = useState<string>('');
   const [errorMessage, setErrorMessage] = useState('');
   const [paymentSuccess, setPaymentSuccess] = useState(false);
-  const [paymentMethod, setPaymentMethod] = useState<'upi' | 'card' | 'netbanking'>('upi');
-  const [selectedUpiApp, setSelectedUpiApp] = useState<string>('gpay');
-  const [upiId, setUpiId] = useState<string>('');
+  const [activatedPeriod, setActivatedPeriod] = useState<{ startDate?: string; endDate?: string } | null>(null);
+  const [showEnquiryForm, setShowEnquiryForm] = useState(false);
+  const [enquirySent, setEnquirySent] = useState(false);
+  const [enquiryData, setEnquiryData] = useState({
+    orgName: '',
+    contactName: user?.name || user?.full_name || '',
+    phone: user?.phone || user?.phone_number || '',
+    memberCount: '5-15',
+  });
 
   if (!isOpen) return null;
 
-  const handlePayNow = async () => {
+  const isPro = user?.subscriptionPlan === 'pro';
+
+  const handlePayPro = async () => {
     setSubmitting(true);
     setErrorMessage('');
     setPaymentSuccess(false);
 
     try {
-      setPaymentStep('Initiating secure INR 299 payment...');
-      const orderData = await paymentsApi.createOrder('pro', 299);
+      const orderData = await paymentsApi.createOrder('artisan_pro');
 
-      // Check if Razorpay live credentials exist and can be loaded
       const isLiveRazorpay =
-        (window as any).Razorpay &&
-        orderData.keyId &&
+        Boolean((window as any).Razorpay) &&
+        Boolean(orderData.keyId) &&
         !orderData.keyId.includes('rzp_test_krivio123') &&
         !orderData.keyId.includes('dummy');
 
       if (isLiveRazorpay) {
-        setPaymentStep('Opening Razorpay Gateway...');
         const options = {
           key: orderData.keyId,
           amount: orderData.amount,
           currency: orderData.currency,
-          name: 'KRIVIO AI Pro',
-          description: 'Pro AI Business Mentor for Rural Artisans',
+          name: 'KRIVIO AI',
+          description: 'Artisan Pro 30-Day Access Pass',
           order_id: orderData.orderId,
           handler: async (response: any) => {
             if (!response.razorpay_payment_id || !response.razorpay_signature) {
-              setErrorMessage('Incomplete payment confirmation received from gateway.');
+              setErrorMessage('Incomplete payment response received from gateway.');
               setSubmitting(false);
               return;
             }
 
-            setPaymentStep('Verifying payment signature with server...');
             try {
               const verifyRes = await paymentsApi.verifyPayment({
                 razorpayPaymentId: response.razorpay_payment_id,
@@ -77,9 +82,13 @@ export const PricingModal: React.FC<PricingModalProps> = ({ isOpen, onClose }) =
 
               if (verifyRes.success) {
                 setPaymentSuccess(true);
+                setActivatedPeriod({
+                  startDate: verifyRes.startDate,
+                  endDate: verifyRes.endDate,
+                });
                 await refreshUser();
               } else {
-                setErrorMessage(t('errors.general'));
+                setErrorMessage('Payment verification could not be completed.');
               }
             } catch (vErr: any) {
               setErrorMessage(vErr.message || 'Payment verification failed');
@@ -89,7 +98,6 @@ export const PricingModal: React.FC<PricingModalProps> = ({ isOpen, onClose }) =
           modal: {
             ondismiss: () => {
               setSubmitting(false);
-              setPaymentStep('');
             },
           },
           prefill: {
@@ -106,16 +114,20 @@ export const PricingModal: React.FC<PricingModalProps> = ({ isOpen, onClose }) =
         rzp.open();
       } else {
         setSubmitting(false);
-        setPaymentStep('');
         setErrorMessage(
-          'Online payment gateway is currently in test configuration. Live transactions require merchant gateway approval. Please contact support.'
+          'Online payment gateway is in test mode. A valid merchant configuration is required for live transactions.'
         );
       }
     } catch (err: any) {
-      console.error('Payment checkout error', err);
-      setErrorMessage(err.message || t('errors.general'));
+      console.error('Payment checkout error:', err);
+      setErrorMessage(err.message || 'Failed to initiate checkout.');
       setSubmitting(false);
     }
+  };
+
+  const handleEnquirySubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+    setEnquirySent(true);
   };
 
   return (
@@ -124,224 +136,370 @@ export const PricingModal: React.FC<PricingModalProps> = ({ isOpen, onClose }) =
         role="dialog"
         aria-modal="true"
         aria-labelledby="pricing-modal-title"
-        className="bg-white dark:bg-[#13251B] rounded-3xl max-w-lg w-full p-5 sm:p-8 shadow-2xl border border-[#0F5132]/20 dark:border-emerald-800/60 relative space-y-6 max-h-[92vh] overflow-y-auto font-inter"
+        className="bg-white dark:bg-[#13251B] rounded-3xl max-w-4xl w-full p-5 sm:p-8 shadow-2xl border border-stone-200 dark:border-emerald-800/60 relative space-y-6 max-h-[92vh] overflow-y-auto font-inter"
       >
         <button
           onClick={onClose}
           aria-label={t('common.close')}
-          className="absolute top-4 sm:top-6 right-4 sm:right-6 p-2 text-stone-400 dark:text-emerald-400/60 hover:text-stone-700 dark:hover:text-emerald-100 hover:bg-[#0F5132]/10 dark:hover:bg-emerald-900/30 rounded-xl transition-colors cursor-pointer"
+          className="absolute top-4 sm:top-6 right-4 sm:right-6 p-2 text-stone-400 dark:text-emerald-400/60 hover:text-stone-700 dark:hover:text-emerald-100 hover:bg-stone-100 dark:hover:bg-emerald-900/30 rounded-xl transition-colors cursor-pointer"
         >
           <X className="w-5 h-5" />
         </button>
 
         {paymentSuccess ? (
           /* Payment Success State */
-          <div className="text-center py-6 space-y-5 animate-in zoom-in-95 duration-200">
-            <div className="w-16 h-16 rounded-3xl bg-[#0F5132]/10 dark:bg-emerald-950 text-[#0F5132] dark:text-[#34D399] border border-[#0F5132]/20 flex items-center justify-center mx-auto shadow-md">
-              <CheckCircle2 className="w-9 h-9 text-[#0F5132] dark:text-[#34D399]" />
+          <div className="text-center py-6 sm:py-8 space-y-5 animate-in zoom-in-95 duration-200 max-w-md mx-auto">
+            <div className="w-16 h-16 rounded-3xl bg-emerald-50 dark:bg-emerald-950 text-emerald-700 dark:text-emerald-300 border border-emerald-200 dark:border-emerald-800 flex items-center justify-center mx-auto shadow-sm">
+              <CheckCircle2 className="w-9 h-9" />
             </div>
 
             <div className="space-y-2">
-              <span className="px-3 py-0.5 rounded-full text-[10px] font-bold bg-[#D4AF37] text-stone-950 uppercase tracking-wider font-poppins">
-                {t('common.success')}
+              <span className="px-3 py-1 rounded-full text-[11px] font-semibold bg-[#D4AF37]/20 text-[#8C6D1F] dark:text-[#E6C65C] tracking-wide uppercase">
+                Access Activated
               </span>
-              <h2 className="text-xl sm:text-2xl font-extrabold text-[#0F5132] dark:text-white font-poppins">
-                {t('pricing.modalTitle')}
+              <h2 className="text-xl sm:text-2xl font-bold text-stone-900 dark:text-white font-poppins">
+                Welcome to Artisan Pro
               </h2>
-              <p className="text-xs text-stone-600 dark:text-emerald-200/80 max-w-sm mx-auto font-inter">
-                {t('pricing.modalSubtitle')}
+              <p className="text-xs text-stone-600 dark:text-emerald-200/80 font-inter">
+                Your prepaid 30-day access period is now active. All entitlements have been updated server-side.
               </p>
             </div>
 
-            <div className="p-4 bg-[#F8F9F5] dark:bg-[#0E2016] rounded-2xl border border-stone-200 dark:border-emerald-900/40 text-left space-y-2 text-xs">
+            <div className="p-4 bg-stone-50 dark:bg-[#0E2016] rounded-2xl border border-stone-200 dark:border-emerald-900/40 text-left space-y-2 text-xs">
               <div className="flex justify-between text-stone-600 dark:text-emerald-300/80">
-                <span>{t('profile.plan')}:</span>
-                <span className="font-bold text-stone-900 dark:text-white">{t('pricing.proPlanTitle')}</span>
+                <span>Plan:</span>
+                <span className="font-semibold text-stone-900 dark:text-white">Artisan Pro</span>
               </div>
               <div className="flex justify-between text-stone-600 dark:text-emerald-300/80">
-                <span>{t('product.tablePrice')}:</span>
-                <span className="font-bold text-[#0F5132] dark:text-emerald-300">₹299.00</span>
+                <span>Access Period:</span>
+                <span className="font-semibold text-stone-900 dark:text-white">
+                  30 Days (Renew Manually)
+                </span>
               </div>
+              {activatedPeriod?.endDate && (
+                <div className="flex justify-between text-stone-600 dark:text-emerald-300/80">
+                  <span>Valid Until:</span>
+                  <span className="font-semibold text-stone-900 dark:text-white">
+                    {new Date(activatedPeriod.endDate).toLocaleDateString(undefined, {
+                      day: 'numeric',
+                      month: 'long',
+                      year: 'numeric',
+                    })}
+                  </span>
+                </div>
+              )}
               <div className="flex justify-between text-stone-600 dark:text-emerald-300/80">
-                <span>{t('common.status')}:</span>
-                <span className="font-bold text-emerald-600 dark:text-emerald-400 flex items-center gap-1">
-                  <Check className="w-3.5 h-3.5" /> {t('subscription.active')}
+                <span>Status:</span>
+                <span className="font-semibold text-emerald-600 dark:text-emerald-400 flex items-center gap-1">
+                  <Check className="w-3.5 h-3.5" /> Active
                 </span>
               </div>
             </div>
 
             <button
               onClick={onClose}
-              className="w-full py-3.5 bg-[#0F5132] hover:bg-[#0B3D26] text-white font-bold text-xs rounded-xl shadow-lg transition-all font-poppins cursor-pointer"
+              className="w-full py-3.5 bg-[#0F5132] hover:bg-[#0B3D26] text-white font-semibold text-xs rounded-xl shadow-md transition-all font-poppins cursor-pointer"
             >
-              {t('common.close')}
+              Continue to Workspace
             </button>
           </div>
-        ) : (
-          /* Normal Checkout State */
-          <>
-            <div className="flex flex-col items-center text-center space-y-2">
-              <Logo variant="horizontal" size="md" showTagline={true} />
-              <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-[#0F5132]/10 dark:bg-emerald-950/80 text-[#0F5132] dark:text-emerald-300 text-xs font-bold mt-2 font-poppins">
-                <Crown className="w-3.5 h-3.5 text-[#D4AF37]" />
-                <span>{t('pricing.proPlanTitle')}</span>
-              </div>
-              <h2 id="pricing-modal-title" className="text-lg sm:text-2xl font-bold text-stone-900 dark:text-white font-poppins">
-                {t('pricing.modalTitle')}
+        ) : showEnquiryForm ? (
+          /* SHG Growth Group Enquiry Form */
+          <div className="max-w-lg mx-auto space-y-5 py-4">
+            <div className="space-y-1">
+              <button
+                type="button"
+                onClick={() => setShowEnquiryForm(false)}
+                className="text-xs text-stone-500 hover:text-stone-800 dark:text-emerald-300/70 dark:hover:text-white flex items-center gap-1 cursor-pointer mb-2"
+              >
+                ← Back to Plans
+              </button>
+              <h2 className="text-xl font-bold text-stone-900 dark:text-white font-poppins">
+                SHG Growth & Group Onboarding
               </h2>
-              <p className="text-xs text-stone-600 dark:text-emerald-200/70 font-inter max-w-sm">
-                {t('pricing.modalSubtitle')}
+              <p className="text-xs text-stone-600 dark:text-emerald-200/80">
+                For artisan collectives and self-help groups managing products together. Team functionality is currently offered with dedicated assisted onboarding.
               </p>
             </div>
 
-            {/* Pricing Card Highlight */}
-            <div className="bg-[#0E2016] text-white p-4 sm:p-5 rounded-2xl border border-[#D4AF37]/50 shadow-md space-y-3">
-              <div className="flex items-center justify-between">
+            {enquirySent ? (
+              <div className="p-6 bg-emerald-50 dark:bg-emerald-950/60 rounded-2xl border border-emerald-200 dark:border-emerald-800 text-center space-y-3">
+                <CheckCircle2 className="w-10 h-10 text-emerald-700 dark:text-emerald-300 mx-auto" />
+                <h3 className="text-sm font-bold text-emerald-900 dark:text-emerald-100">
+                  Enquiry Received
+                </h3>
+                <p className="text-xs text-emerald-800 dark:text-emerald-200">
+                  Our team will contact {enquiryData.contactName || 'you'} within 1-2 business days to set up your collective workspace.
+                </p>
+                <button
+                  type="button"
+                  onClick={onClose}
+                  className="mt-3 px-6 py-2.5 bg-[#0F5132] text-white text-xs font-semibold rounded-xl"
+                >
+                  Close
+                </button>
+              </div>
+            ) : (
+              <form onSubmit={handleEnquirySubmit} className="space-y-4">
                 <div>
-                  <span className="text-xs font-bold text-[#D4AF37] uppercase tracking-wider font-poppins">
-                    {t('pricing.proPlanTitle')}
-                  </span>
-                  <div className="text-2xl font-black font-poppins mt-0.5 text-[#D4AF37]">
-                    ₹299 <span className="text-xs font-normal text-emerald-200/70 font-inter">/ month</span>
-                  </div>
-                </div>
-                <div className="w-9 h-9 rounded-xl bg-[#0F5132] border border-[#D4AF37]/50 text-white font-bold flex items-center justify-center shrink-0">
-                  <Sparkles className="w-4 h-4 text-[#D4AF37]" />
-                </div>
-              </div>
-
-              <ul className="space-y-2 text-xs text-emerald-100/90 font-inter">
-                <li className="flex items-center gap-2">
-                  <CheckCircle2 className="w-3.5 h-3.5 text-[#D4AF37] shrink-0" />
-                  <span>{t('pricing.proPlanFeature1')}</span>
-                </li>
-                <li className="flex items-center gap-2">
-                  <CheckCircle2 className="w-3.5 h-3.5 text-[#D4AF37] shrink-0" />
-                  <span>{t('pricing.proPlanFeature2')}</span>
-                </li>
-                <li className="flex items-center gap-2">
-                  <CheckCircle2 className="w-3.5 h-3.5 text-[#D4AF37] shrink-0" />
-                  <span>{t('pricing.proPlanFeature4')}</span>
-                </li>
-              </ul>
-            </div>
-
-            {/* Payment Method Selector */}
-            <div className="space-y-2">
-              <span className="block text-xs font-bold text-stone-700 dark:text-emerald-200 font-poppins">
-                UPI / NetBanking / Card
-              </span>
-
-              <div className="grid grid-cols-3 gap-2">
-                <button
-                  type="button"
-                  onClick={() => setPaymentMethod('upi')}
-                  className={`p-2.5 rounded-xl border text-xs font-bold font-poppins flex flex-col items-center gap-1 transition-all cursor-pointer ${
-                    paymentMethod === 'upi'
-                      ? 'bg-[#0F5132]/10 border-[#0F5132] text-[#0F5132] dark:bg-emerald-950 dark:border-emerald-400 dark:text-emerald-300 shadow-2xs'
-                      : 'bg-stone-50 dark:bg-[#183023] border-stone-200 dark:border-emerald-900/40 text-stone-600 dark:text-emerald-300/70 hover:bg-stone-100'
-                  }`}
-                >
-                  <Smartphone className="w-4 h-4 text-[#0F5132] dark:text-[#34D399]" />
-                  <span>UPI</span>
-                </button>
-
-                <button
-                  type="button"
-                  onClick={() => setPaymentMethod('card')}
-                  className={`p-2.5 rounded-xl border text-xs font-bold font-poppins flex flex-col items-center gap-1 transition-all cursor-pointer ${
-                    paymentMethod === 'card'
-                      ? 'bg-[#0F5132]/10 border-[#0F5132] text-[#0F5132] dark:bg-emerald-950 dark:border-emerald-400 dark:text-emerald-300 shadow-2xs'
-                      : 'bg-stone-50 dark:bg-[#183023] border-stone-200 dark:border-emerald-900/40 text-stone-600 dark:text-emerald-300/70 hover:bg-stone-100'
-                  }`}
-                >
-                  <CreditCard className="w-4 h-4 text-[#0F5132] dark:text-[#34D399]" />
-                  <span>Card / RuPay</span>
-                </button>
-
-                <button
-                  type="button"
-                  onClick={() => setPaymentMethod('netbanking')}
-                  className={`p-2.5 rounded-xl border text-xs font-bold font-poppins flex flex-col items-center gap-1 transition-all cursor-pointer ${
-                    paymentMethod === 'netbanking'
-                      ? 'bg-[#0F5132]/10 border-[#0F5132] text-[#0F5132] dark:bg-emerald-950 dark:border-emerald-400 dark:text-emerald-300 shadow-2xs'
-                      : 'bg-stone-50 dark:bg-[#183023] border-stone-200 dark:border-emerald-900/40 text-stone-600 dark:text-emerald-300/70 hover:bg-stone-100'
-                  }`}
-                >
-                  <Building2 className="w-4 h-4 text-[#0F5132] dark:text-[#34D399]" />
-                  <span>NetBanking</span>
-                </button>
-              </div>
-
-              {/* Sub-options for UPI */}
-              {paymentMethod === 'upi' && (
-                <div className="p-3 bg-[#F8F9F5] dark:bg-[#0E2016] rounded-2xl border border-stone-200 dark:border-emerald-900/40 space-y-2.5 mt-2">
-                  <div className="flex items-center justify-between gap-2">
-                    {['gpay', 'phonepe', 'paytm', 'bhim'].map((app) => (
-                      <button
-                        key={app}
-                        type="button"
-                        onClick={() => setSelectedUpiApp(app)}
-                        className={`flex-1 py-1.5 px-2 rounded-xl text-[10px] font-bold uppercase font-poppins border transition-all cursor-pointer ${
-                          selectedUpiApp === app
-                            ? 'bg-[#0F5132] text-white border-[#0F5132]'
-                            : 'bg-white dark:bg-[#13251B] text-stone-700 dark:text-emerald-200 border-stone-200 dark:border-emerald-900'
-                        }`}
-                      >
-                        {app === 'gpay' ? 'GPay' : app === 'phonepe' ? 'PhonePe' : app === 'paytm' ? 'Paytm' : 'BHIM'}
-                      </button>
-                    ))}
-                  </div>
-
+                  <label className="block text-xs font-semibold text-stone-700 dark:text-emerald-200 mb-1">
+                    Organization / SHG Name
+                  </label>
                   <input
                     type="text"
-                    value={upiId}
-                    onChange={(e) => setUpiId(e.target.value)}
-                    placeholder="Enter UPI ID (e.g. mobile@upi)"
-                    className="w-full px-3 py-2 bg-white dark:bg-[#13251B] border border-stone-200 dark:border-emerald-800 rounded-xl text-xs text-stone-900 dark:text-white outline-none focus:ring-2 focus:ring-[#0F5132]"
+                    required
+                    value={enquiryData.orgName}
+                    onChange={(e) => setEnquiryData({ ...enquiryData, orgName: e.target.value })}
+                    placeholder="e.g. Gramin Hastkala Vikas Sangh"
+                    className="w-full px-3.5 py-2.5 text-xs rounded-xl border border-stone-200 dark:border-emerald-800 bg-white dark:bg-[#0E2016] text-stone-900 dark:text-white"
                   />
                 </div>
-              )}
+
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                  <div>
+                    <label className="block text-xs font-semibold text-stone-700 dark:text-emerald-200 mb-1">
+                      Lead Contact Name
+                    </label>
+                    <input
+                      type="text"
+                      required
+                      value={enquiryData.contactName}
+                      onChange={(e) => setEnquiryData({ ...enquiryData, contactName: e.target.value })}
+                      placeholder="Your name"
+                      className="w-full px-3.5 py-2.5 text-xs rounded-xl border border-stone-200 dark:border-emerald-800 bg-white dark:bg-[#0E2016] text-stone-900 dark:text-white"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-xs font-semibold text-stone-700 dark:text-emerald-200 mb-1">
+                      Phone Number
+                    </label>
+                    <input
+                      type="tel"
+                      required
+                      value={enquiryData.phone}
+                      onChange={(e) => setEnquiryData({ ...enquiryData, phone: e.target.value })}
+                      placeholder="10-digit mobile"
+                      className="w-full px-3.5 py-2.5 text-xs rounded-xl border border-stone-200 dark:border-emerald-800 bg-white dark:bg-[#0E2016] text-stone-900 dark:text-white"
+                    />
+                  </div>
+                </div>
+
+                <div>
+                  <label className="block text-xs font-semibold text-stone-700 dark:text-emerald-200 mb-1">
+                    Estimated Artisan Members
+                  </label>
+                  <select
+                    value={enquiryData.memberCount}
+                    onChange={(e) => setEnquiryData({ ...enquiryData, memberCount: e.target.value })}
+                    className="w-full px-3.5 py-2.5 text-xs rounded-xl border border-stone-200 dark:border-emerald-800 bg-white dark:bg-[#0E2016] text-stone-900 dark:text-white"
+                  >
+                    <option value="3-5">3 - 5 Artisans</option>
+                    <option value="5-15">5 - 15 Artisans</option>
+                    <option value="15-50">15 - 50 Artisans</option>
+                    <option value="50+">50+ Artisans (Large Collective)</option>
+                  </select>
+                </div>
+
+                <button
+                  type="submit"
+                  className="w-full py-3 bg-[#0F5132] hover:bg-[#0B3D26] text-white font-semibold text-xs rounded-xl transition-all cursor-pointer font-poppins"
+                >
+                  Submit Group Inquiry
+                </button>
+              </form>
+            )}
+          </div>
+        ) : (
+          /* Normal Pricing Catalogue Grid */
+          <>
+            <div className="flex flex-col items-center text-center space-y-2">
+              <Logo variant="horizontal" size="md" showTagline={true} />
+              <h2 id="pricing-modal-title" className="text-xl sm:text-2xl font-bold text-stone-900 dark:text-white font-poppins">
+                Plans & Commercial Capacity
+              </h2>
+              <p className="text-xs text-stone-600 dark:text-emerald-200/70 font-inter max-w-lg">
+                Prepaid 30-day access with clear allowances and predictable manual renewal. No hidden auto-charges.
+              </p>
             </div>
 
-            {/* Error Message */}
             {errorMessage && (
-              <div className="p-3 bg-red-50 dark:bg-red-950/80 text-red-700 dark:text-red-300 border border-red-200 dark:border-red-800 rounded-xl text-xs font-semibold flex items-center gap-2">
-                <AlertCircle className="w-4 h-4 shrink-0 text-red-600" />
+              <div className="p-3.5 rounded-xl text-xs bg-red-50 dark:bg-red-950/60 border border-red-200 dark:border-red-900 text-red-700 dark:text-red-300 flex items-start gap-2">
+                <AlertCircle className="w-4 h-4 shrink-0 mt-0.5" />
                 <span>{errorMessage}</span>
               </div>
             )}
 
-            {/* Action Button & Live Progress */}
-            <div className="space-y-2.5">
-              <button
-                id="btn-razorpay-pay-now"
-                type="button"
-                onClick={handlePayNow}
-                disabled={submitting || user?.subscriptionPlan === 'pro'}
-                className="w-full py-3.5 bg-[#0F5132] hover:bg-[#0B3D26] text-white font-bold text-xs rounded-xl shadow-lg transition-all flex items-center justify-center gap-2 disabled:opacity-60 font-poppins cursor-pointer active:scale-98"
-              >
-                {submitting ? (
-                  <>
-                    <Loader2 className="w-4 h-4 animate-spin text-[#D4AF37]" />
-                    <span>{paymentStep || t('common.loading')}</span>
-                  </>
-                ) : user?.subscriptionPlan === 'pro' ? (
-                  <>
-                    <Check className="w-4 h-4 text-[#D4AF37]" />
-                    <span>{t('subscription.active')}</span>
-                  </>
-                ) : (
-                  <>
-                    <CreditCard className="w-4 h-4 text-[#D4AF37]" />
-                    <span>{t('pricing.upgradeBtn')}</span>
-                  </>
-                )}
-              </button>
+            {/* Three-Column Plan Comparison */}
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-4 sm:gap-5 pt-2">
+              {/* 1. Artisan Free */}
+              <div className="bg-stone-50 dark:bg-[#0E2016] p-5 rounded-2xl border border-stone-200 dark:border-emerald-900/40 flex flex-col justify-between space-y-4">
+                <div className="space-y-3">
+                  <div>
+                    <h3 className="text-base font-bold text-stone-900 dark:text-white font-poppins">
+                      {PLAN_CATALOGUE.free.name}
+                    </h3>
+                    <p className="text-[11px] text-stone-500 dark:text-emerald-300/70 min-h-8">
+                      {PLAN_CATALOGUE.free.subtitle}
+                    </p>
+                  </div>
 
-              <p className="text-[10px] text-center text-stone-500 dark:text-emerald-300/60 flex items-center justify-center gap-1 font-inter">
-                <Lock className="w-3 h-3 text-[#D4AF37]" />
-                <span>{t('pricing.securePayment')}</span>
+                  <div className="text-2xl font-bold font-poppins text-stone-900 dark:text-white">
+                    ₹0 <span className="text-xs font-normal text-stone-400 font-inter">/ 30-day period</span>
+                  </div>
+
+                  <ul className="space-y-2 text-xs text-stone-600 dark:text-emerald-200/90 font-inter">
+                    <li className="flex items-start gap-2">
+                      <Check className="w-3.5 h-3.5 text-stone-400 shrink-0 mt-0.5" />
+                      <span>Up to 5 stored products</span>
+                    </li>
+                    <li className="flex items-start gap-2">
+                      <Check className="w-3.5 h-3.5 text-stone-400 shrink-0 mt-0.5" />
+                      <span>10 AI text & mentor requests</span>
+                    </li>
+                    <li className="flex items-start gap-2">
+                      <Check className="w-3.5 h-3.5 text-stone-400 shrink-0 mt-0.5" />
+                      <span>Studio composition canvas tools</span>
+                    </li>
+                    <li className="flex items-start gap-2">
+                      <Check className="w-3.5 h-3.5 text-stone-400 shrink-0 mt-0.5" />
+                      <span>Basic catalogue export</span>
+                    </li>
+                    <li className="flex items-start gap-2">
+                      <Check className="w-3.5 h-3.5 text-stone-400 shrink-0 mt-0.5" />
+                      <span>Quotation trial (2 quotes)</span>
+                    </li>
+                  </ul>
+                </div>
+
+                <div className="pt-2">
+                  <div className="w-full py-2.5 text-center text-xs font-medium text-stone-500 dark:text-emerald-400/60 bg-stone-100 dark:bg-emerald-950/40 rounded-xl">
+                    {!isPro ? 'Current Plan' : 'Free Tier'}
+                  </div>
+                </div>
+              </div>
+
+              {/* 2. Artisan Pro */}
+              <div className="bg-[#0F5132] text-white p-5 rounded-2xl border-2 border-[#D4AF37] shadow-lg flex flex-col justify-between space-y-4 relative">
+                <div className="space-y-3">
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <h3 className="text-base font-bold text-white font-poppins">
+                        {PLAN_CATALOGUE.artisan_pro.name}
+                      </h3>
+                      <p className="text-[11px] text-emerald-100/80 min-h-8">
+                        {PLAN_CATALOGUE.artisan_pro.subtitle}
+                      </p>
+                    </div>
+                  </div>
+
+                  <div className="text-2xl font-bold font-poppins text-[#D4AF37]">
+                    ₹299 <span className="text-xs font-normal text-emerald-100/70 font-inter">/ 30-day pass</span>
+                  </div>
+
+                  <ul className="space-y-2 text-xs text-emerald-100/90 font-inter">
+                    <li className="flex items-start gap-2">
+                      <CheckCircle2 className="w-3.5 h-3.5 text-[#D4AF37] shrink-0 mt-0.5" />
+                      <span>Prepare up to 100 products</span>
+                    </li>
+                    <li className="flex items-start gap-2">
+                      <CheckCircle2 className="w-3.5 h-3.5 text-[#D4AF37] shrink-0 mt-0.5" />
+                      <span>75 AI text & mentor requests</span>
+                    </li>
+                    <li className="flex items-start gap-2">
+                      <CheckCircle2 className="w-3.5 h-3.5 text-[#D4AF37] shrink-0 mt-0.5" />
+                      <span>5 paid AI image generations</span>
+                    </li>
+                    <li className="flex items-start gap-2">
+                      <CheckCircle2 className="w-3.5 h-3.5 text-[#D4AF37] shrink-0 mt-0.5" />
+                      <span>Professional quotations & PDFs</span>
+                    </li>
+                    <li className="flex items-start gap-2">
+                      <CheckCircle2 className="w-3.5 h-3.5 text-[#D4AF37] shrink-0 mt-0.5" />
+                      <span>Destination-specific exports</span>
+                    </li>
+                  </ul>
+                </div>
+
+                <div className="pt-2">
+                  <button
+                    type="button"
+                    disabled={submitting}
+                    onClick={handlePayPro}
+                    className="w-full py-3 bg-[#D4AF37] hover:bg-[#C29F2B] text-stone-950 font-bold text-xs rounded-xl shadow-md transition-all font-poppins cursor-pointer flex items-center justify-center gap-1.5 active:scale-98"
+                  >
+                    {submitting ? (
+                      <>
+                        <Loader2 className="w-4 h-4 animate-spin" />
+                        <span>Opening Checkout...</span>
+                      </>
+                    ) : (
+                      <>
+                        <span>{isPro ? 'Renew 30-Day Pass (₹299)' : 'Choose Artisan Pro (₹299)'}</span>
+                        <ArrowRight className="w-3.5 h-3.5" />
+                      </>
+                    )}
+                  </button>
+                </div>
+              </div>
+
+              {/* 3. SHG Growth */}
+              <div className="bg-stone-50 dark:bg-[#0E2016] p-5 rounded-2xl border border-stone-200 dark:border-emerald-900/40 flex flex-col justify-between space-y-4">
+                <div className="space-y-3">
+                  <div>
+                    <h3 className="text-base font-bold text-stone-900 dark:text-white font-poppins">
+                      {PLAN_CATALOGUE.shg_growth.name}
+                    </h3>
+                    <p className="text-[11px] text-stone-500 dark:text-emerald-300/70 min-h-8">
+                      {PLAN_CATALOGUE.shg_growth.subtitle}
+                    </p>
+                  </div>
+
+                  <div className="text-2xl font-bold font-poppins text-stone-900 dark:text-white">
+                    ₹999 <span className="text-xs font-normal text-stone-400 font-inter">/ proposed 30 days</span>
+                  </div>
+
+                  <ul className="space-y-2 text-xs text-stone-600 dark:text-emerald-200/90 font-inter">
+                    <li className="flex items-start gap-2">
+                      <Users className="w-3.5 h-3.5 text-stone-400 shrink-0 mt-0.5" />
+                      <span>Up to 3 authorized member seats</span>
+                    </li>
+                    <li className="flex items-start gap-2">
+                      <Check className="w-3.5 h-3.5 text-stone-400 shrink-0 mt-0.5" />
+                      <span>300 organization-owned products</span>
+                    </li>
+                    <li className="flex items-start gap-2">
+                      <Check className="w-3.5 h-3.5 text-stone-400 shrink-0 mt-0.5" />
+                      <span>250 shared AI text & mentor requests</span>
+                    </li>
+                    <li className="flex items-start gap-2">
+                      <Check className="w-3.5 h-3.5 text-stone-400 shrink-0 mt-0.5" />
+                      <span>20 shared AI product image generations</span>
+                    </li>
+                    <li className="flex items-start gap-2">
+                      <Check className="w-3.5 h-3.5 text-stone-400 shrink-0 mt-0.5" />
+                      <span>Assisted group setup & onboarding</span>
+                    </li>
+                  </ul>
+                </div>
+
+                <div className="pt-2">
+                  <button
+                    type="button"
+                    onClick={() => setShowEnquiryForm(true)}
+                    className="w-full py-2.5 bg-stone-200 hover:bg-stone-300 dark:bg-emerald-950 dark:hover:bg-emerald-900 text-stone-800 dark:text-emerald-200 text-xs font-semibold rounded-xl transition-all cursor-pointer font-poppins text-center"
+                  >
+                    Enquire About Group Access
+                  </button>
+                </div>
+              </div>
+            </div>
+
+            <div className="pt-2 border-t border-stone-200 dark:border-emerald-900/40 text-center text-[11px] text-stone-500 dark:text-emerald-400/60 font-inter space-y-1">
+              <p>
+                All paid passes provide 30 days of prepaid access. Early manual renewal extends your existing period without losing remaining days.
+              </p>
+              <p>
+                Secure payments processed by Razorpay. Prices exclude separately applicable GST.
               </p>
             </div>
           </>

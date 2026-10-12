@@ -458,45 +458,49 @@ export const LandingPage: React.FC<LandingPageProps> = ({ setCurrentTab, openPri
               Transparent Pricing
             </span>
             <h2 className="text-2xl sm:text-3xl font-bold text-stone-900 dark:text-white font-poppins">
-              Fair, Transparent Pricing for Every Scale
+              Clear Pricing for Every Scale of Enterprise
             </h2>
             <p className="text-xs sm:text-sm text-stone-600 dark:text-emerald-200/80 font-inter max-w-lg mx-auto">
-              Start free forever. Upgrade to Pro only when you need bulk catalog exports and multi-platform synchronizations.
+              Prepaid 30-day access with clear allowances and predictable manual renewal. No hidden recurring charges.
             </p>
           </div>
 
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-6 text-left max-w-2xl mx-auto pt-4">
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-5 text-left max-w-4xl mx-auto pt-4">
             {/* Free Plan */}
-            <div className="bg-white dark:bg-[#13251B] p-6 sm:p-7 rounded-2xl border border-stone-200 dark:border-emerald-800/60 space-y-6 flex flex-col justify-between shadow-2xs">
+            <div className="bg-white dark:bg-[#13251B] p-5 sm:p-6 rounded-2xl border border-stone-200 dark:border-emerald-800/60 space-y-5 flex flex-col justify-between shadow-2xs">
               <div className="space-y-4">
                 <div>
                   <h3 className="text-base font-bold font-poppins text-stone-900 dark:text-white">
-                    {t('pricing.freePlanTitle') || 'Artisan Free'}
+                    Artisan Free
                   </h3>
                   <p className="text-xs text-stone-500 dark:text-emerald-300/70 mt-0.5">
-                    For individual rural creators and weavers
+                    For individual creators beginning their journey
                   </p>
-                  <p className="text-2xl sm:text-3xl font-bold font-poppins text-stone-900 dark:text-white mt-2">
-                    ₹0 <span className="text-xs font-normal text-stone-500">/ forever</span>
+                  <p className="text-2xl font-bold font-poppins text-stone-900 dark:text-white mt-2">
+                    ₹0 <span className="text-xs font-normal text-stone-400">/ 30-day cycle</span>
                   </p>
                 </div>
 
-                <ul className="space-y-2.5 text-xs text-stone-700 dark:text-emerald-100 font-inter">
+                <ul className="space-y-2 text-xs text-stone-700 dark:text-emerald-100 font-inter">
                   <li className="flex items-center gap-2">
                     <CheckCircle2 className="w-4 h-4 text-[#0F5132] dark:text-emerald-400 shrink-0" />
-                    <span>Voice Mentor in 10+ Indian Languages</span>
+                    <span>Up to 5 stored products</span>
                   </li>
                   <li className="flex items-center gap-2">
                     <CheckCircle2 className="w-4 h-4 text-[#0F5132] dark:text-emerald-400 shrink-0" />
-                    <span>Catalog Creation up to 10 Products</span>
+                    <span>10 AI text & mentor requests</span>
                   </li>
                   <li className="flex items-center gap-2">
                     <CheckCircle2 className="w-4 h-4 text-[#0F5132] dark:text-emerald-400 shrink-0" />
-                    <span>Fair Pricing & Margin Calculator</span>
+                    <span>Studio composition canvas tools</span>
                   </li>
                   <li className="flex items-center gap-2">
                     <CheckCircle2 className="w-4 h-4 text-[#0F5132] dark:text-emerald-400 shrink-0" />
-                    <span>Government Schemes Eligibility Checker</span>
+                    <span>Basic catalogue export</span>
+                  </li>
+                  <li className="flex items-center gap-2">
+                    <CheckCircle2 className="w-4 h-4 text-[#0F5132] dark:text-emerald-400 shrink-0" />
+                    <span>Quotation trial (2 quotes)</span>
                   </li>
                 </ul>
               </div>
@@ -511,57 +515,109 @@ export const LandingPage: React.FC<LandingPageProps> = ({ setCurrentTab, openPri
             </div>
 
             {/* Pro Plan */}
-            <div className="bg-white dark:bg-[#13251B] p-6 sm:p-7 rounded-2xl border-2 border-[#0F5132] dark:border-emerald-500 space-y-6 relative shadow-md flex flex-col justify-between">
+            <div className="bg-[#0F5132] text-white p-5 sm:p-6 rounded-2xl border-2 border-[#D4AF37] space-y-5 relative shadow-lg flex flex-col justify-between">
               <div className="space-y-4">
                 <div>
                   <div className="flex items-center justify-between">
-                    <h3 className="text-base font-bold font-poppins text-stone-900 dark:text-white">
-                      {t('pricing.proPlanTitle') || 'SHG & Enterprise Pro'}
+                    <h3 className="text-base font-bold font-poppins text-white">
+                      Artisan Pro
                     </h3>
-                    <span className="px-2 py-0.5 text-[10px] font-bold bg-[#D4AF37] text-stone-900 rounded font-poppins">
-                      Pro
+                    <span className="px-2 py-0.5 text-[10px] font-bold bg-[#D4AF37] text-stone-900 rounded font-poppins uppercase">
+                      Pass
                     </span>
                   </div>
-                  <p className="text-xs text-[#0F5132] dark:text-emerald-300 font-medium mt-0.5">
-                    For cooperatives, SHGs, and growing clusters
+                  <p className="text-xs text-emerald-100/80 font-medium mt-0.5">
+                    For artisans selling and cataloging regularly
                   </p>
-                  <p className="text-2xl sm:text-3xl font-bold font-poppins text-[#0F5132] dark:text-white mt-2">
-                    ₹299 <span className="text-xs font-normal text-stone-500">/ month</span>
+                  <p className="text-2xl font-bold font-poppins text-[#D4AF37] mt-2">
+                    ₹299 <span className="text-xs font-normal text-emerald-100/70 font-inter">/ 30-day pass</span>
                   </p>
                 </div>
 
-                <ul className="space-y-2.5 text-xs text-stone-700 dark:text-emerald-100 font-inter">
+                <ul className="space-y-2 text-xs text-emerald-100/90 font-inter">
                   <li className="flex items-center gap-2">
-                    <CheckCircle2 className="w-4 h-4 text-[#0F5132] dark:text-emerald-400 shrink-0" />
-                    <span>Unlimited Products & Catalog Exports</span>
+                    <CheckCircle2 className="w-4 h-4 text-[#D4AF37] shrink-0" />
+                    <span>Prepare up to 100 products</span>
                   </li>
                   <li className="flex items-center gap-2">
-                    <CheckCircle2 className="w-4 h-4 text-[#0F5132] dark:text-emerald-400 shrink-0" />
-                    <span>High-Resolution B2B PDF Quotations</span>
+                    <CheckCircle2 className="w-4 h-4 text-[#D4AF37] shrink-0" />
+                    <span>75 AI text & mentor requests</span>
                   </li>
                   <li className="flex items-center gap-2">
-                    <CheckCircle2 className="w-4 h-4 text-[#0F5132] dark:text-emerald-400 shrink-0" />
-                    <span>ONDC Beckn, Amazon, & Meesho Feeds</span>
+                    <CheckCircle2 className="w-4 h-4 text-[#D4AF37] shrink-0" />
+                    <span>5 paid AI image generations</span>
                   </li>
                   <li className="flex items-center gap-2">
-                    <CheckCircle2 className="w-4 h-4 text-[#0F5132] dark:text-emerald-400 shrink-0" />
-                    <span>Priority Voice AI Processing Quotas</span>
+                    <CheckCircle2 className="w-4 h-4 text-[#D4AF37] shrink-0" />
+                    <span>B2B Quotations & PDF invoices</span>
+                  </li>
+                  <li className="flex items-center gap-2">
+                    <CheckCircle2 className="w-4 h-4 text-[#D4AF37] shrink-0" />
+                    <span>Destination exports (ONDC, Amazon)</span>
                   </li>
                 </ul>
               </div>
 
               <button
                 onClick={openPricingModal}
-                className="w-full py-2.5 bg-[#0F5132] hover:bg-[#0B3D26] text-white font-poppins font-bold text-xs rounded-xl shadow-md transition-all cursor-pointer flex items-center justify-center gap-1.5"
+                className="w-full py-2.5 bg-[#D4AF37] hover:bg-[#C29F2B] text-stone-950 font-poppins font-bold text-xs rounded-xl shadow-md transition-all cursor-pointer flex items-center justify-center gap-1.5"
               >
-                <span>Upgrade to Pro</span>
+                <span>Choose Artisan Pro</span>
+                <ArrowRight className="w-3.5 h-3.5" />
+              </button>
+            </div>
+
+            {/* SHG Growth Plan */}
+            <div className="bg-white dark:bg-[#13251B] p-5 sm:p-6 rounded-2xl border border-stone-200 dark:border-emerald-800/60 space-y-5 flex flex-col justify-between shadow-2xs">
+              <div className="space-y-4">
+                <div>
+                  <h3 className="text-base font-bold font-poppins text-stone-900 dark:text-white">
+                    SHG Growth
+                  </h3>
+                  <p className="text-xs text-stone-500 dark:text-emerald-300/70 mt-0.5">
+                    For collectives managing products together
+                  </p>
+                  <p className="text-2xl font-bold font-poppins text-stone-900 dark:text-white mt-2">
+                    ₹999 <span className="text-xs font-normal text-stone-400">/ proposed pass</span>
+                  </p>
+                </div>
+
+                <ul className="space-y-2 text-xs text-stone-700 dark:text-emerald-100 font-inter">
+                  <li className="flex items-center gap-2">
+                    <CheckCircle2 className="w-4 h-4 text-[#0F5132] dark:text-emerald-400 shrink-0" />
+                    <span>Up to 3 authorized member seats</span>
+                  </li>
+                  <li className="flex items-center gap-2">
+                    <CheckCircle2 className="w-4 h-4 text-[#0F5132] dark:text-emerald-400 shrink-0" />
+                    <span>300 organization-owned products</span>
+                  </li>
+                  <li className="flex items-center gap-2">
+                    <CheckCircle2 className="w-4 h-4 text-[#0F5132] dark:text-emerald-400 shrink-0" />
+                    <span>250 shared AI text requests</span>
+                  </li>
+                  <li className="flex items-center gap-2">
+                    <CheckCircle2 className="w-4 h-4 text-[#0F5132] dark:text-emerald-400 shrink-0" />
+                    <span>20 shared AI image generations</span>
+                  </li>
+                  <li className="flex items-center gap-2">
+                    <CheckCircle2 className="w-4 h-4 text-[#0F5132] dark:text-emerald-400 shrink-0" />
+                    <span>Assisted collective onboarding</span>
+                  </li>
+                </ul>
+              </div>
+
+              <button
+                onClick={openPricingModal}
+                className="w-full py-2.5 bg-stone-100 hover:bg-stone-200 dark:bg-emerald-950 dark:hover:bg-emerald-900 text-stone-800 dark:text-emerald-200 font-poppins font-bold text-xs rounded-xl transition-all cursor-pointer flex items-center justify-center gap-1.5"
+              >
+                <span>Enquire Group Access</span>
                 <ArrowRight className="w-3.5 h-3.5" />
               </button>
             </div>
           </div>
 
           <p className="text-xs text-stone-500 dark:text-emerald-300/70 font-inter">
-            No credit card needed to begin • 100% artisan data ownership • Cancel anytime
+            No credit card needed to begin • 100% artisan data ownership • All paid passes renew manually
           </p>
         </div>
       </section>
