@@ -1,5 +1,19 @@
 import type { IncomingMessage, ServerResponse } from 'http';
 
+function extractExpress(candidate: any) {
+  if (!candidate) return null;
+  if (typeof candidate === 'function') return candidate;
+  if (candidate.default && typeof candidate.default === 'function') return candidate.default;
+  if (candidate.app && typeof candidate.app === 'function') return candidate.app;
+  if (candidate.default?.app && typeof candidate.default.app === 'function') return candidate.default.app;
+  if (candidate.default?.default && typeof candidate.default.default === 'function') return candidate.default.default;
+  if (candidate.handle && typeof candidate.handle === 'function') return candidate;
+  if (candidate.default?.handle && typeof candidate.default.handle === 'function') return candidate.default;
+  return null;
+}
+
+let cachedApp: any = null;
+
 export default async function handler(req: IncomingMessage, res: ServerResponse) {
   const url = req.url || '';
 
@@ -27,34 +41,80 @@ export default async function handler(req: IncomingMessage, res: ServerResponse)
     return;
   }
 
-  // 2. Load Express application with full error diagnostic capture
+  // 2. Return cached instance if available
+  if (cachedApp) {
+    if (typeof cachedApp === 'function') {
+      return cachedApp(req, res);
+    } else if (cachedApp && typeof cachedApp.handle === 'function') {
+      return cachedApp.handle(req, res);
+    }
+  }
+
+  // 3. Load Express application with full diagnostic capture
   try {
     let app: any = null;
-    let loadErr: any = null;
+    const attempts: Record<string, any> = {};
 
+    // Attempt 1: Co-located server.cjs inside api/
     try {
       // @ts-ignore
-      const mod = await import('../server');
-      app = mod.default || mod.app || (typeof mod === 'function' ? mod : null);
-      if (app && app.default && typeof app.default === 'function') {
-        app = app.default;
-      }
-      if (mod.ensureDbInitialized && typeof mod.ensureDbInitialized === 'function') {
-        mod.ensureDbInitialized().catch((e: any) => {
-          console.warn('[Vercel DB Init Warmup Warning]:', e?.message || e);
-        });
+      const mod = await import('./server.cjs');
+      app = extractExpress(mod) || extractExpress(mod.default);
+      if (app) {
+        cachedApp = app;
+        const dbInit = mod.ensureDbInitialized || mod.default?.ensureDbInitialized;
+        if (typeof dbInit === 'function') {
+          dbInit().catch((e: any) => console.warn('[Vercel DB Init Warmup Warning]:', e?.message || e));
+        }
       }
     } catch (e: any) {
-      loadErr = { message: e?.message, name: e?.name, stack: e?.stack };
+      attempts['./server.cjs'] = { message: e?.message, name: e?.name, stack: e?.stack };
     }
 
-    if (!app && loadErr) {
+    // Attempt 2: Pre-bundled dist/server.cjs fallback
+    if (!app) {
+      try {
+        // @ts-ignore
+        const mod = await import('../dist/server.cjs');
+        app = extractExpress(mod) || extractExpress(mod.default);
+        if (app) {
+          cachedApp = app;
+          const dbInit = mod.ensureDbInitialized || mod.default?.ensureDbInitialized;
+          if (typeof dbInit === 'function') {
+            dbInit().catch((e: any) => console.warn('[Vercel DB Init Warmup Warning]:', e?.message || e));
+          }
+        }
+      } catch (e: any) {
+        attempts['../dist/server.cjs'] = { message: e?.message, name: e?.name, stack: e?.stack };
+      }
+    }
+
+    // Attempt 3: Direct TypeScript source fallback
+    if (!app) {
+      try {
+        // @ts-ignore
+        const mod = await import('../server.js').catch(async () => import('../server'));
+        app = extractExpress(mod) || extractExpress(mod.default);
+        if (app) {
+          cachedApp = app;
+          const dbInit = (mod as any).ensureDbInitialized || (mod as any).default?.ensureDbInitialized;
+          if (typeof dbInit === 'function') {
+            dbInit().catch((e: any) => console.warn('[Vercel DB Init Warmup Warning]:', e?.message || e));
+          }
+        }
+      } catch (e: any) {
+        attempts['../server'] = { message: e?.message, name: e?.name, stack: e?.stack };
+      }
+    }
+
+    if (!app) {
       res.statusCode = 500;
       res.setHeader('Content-Type', 'application/json');
       res.end(
         JSON.stringify({
-          error: 'SERVER_BOOT_CRASH',
-          details: loadErr,
+          error: 'SERVERLESS_MODULE_NOT_RESOLVED',
+          message: 'Could not resolve server application instance in serverless runtime.',
+          attempts,
         }, null, 2)
       );
       return;
@@ -64,16 +124,6 @@ export default async function handler(req: IncomingMessage, res: ServerResponse)
       return app(req, res);
     } else if (app && typeof app.handle === 'function') {
       return app.handle(req, res);
-    } else {
-      res.statusCode = 500;
-      res.setHeader('Content-Type', 'application/json');
-      res.end(
-        JSON.stringify({
-          error: 'SERVERLESS_APP_NOT_EXTRACTED',
-          message: 'The Express application instance could not be extracted.',
-          appType: typeof app,
-        }, null, 2)
-      );
     }
   } catch (fatalErr: any) {
     console.error('[Serverless Fatal Error]:', fatalErr?.message || fatalErr);
