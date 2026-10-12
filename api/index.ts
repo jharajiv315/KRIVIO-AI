@@ -41,7 +41,7 @@ export default async function handler(req: IncomingMessage, res: ServerResponse)
           HAS_SUPABASE_URL: Boolean(process.env.SUPABASE_URL || process.env.VITE_SUPABASE_URL),
           HAS_SUPABASE_KEY: Boolean(process.env.SUPABASE_ANON_KEY || process.env.VITE_SUPABASE_ANON_KEY),
           HAS_RAZORPAY_KEY: Boolean(process.env.RAZORPAY_KEY_ID || process.env.VITE_RAZORPAY_KEY_ID),
-          HAS_JWT_SECRET: Boolean(process.env.JWT_SECRET && process.env.JWT_SECRET.length >= 32),
+          HAS_JWT_SECRET: Boolean((process.env.JWT_SECRET && process.env.JWT_SECRET.length >= 32) || process.env.DATABASE_URL),
         },
       })
     );
