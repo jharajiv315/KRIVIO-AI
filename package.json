@@ -11,8 +11,9 @@
     "clean": "rm -rf dist server.js",
     "lint": "tsc --noEmit",
     "pwa:icons": "node scripts/generate-pwa-icons.mjs",
-    "test": "tsx tests/user_isolation.test.ts && tsx tests/marketplace_adapters.test.ts && tsx tests/api_integration.test.ts && tsx tests/auth_forensics.test.ts && tsx tests/security_remediation.test.ts",
+    "test": "tsx tests/user_isolation.test.ts && tsx tests/marketplace_adapters.test.ts && tsx tests/api_integration.test.ts && tsx tests/auth_forensics.test.ts && tsx tests/security_remediation.test.ts && tsx tests/monetization_billing.test.ts",
     "test:security": "tsx tests/security_remediation.test.ts",
+    "test:billing": "tsx tests/monetization_billing.test.ts",
     "test:ai": "tsx tests/ai_golden_suite.ts",
     "test:all": "npm run test && npm run test:ai"
   },
