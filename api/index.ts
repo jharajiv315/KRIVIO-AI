@@ -1,4 +1,10 @@
 import type { IncomingMessage, ServerResponse } from 'http';
+import { createRequire } from 'module';
+import path from 'path';
+import fs from 'fs';
+import { fileURLToPath } from 'url';
+
+const nodeRequire = createRequire(import.meta.url);
 
 function extractExpress(candidate: any) {
   if (!candidate) return null;
@@ -58,28 +64,63 @@ export default async function handler(req: IncomingMessage, res: ServerResponse)
     }
   }
 
-  // 3. Load Express application with deterministic loading and sanitized diagnostics
+  // 3. Load Express application with deterministic multi-strategy loading
   try {
     let app: any = null;
     const internalAttempts: Record<string, any> = {};
 
-    // Strategy 1: Co-located server.cjs inside api/
+    // Strategy 1: nodeRequire on candidate file paths
+    const candidatePaths: string[] = [
+      path.join(process.cwd(), 'api', 'server.cjs'),
+      path.join(process.cwd(), 'server.cjs'),
+      path.join(process.cwd(), 'dist', 'server.cjs'),
+      path.resolve('api/server.cjs'),
+    ];
+
     try {
-      // @ts-ignore
-      const mod = await import('./server.cjs');
-      app = extractExpress(mod) || extractExpress(mod.default);
-      if (app) {
-        cachedApp = app;
-        const dbInit = mod.ensureDbInitialized || mod.default?.ensureDbInitialized;
-        if (typeof dbInit === 'function' && !dbInitPromise) {
-          dbInitPromise = dbInit().catch((e: any) => console.warn('[Vercel DB Init Warmup Warning]:', e?.message || e));
+      const currentDir = path.dirname(fileURLToPath(import.meta.url));
+      candidatePaths.unshift(path.join(currentDir, 'server.cjs'));
+    } catch {}
+
+    for (const candPath of candidatePaths) {
+      if (app) break;
+      try {
+        if (fs.existsSync(candPath)) {
+          const mod = nodeRequire(candPath);
+          app = extractExpress(mod) || extractExpress(mod.default);
+          if (app) {
+            cachedApp = app;
+            const dbInit = mod.ensureDbInitialized || mod.default?.ensureDbInitialized;
+            if (typeof dbInit === 'function' && !dbInitPromise) {
+              dbInitPromise = dbInit().catch((e: any) => console.warn('[Vercel DB Init Warmup Warning]:', e?.message || e));
+            }
+            break;
+          }
         }
+      } catch (err: any) {
+        internalAttempts[`nodeRequire(${candPath})`] = { message: err?.message, name: err?.name };
       }
-    } catch (e: any) {
-      internalAttempts['./server.cjs'] = { message: e?.message, name: e?.name };
     }
 
-    // Strategy 2: Pre-bundled dist/server.cjs fallback
+    // Strategy 2: Co-located server.cjs inside api/ via dynamic import
+    if (!app) {
+      try {
+        // @ts-ignore
+        const mod = await import('./server.cjs');
+        app = extractExpress(mod) || extractExpress(mod.default);
+        if (app) {
+          cachedApp = app;
+          const dbInit = mod.ensureDbInitialized || mod.default?.ensureDbInitialized;
+          if (typeof dbInit === 'function' && !dbInitPromise) {
+            dbInitPromise = dbInit().catch((e: any) => console.warn('[Vercel DB Init Warmup Warning]:', e?.message || e));
+          }
+        }
+      } catch (e: any) {
+        internalAttempts['import(./server.cjs)'] = { message: e?.message, name: e?.name };
+      }
+    }
+
+    // Strategy 3: Pre-bundled dist/server.cjs fallback
     if (!app) {
       try {
         // @ts-ignore
@@ -93,11 +134,11 @@ export default async function handler(req: IncomingMessage, res: ServerResponse)
           }
         }
       } catch (e: any) {
-        internalAttempts['../dist/server.cjs'] = { message: e?.message, name: e?.name };
+        internalAttempts['import(../dist/server.cjs)'] = { message: e?.message, name: e?.name };
       }
     }
 
-    // Strategy 3: Direct TypeScript source fallback
+    // Strategy 4: Direct TypeScript source fallback
     if (!app) {
       try {
         // @ts-ignore
@@ -111,7 +152,7 @@ export default async function handler(req: IncomingMessage, res: ServerResponse)
           }
         }
       } catch (e: any) {
-        internalAttempts['../server'] = { message: e?.message, name: e?.name };
+        internalAttempts['import(../server)'] = { message: e?.message, name: e?.name };
       }
     }
 
@@ -123,6 +164,7 @@ export default async function handler(req: IncomingMessage, res: ServerResponse)
         JSON.stringify({
           error: 'SERVERLESS_MODULE_NOT_RESOLVED',
           message: 'Could not resolve server application instance in serverless runtime.',
+          diagnostics: internalAttempts,
         })
       );
       return;

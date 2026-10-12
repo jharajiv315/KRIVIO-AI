@@ -45,6 +45,11 @@
       ]
     }
   ],
+  "functions": {
+    "api/index.ts": {
+      "includeFiles": "api/server.cjs"
+    }
+  },
   "rewrites": [
     {
       "source": "/api/(.*)",
