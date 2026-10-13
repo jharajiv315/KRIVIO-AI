@@ -1,8 +1,11 @@
 import React from 'react';
 
+export type LogoConcept = 'weave' | 'hallmark' | 'cartouche';
+
 export interface LogoProps {
   variant?: 'horizontal' | 'stacked' | 'iconOnly';
   size?: 'xs' | 'sm' | 'md' | 'lg' | 'xl' | '2xl';
+  concept?: LogoConcept;
   showTagline?: boolean;
   className?: string;
   isDarkBg?: boolean;
@@ -11,6 +14,7 @@ export interface LogoProps {
 export const Logo: React.FC<LogoProps> = ({
   variant = 'horizontal',
   size = 'md',
+  concept = 'weave',
   showTagline = false,
   className = '',
   isDarkBg = false,
@@ -20,9 +24,9 @@ export const Logo: React.FC<LogoProps> = ({
     xs: 'w-6 h-6',
     sm: 'w-8 h-8',
     md: 'w-10 h-10',
-    lg: 'w-14 h-14',
-    xl: 'w-20 h-20',
-    '2xl': 'w-28 h-28',
+    lg: 'w-12 h-12',
+    xl: 'w-16 h-16',
+    '2xl': 'w-24 h-24',
   };
 
   // Typography size mappings
@@ -44,80 +48,111 @@ export const Logo: React.FC<LogoProps> = ({
     '2xl': 'text-base',
   };
 
-  // Dynamic green color for stroke & fill that adapts seamlessly to theme or dark background
-  const greenClass = isDarkBg
-    ? 'text-[#4CAF50]'
-    : 'text-[#0F5132] dark:text-[#34D399]';
+  // Dynamic green color that adapts seamlessly to theme or dark background
+  const greenFill = isDarkBg ? '#34D399' : '#0F5132';
+  const greenClass = isDarkBg ? 'text-emerald-400' : 'text-[#0F5132] dark:text-[#34D399]';
+  const goldFill = '#D4AF37';
 
-  return (
-    <div
-      className={`inline-flex items-center ${
-        variant === 'stacked' ? 'flex-col text-center gap-2' : 'gap-3'
-      } ${className}`}
-    >
-      {/* Official KRIVIO AI Emblem */}
+  // Render Emblem based on concept
+  const renderEmblem = () => {
+    if (concept === 'hallmark') {
+      // Candidate B: The Artisan Hallmark & Compass
+      return (
+        <svg
+          viewBox="0 0 200 200"
+          fill="none"
+          xmlns="http://www.w3.org/2000/svg"
+          className={`${iconDimensions[size]} shrink-0 transition-transform duration-300 hover:scale-105 select-none`}
+        >
+          <rect x="24" y="24" width="152" height="152" rx="32" stroke={greenFill} strokeWidth="14" />
+          <path d="M 64 64 L 136 64 L 136 136" stroke={goldFill} strokeWidth="14" strokeLinecap="round" strokeLinejoin="round" />
+          <circle cx="100" cy="100" r="16" fill={greenFill} />
+        </svg>
+      );
+    }
+
+    if (concept === 'cartouche') {
+      // Candidate C: Connected Craft Loop
+      return (
+        <svg
+          viewBox="0 0 200 200"
+          fill="none"
+          xmlns="http://www.w3.org/2000/svg"
+          className={`${iconDimensions[size]} shrink-0 transition-transform duration-300 hover:scale-105 select-none`}
+        >
+          <circle cx="85" cy="100" r="48" stroke={greenFill} strokeWidth="16" />
+          <circle cx="125" cy="100" r="48" stroke={goldFill} strokeWidth="16" opacity="0.9" />
+        </svg>
+      );
+    }
+
+    // Default / Candidate A: The "Tana-Bana" Weave Monogram ('K')
+    // A bespoke interlocked letter 'K' derived from loom warp & weft threads.
+    return (
       <svg
         viewBox="0 0 200 200"
         fill="none"
         xmlns="http://www.w3.org/2000/svg"
         className={`${iconDimensions[size]} shrink-0 transition-transform duration-300 hover:scale-105 select-none`}
       >
-        {/* Arch line overhead */}
-        <path
-          d="M 42 120 C 35 68, 70 28, 126 30 C 146 31, 162 40, 172 54"
-          stroke="currentColor"
-          strokeWidth="8"
-          strokeLinecap="round"
-          className={greenClass}
-        />
-
-        {/* Golden Sparkles / Stars (Top Right) */}
-        {/* Larger 4-point star */}
-        <path
-          d="M 166 22 C 166 28, 172 34, 178 34 C 172 34, 166 40, 166 46 C 166 40, 160 34, 154 34 C 160 34, 166 28, 166 22 Z"
-          fill="#D4AF37"
-        />
-        {/* Smaller 4-point star */}
-        <path
-          d="M 184 42 C 184 46, 188 50, 192 50 C 188 50, 184 54, 184 58 C 184 54, 180 50, 176 50 C 180 50, 184 46, 184 42 Z"
-          fill="#D4AF37"
-        />
-
-        {/* Central Uplifted Human Figure in Gold */}
-        <circle cx="100" cy="70" r="13" fill="#D4AF37" />
-        <path
-          d="M 100 126 C 92 108, 62 82, 58 75 C 55 70, 62 65, 68 70 C 82 82, 94 96, 100 96 C 106 96, 118 82, 132 70 C 138 65, 145 70, 142 75 C 138 82, 108 108, 100 126 Z"
-          fill="#D4AF37"
-        />
-
-        {/* Left Leaf */}
-        <path
-          d="M 100 152 C 62 144, 25 112, 33 68 C 65 78, 92 110, 100 152 Z"
-          fill="currentColor"
-          className={greenClass}
-        />
-        <path
-          d="M 100 152 C 78 128, 55 104, 34 72"
-          stroke="#F8F9F5"
+        {/* Subtle grounding loom shuttle base / container curve */}
+        <rect
+          x="12"
+          y="12"
+          width="176"
+          height="176"
+          rx="42"
+          fill={isDarkBg ? 'rgba(52, 211, 153, 0.08)' : 'rgba(15, 81, 50, 0.06)'}
+          stroke={isDarkBg ? 'rgba(52, 211, 153, 0.25)' : 'rgba(15, 81, 50, 0.14)'}
           strokeWidth="2.5"
-          strokeLinecap="round"
-          opacity="0.85"
         />
 
-        {/* Right Leaf */}
-        <path
-          d="M 100 152 C 138 144, 175 112, 167 68 C 135 78, 108 110, 100 152 Z"
-          fill="currentColor"
-          className={greenClass}
+        {/* Vertical Grounding Spine (Loom Warp / Artisan Heritage) */}
+        <rect
+          x="52"
+          y="42"
+          width="26"
+          height="116"
+          rx="13"
+          fill={greenFill}
         />
+
+        {/* Upper Ascending Arm (Digital Global Commerce / Warm Gold) */}
         <path
-          d="M 100 152 C 122 128, 145 104, 166 72"
-          stroke="#F8F9F5"
-          strokeWidth="2.5"
-          strokeLinecap="round"
-          opacity="0.85"
+          d="M 98 94 L 142 48 C 147 43 155 43 160 48 C 165 53 165 61 160 66 L 118 108 L 98 94 Z"
+          fill={goldFill}
+        />
+
+        {/* Lower Descending Interwoven Arm (Craftsmanship Foundation) */}
+        <path
+          d="M 112 102 L 158 148 C 163 153 163 161 158 166 C 153 171 145 171 140 166 L 96 122 L 112 102 Z"
+          fill={greenFill}
+        />
+
+        {/* Interlocking Textile Weave Node (Central Bridge in Gold) */}
+        <circle
+          cx="102"
+          cy="104"
+          r="12"
+          fill={goldFill}
+        />
+        <circle
+          cx="102"
+          cy="104"
+          r="5.5"
+          fill={isDarkBg ? '#0B1911' : '#FFFFFF'}
         />
       </svg>
+    );
+  };
+
+  return (
+    <div
+      className={`inline-flex items-center ${
+        variant === 'stacked' ? 'flex-col text-center gap-2' : 'gap-2.5'
+      } ${className}`}
+    >
+      {renderEmblem()}
 
       {/* Brand Text */}
       {variant !== 'iconOnly' && (
@@ -139,10 +174,10 @@ export const Logo: React.FC<LogoProps> = ({
 
           {(showTagline || variant === 'stacked') && (
             <span
-              className={`font-inter font-medium tracking-normal mt-1 ${taglineSize[size]} ${
+              className={`font-inter font-medium tracking-tight mt-1 ${taglineSize[size]} ${
                 isDarkBg
-                  ? 'text-emerald-100/80'
-                  : 'text-[#2E7D32] dark:text-emerald-400'
+                  ? 'text-emerald-200/80'
+                  : 'text-stone-500 dark:text-emerald-400/80'
               }`}
             >
               From Local Hands to Global Markets
@@ -153,3 +188,4 @@ export const Logo: React.FC<LogoProps> = ({
     </div>
   );
 };
+

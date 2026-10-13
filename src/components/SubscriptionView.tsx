@@ -6,7 +6,7 @@ import { PLAN_CATALOGUE } from '../config/plans';
 import { UsageSnapshot } from '../server/billing/entitlement_service';
 import {
   Package,
-  Sparkles,
+  Wand2,
   Camera,
   FileText,
   Calendar,
@@ -239,7 +239,7 @@ export const SubscriptionView: React.FC<SubscriptionViewProps> = ({ openPricingM
                   AI Text Assistance
                 </span>
                 <div className="w-8 h-8 rounded-xl bg-stone-100 dark:bg-[#0E2016] text-[#0F5132] dark:text-emerald-300 flex items-center justify-center">
-                  <Sparkles className="w-4 h-4" />
+                  <Wand2 className="w-4 h-4" />
                 </div>
               </div>
               <div>

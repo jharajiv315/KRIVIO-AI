@@ -5,7 +5,6 @@ import { useI18n } from '../i18n/LanguageContext';
 import { PLAN_CATALOGUE, Plan } from '../config/plans';
 import {
   X,
-  Sparkles,
   CheckCircle2,
   Package,
   FileText,

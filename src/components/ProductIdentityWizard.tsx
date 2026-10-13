@@ -3,7 +3,7 @@ import { productsApi, imagesApi, businessProfileApi } from '../services/api';
 import { useAuth } from '../context/AuthContext';
 import { useI18n } from '../i18n/LanguageContext';
 import {
-  Upload, Camera, ChevronRight, ChevronLeft, Sparkles, RefreshCw,
+  Upload, Camera, ChevronRight, ChevronLeft, RefreshCw,
   CheckCircle2, AlertCircle, Save, X, Tag, Star, Wand2, Package,
   Globe, Lightbulb, ShieldCheck, Info, ShoppingCart, MessageCircle, FileText, Zap,
 } from 'lucide-react';
@@ -297,7 +297,7 @@ export const ProductIdentityWizard: React.FC<ProductIdentityWizardProps> = ({
                 )}
                 {!analyzingImage && detectedSubject && (
                   <div className="absolute bottom-3 left-3 right-3 bg-[#0F5132]/90 backdrop-blur-xs text-emerald-100 text-[11px] font-semibold px-3 py-1.5 rounded-xl flex items-center gap-1.5 font-poppins">
-                    <Sparkles className="w-3.5 h-3.5 text-[#D4AF37] shrink-0" />
+                    <CheckCircle2 className="w-3.5 h-3.5 text-[#D4AF37] shrink-0" />
                     Detected: {detectedSubject}
                   </div>
                 )}
@@ -565,7 +565,7 @@ export const ProductIdentityWizard: React.FC<ProductIdentityWizardProps> = ({
             <div className={card}>
               <div className="flex items-center justify-between">
                 <div className="flex items-center gap-2">
-                  <Sparkles className="w-4 h-4 text-[#D4AF37]" />
+                  <Wand2 className="w-4 h-4 text-[#D4AF37]" />
                   <span className="text-xs font-bold text-stone-500 dark:text-emerald-400/80 uppercase tracking-wider font-poppins">Generated — All fields editable</span>
                 </div>
                 <button onClick={() => handleGenerateIdentity()} className="inline-flex items-center gap-1 px-3 py-1.5 bg-stone-100 dark:bg-[#183023] hover:bg-stone-200 dark:hover:bg-emerald-900/40 text-stone-600 dark:text-emerald-200 text-[11px] font-semibold rounded-xl transition-colors font-poppins cursor-pointer">

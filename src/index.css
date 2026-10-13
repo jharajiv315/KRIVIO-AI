@@ -29,15 +29,21 @@ html {
 :root, html {
   font-family: 'Inter', 'Noto Sans', 'Noto Sans Devanagari', 'Noto Sans Gujarati', 'Noto Sans Tamil', 'Noto Sans Bengali', sans-serif;
   color-scheme: light dark;
-  --bg-page: #F8F9F5;
+  --bg-page: #F7F8F4;
   --bg-card: #FFFFFF;
-  --bg-card-elevated: #F1F3ED;
-  --bg-input: #F8F9F5;
-  --border-card: rgba(15, 81, 50, 0.12);
-  --border-card-hover: rgba(15, 81, 50, 0.28);
-  --text-main: #1A1A1A;
-  --text-sub: #4A5568;
-  --text-muted: #718096;
+  --bg-card-elevated: #F1F4EE;
+  --bg-card-subtle: #FAFBF8;
+  --bg-input: #F7F8F4;
+  --border-card: rgba(15, 81, 50, 0.10);
+  --border-card-hover: rgba(15, 81, 50, 0.24);
+  --border-card-active: #0F5132;
+  --text-main: #141A16;
+  --text-sub: #45524B;
+  --text-muted: #6B7C73;
+  --shadow-warm-xs: 0 1px 2px rgba(15, 81, 50, 0.04);
+  --shadow-warm-sm: 0 2px 6px -1px rgba(15, 81, 50, 0.06), 0 1px 2px rgba(0, 0, 0, 0.02);
+  --shadow-warm-md: 0 8px 20px -3px rgba(15, 81, 50, 0.08), 0 2px 6px -1px rgba(0, 0, 0, 0.03);
+  --shadow-warm-lg: 0 16px 36px -6px rgba(15, 81, 50, 0.12), 0 4px 12px -2px rgba(0, 0, 0, 0.04);
 }
 
 html.dark, .dark {
@@ -45,12 +51,28 @@ html.dark, .dark {
   --bg-page: #0B1911;
   --bg-card: #13251B;
   --bg-card-elevated: #183023;
+  --bg-card-subtle: #0E2016;
   --bg-input: #0E2016;
-  --border-card: rgba(52, 211, 153, 0.18);
-  --border-card-hover: rgba(52, 211, 153, 0.38);
+  --border-card: rgba(52, 211, 153, 0.16);
+  --border-card-hover: rgba(52, 211, 153, 0.35);
+  --border-card-active: #34D399;
   --text-main: #E2F1E7;
   --text-sub: #A3C9B5;
   --text-muted: #719E86;
+  --shadow-warm-xs: 0 1px 2px rgba(0, 0, 0, 0.3);
+  --shadow-warm-sm: 0 2px 6px -1px rgba(0, 0, 0, 0.4);
+  --shadow-warm-md: 0 8px 20px -3px rgba(0, 0, 0, 0.5);
+  --shadow-warm-lg: 0 16px 36px -6px rgba(0, 0, 0, 0.65);
+}
+
+/* Accessible focus ring across all interactive controls */
+:focus-visible {
+  outline: 2px solid #0F5132;
+  outline-offset: 2px;
+}
+.dark :focus-visible {
+  outline: 2px solid #34D399;
+  outline-offset: 2px;
 }
 
 h1, h2, h3, h4, .font-heading, .font-poppins {

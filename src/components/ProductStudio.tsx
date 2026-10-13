@@ -6,7 +6,7 @@ import { useAuth } from '../context/AuthContext';
 import {
   Package,
   Plus,
-  Sparkles,
+  Wand2,
   Edit2,
   Trash2,
   CheckCircle2,
@@ -597,7 +597,7 @@ export const ProductStudio: React.FC = () => {
                     </span>
                   ) : (
                     <span className="px-2 py-0.5 rounded-full text-[9px] font-bold bg-amber-600/90 text-white backdrop-blur-xs shadow-xs flex items-center gap-1 font-poppins">
-                      <Sparkles className="w-2.5 h-2.5" /> Craft Match
+                      <Wand2 className="w-2.5 h-2.5" /> Craft Match
                     </span>
                   )}
                 </div>
@@ -829,7 +829,7 @@ export const ProductStudio: React.FC = () => {
                         onClick={() => setShowAiHelper(!showAiHelper)}
                         className="text-xs font-bold text-stone-900 dark:text-white font-poppins flex items-center gap-1.5 hover:text-[#0F5132] dark:hover:text-emerald-300 transition-colors cursor-pointer"
                       >
-                        <Sparkles className="w-4 h-4 text-[#D4AF37]" />
+                        <Wand2 className="w-4 h-4 text-[#D4AF37]" />
                         <span>{t('product.generateWithAi') || 'AI Assistant Auto-Fill'}</span>
                         <span className="text-[10px] font-normal text-stone-500 dark:text-emerald-300/60">
                           ({showAiHelper ? 'Hide' : 'Click to expand'})
@@ -846,7 +846,7 @@ export const ProductStudio: React.FC = () => {
                     {showAiHelper ? (
                       <div className="space-y-2.5 pt-1">
                         <p className="text-[11px] text-stone-600 dark:text-emerald-200/80 font-inter">
-                          Type a rough craft name and materials. Gemini AI will suggest an authentic title, cultural story, and keywords.
+                          Type a rough craft name and materials. KRIVIO AI will suggest an authentic title, cultural story, and keywords.
                         </p>
                         <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
                           <input
@@ -872,7 +872,7 @@ export const ProductStudio: React.FC = () => {
                           disabled={generatingAI || !rawCraftInput.trim()}
                           className="w-full py-2.5 bg-[#0F5132] hover:bg-[#0B3D26] text-white font-semibold text-xs rounded-xl shadow-xs transition-all flex items-center justify-center gap-2 disabled:opacity-50 font-poppins cursor-pointer"
                         >
-                          <Sparkles className="w-4 h-4 text-[#D4AF37]" />
+                          <Wand2 className="w-4 h-4 text-[#D4AF37]" />
                           <span>{generatingAI ? (t('product.generatingWithAi') || 'AI Generating Details...') : (t('product.generateWithAi') || 'Auto-Fill Details with AI')}</span>
                         </button>
 
@@ -1012,7 +1012,7 @@ export const ProductStudio: React.FC = () => {
                         />
                         <div className="space-y-0.5">
                           <div className="flex items-center gap-1.5">
-                            <Sparkles className="w-3.5 h-3.5 text-[#0F5132] dark:text-emerald-400" />
+                            <CheckCircle2 className="w-3.5 h-3.5 text-[#0F5132] dark:text-emerald-400" />
                             <span className="text-xs font-bold text-stone-900 dark:text-white font-poppins">
                               Contextual Craft Image Pre-Assigned
                             </span>

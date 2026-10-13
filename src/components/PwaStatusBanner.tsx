@@ -1,5 +1,5 @@
 import React from 'react';
-import { WifiOff, RefreshCw, X, Sparkles } from 'lucide-react';
+import { WifiOff, RefreshCw, X } from 'lucide-react';
 import { UsePwaReturn } from '../hooks/usePwa';
 
 interface PwaStatusBannerProps {
@@ -51,7 +51,7 @@ export const PwaStatusBanner: React.FC<PwaStatusBannerProps> = ({ pwa }) => {
           <div className="flex items-start justify-between gap-3">
             <div className="flex items-start gap-2.5">
               <div className="p-2 rounded-xl bg-[#0F5132]/10 dark:bg-emerald-950 text-[#0F5132] dark:text-emerald-300 shrink-0">
-                <Sparkles className="w-5 h-5 text-[#D4AF37]" />
+                <RefreshCw className="w-5 h-5 text-[#D4AF37]" />
               </div>
               <div>
                 <h4 className="text-xs sm:text-sm font-bold text-stone-900 dark:text-white font-poppins">

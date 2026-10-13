@@ -15,7 +15,6 @@ import {
   FileSpreadsheet,
   FileText,
   Layers,
-  Sparkles,
   Package,
   ArrowRight,
   ShieldCheck,

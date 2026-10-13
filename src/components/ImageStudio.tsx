@@ -5,7 +5,7 @@ import { useI18n } from '../i18n/LanguageContext';
 import {
   Camera,
   Upload,
-  Sparkles,
+  Palette,
   Sun,
   Image as ImageIcon,
   CheckCircle2,
@@ -15,29 +15,37 @@ import {
   RefreshCw,
   Wand2,
   AlertCircle,
+  ArrowRight,
 } from 'lucide-react';
 import { ProductIdentityWizard } from './ProductIdentityWizard';
 import { StudioWorkspace } from './image-studio/StudioWorkspace';
+import { StudioHeader } from './image-studio/StudioHeader';
 
-type StudioMode = 'studio' | 'diagnosis' | 'create';
+type StudioTab = 'studio' | 'diagnosis';
 
 export const ImageStudio: React.FC = () => {
   const { t } = useI18n();
-  const [mode, setMode] = useState<StudioMode>('studio');
+  const [activeTab, setActiveTab] = useState<StudioTab>('studio');
+  const [showWizard, setShowWizard] = useState(false);
+  const [wizardImage, setWizardImage] = useState<string | null>(null);
+
+  // History count & drawer state shared with header
+  const [historyCount, setHistoryCount] = useState(0);
+  const [isHistoryDrawerOpen, setIsHistoryDrawerOpen] = useState(false);
 
   // Photo Diagnosis state
-  const [selectedImage, setSelectedImage] = useState<string | null>(null);
+  const [diagnosisImage, setDiagnosisImage] = useState<string | null>(null);
   const [analyzing, setAnalyzing] = useState(false);
   const [analysis, setAnalysis] = useState<ImageAnalysis | null>(null);
   const [analysisError, setAnalysisError] = useState<string | null>(null);
 
-  const handleFileUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+  const handleDiagnosisUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (file) {
       const reader = new FileReader();
       reader.onloadend = () => {
         const base64 = reader.result as string;
-        setSelectedImage(base64);
+        setDiagnosisImage(base64);
         setAnalysisError(null);
         runAIAnalysis(base64);
       };
@@ -59,84 +67,47 @@ export const ImageStudio: React.FC = () => {
     }
   };
 
-  return (
-    <div className="max-w-7xl mx-auto px-2 sm:px-6 lg:px-8 py-4 sm:py-8 space-y-6 sm:space-y-8 font-inter">
-      {/* Header */}
-      <div className="bg-white dark:bg-[#13251B] p-5 sm:p-6 rounded-3xl border border-[#0F5132]/15 dark:border-emerald-800/60 shadow-xs space-y-5">
-        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-          <div className="space-y-1">
-            <div className="flex items-center gap-2">
-              <h1 className="text-lg sm:text-xl font-bold text-stone-900 dark:text-white font-poppins">
-                {t('imageStudio.title')}
-              </h1>
-              <span className="px-2 py-0.5 text-[10px] font-bold bg-[#D4AF37] text-[#1A1A1A] rounded-full font-poppins">
-                AI Marketing & Branding Studio
-              </span>
-            </div>
-            <p className="text-xs text-stone-500 dark:text-emerald-300/70">
-              Transform your real craft photos into clean studio shots, marketing visuals, and marketplace-ready assets.
-            </p>
-          </div>
-        </div>
-
-        {/* Mode Toggle */}
-        <div className="flex flex-wrap gap-2 p-1 bg-stone-100 dark:bg-[#0E2016] rounded-2xl w-fit border border-[#0F5132]/10 dark:border-emerald-900/40">
-          <button
-            id="mode-tab-studio"
-            onClick={() => setMode('studio')}
-            className={`px-4 py-2 rounded-xl text-xs font-bold flex items-center gap-1.5 transition-all font-poppins cursor-pointer ${
-              mode === 'studio'
-                ? 'bg-[#0F5132] text-white shadow-xs'
-                : 'text-stone-600 dark:text-emerald-300/80 hover:text-stone-900 dark:hover:text-white'
-            }`}
-          >
-            <Sparkles className="w-3.5 h-3.5 text-[#D4AF37]" />
-            <span>Studio & Marketing</span>
-          </button>
-          <button
-            id="mode-tab-diagnosis"
-            onClick={() => setMode('diagnosis')}
-            className={`px-4 py-2 rounded-xl text-xs font-bold flex items-center gap-1.5 transition-all font-poppins cursor-pointer ${
-              mode === 'diagnosis'
-                ? 'bg-[#0F5132] text-white shadow-xs'
-                : 'text-stone-600 dark:text-emerald-300/80 hover:text-stone-900 dark:hover:text-white'
-            }`}
-          >
-            <Camera className="w-3.5 h-3.5" />
-            <span>Photo Diagnosis</span>
-          </button>
-          <button
-            id="mode-tab-create"
-            onClick={() => setMode('create')}
-            className={`px-4 py-2 rounded-xl text-xs font-bold flex items-center gap-1.5 transition-all font-poppins cursor-pointer ${
-              mode === 'create'
-                ? 'bg-[#0F5132] text-white shadow-xs'
-                : 'text-stone-600 dark:text-emerald-300/80 hover:text-stone-900 dark:hover:text-white'
-            }`}
-          >
-            <Wand2 className="w-3.5 h-3.5 text-[#D4AF37]" />
-            <span>{t('product.addProduct')}</span>
-          </button>
-        </div>
+  if (showWizard) {
+    return (
+      <div className="max-w-7xl mx-auto px-3 sm:px-6 lg:px-8 py-4 sm:py-6">
+        <ProductIdentityWizard
+          onSaved={() => setShowWizard(false)}
+          onCancel={() => setShowWizard(false)}
+        />
       </div>
+    );
+  }
+
+  return (
+    <div className="max-w-7xl mx-auto px-3 sm:px-6 lg:px-8 py-4 sm:py-6 space-y-6 font-inter">
+      {/* Editorial Header */}
+      <StudioHeader
+        activeTab={activeTab}
+        onTabChange={(tab) => setActiveTab(tab)}
+        historyCount={historyCount}
+        onOpenHistory={() => setIsHistoryDrawerOpen(true)}
+      />
 
       {/* Flagship Intelligent Studio Mode */}
-      {mode === 'studio' && (
+      {activeTab === 'studio' && (
         <StudioWorkspace
-          initialImage={selectedImage}
+          initialImage={diagnosisImage}
+          showHistoryDrawer={isHistoryDrawerOpen}
+          onCloseHistoryDrawer={() => setIsHistoryDrawerOpen(false)}
+          onHistoryCountUpdate={(count) => setHistoryCount(count)}
           onNavigateToWizard={(img) => {
-            setSelectedImage(img);
-            setMode('create');
+            setWizardImage(img);
+            setShowWizard(true);
           }}
         />
       )}
 
       {/* Photo Diagnosis Mode */}
-      {mode === 'diagnosis' && (
-        <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 sm:gap-8">
+      {activeTab === 'diagnosis' && (
+        <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 items-start">
           {/* Left Column: Photo Upload & Preview */}
           <div className="lg:col-span-5 space-y-4">
-            <div className="bg-white dark:bg-[#13251B] p-5 sm:p-6 rounded-3xl border border-[#0F5132]/15 dark:border-emerald-800/60 shadow-xs space-y-4">
+            <div className="bg-white dark:bg-[#13251B] p-5 sm:p-6 rounded-2xl border border-stone-200/90 dark:border-emerald-900/60 shadow-2xs space-y-4">
               <h3 className="text-sm font-bold text-stone-900 dark:text-white flex items-center gap-2 font-poppins">
                 <Camera className="w-4 h-4 text-[#0F5132] dark:text-emerald-400" />
                 <span>Product Photography Preview</span>
@@ -144,12 +115,12 @@ export const ImageStudio: React.FC = () => {
 
               {/* Photo Container */}
               <div className="relative aspect-4/3 rounded-2xl overflow-hidden bg-stone-100 dark:bg-[#0E2016] border border-[#0F5132]/15 dark:border-emerald-900/40">
-                {selectedImage ? (
+                {diagnosisImage ? (
                   <img
-                    src={selectedImage}
+                    src={diagnosisImage}
                     alt="Product preview"
                     className="w-full h-full object-cover cursor-pointer"
-                    onClick={() => window.open(selectedImage, '_blank')}
+                    onClick={() => window.open(diagnosisImage, '_blank')}
                   />
                 ) : (
                   <div className="flex flex-col items-center justify-center h-full text-stone-400 space-y-2">
@@ -179,16 +150,25 @@ export const ImageStudio: React.FC = () => {
                   id="photo-upload-input"
                   type="file"
                   accept="image/*"
-                  onChange={handleFileUpload}
+                  onChange={handleDiagnosisUpload}
                   className="hidden"
                 />
               </div>
 
               {/* Switch to Create mode prompt */}
               <div className="p-3 bg-[#0F5132]/5 dark:bg-[#183023]/70 border border-[#0F5132]/20 dark:border-emerald-700/50 rounded-xl flex items-center gap-2 text-[11px] text-stone-800 dark:text-emerald-100 font-inter">
-                <Sparkles className="w-3.5 h-3.5 text-[#D4AF37] shrink-0" />
+                <Palette className="w-3.5 h-3.5 text-[#D4AF37] shrink-0" />
                 <span>Want to turn this photo into a full product listing?</span>
-                <button onClick={() => setMode('create')} className="ml-auto font-bold text-[#0F5132] dark:text-[#34D399] underline whitespace-nowrap cursor-pointer font-poppins">{t('product.addProduct')}</button>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setWizardImage(diagnosisImage);
+                    setShowWizard(true);
+                  }}
+                  className="ml-auto font-bold text-[#0F5132] dark:text-[#34D399] underline whitespace-nowrap cursor-pointer font-poppins"
+                >
+                  {t('product.addProduct')}
+                </button>
               </div>
             </div>
           </div>
@@ -281,14 +261,19 @@ export const ImageStudio: React.FC = () => {
                 {/* CTA to enhance in AI Studio or create product */}
                 <div className="pt-3 border-t border-stone-100 dark:border-emerald-900/40 grid grid-cols-1 sm:grid-cols-2 gap-3">
                   <button
-                    onClick={() => setMode('studio')}
+                    type="button"
+                    onClick={() => setActiveTab('studio')}
                     className="w-full py-3 bg-[#0F5132] hover:bg-[#0B3D26] text-white font-bold text-xs rounded-xl shadow-md transition-all flex items-center justify-center gap-2 font-poppins cursor-pointer"
                   >
-                    <Sparkles className="w-4 h-4 text-[#D4AF37]" />
+                    <Palette className="w-4 h-4 text-[#D4AF37]" />
                     <span>Enhance in AI Studio</span>
                   </button>
                   <button
-                    onClick={() => setMode('create')}
+                    type="button"
+                    onClick={() => {
+                      setWizardImage(diagnosisImage);
+                      setShowWizard(true);
+                    }}
                     className="w-full py-3 bg-stone-100 hover:bg-stone-200 dark:bg-[#0E2016] text-stone-800 dark:text-emerald-100 font-bold text-xs rounded-xl border border-stone-200 dark:border-emerald-900/40 transition-all flex items-center justify-center gap-2 font-poppins cursor-pointer"
                   >
                     <Wand2 className="w-4 h-4 text-[#D4AF37]" />
@@ -326,14 +311,6 @@ export const ImageStudio: React.FC = () => {
             )}
           </div>
         </div>
-      )}
-
-      {/* Create Product Mode (Wizard) */}
-      {mode === 'create' && (
-        <ProductIdentityWizard
-          onSaved={() => setMode('diagnosis')}
-          onCancel={() => setMode('diagnosis')}
-        />
       )}
     </div>
   );

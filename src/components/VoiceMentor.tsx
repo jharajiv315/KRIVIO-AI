@@ -8,7 +8,7 @@ import {
   Send,
   Volume2,
   VolumeX,
-  Sparkles,
+  Zap,
   Bot,
   User,
   HelpCircle,
@@ -499,7 +499,7 @@ export const VoiceMentor: React.FC = () => {
               </div>
               <div className="bg-[#F8F9F5] dark:bg-[#183023] p-4 rounded-2xl rounded-tl-xs space-y-2 w-64 border border-[#0F5132]/10 dark:border-emerald-800/50">
                 <div className="flex items-center gap-2 text-xs text-[#0F5132] dark:text-emerald-400 font-semibold font-poppins">
-                  <Sparkles className="w-3.5 h-3.5 text-[#D4AF37] animate-pulse" />
+                  <Zap className="w-3.5 h-3.5 text-[#D4AF37] animate-pulse" />
                   <span>{t('mentor.thinking')}</span>
                 </div>
                 <div className="h-2.5 bg-stone-200 dark:bg-emerald-950 rounded-full w-full animate-pulse" />
@@ -516,7 +516,7 @@ export const VoiceMentor: React.FC = () => {
           <div className="mx-3 sm:mx-6 mb-2 p-4 bg-[#F0FDF4] dark:bg-[#0A2616] border-2 border-[#0F5132]/30 dark:border-emerald-600/50 rounded-2xl shadow-md animate-in fade-in slide-in-from-bottom-2 space-y-3">
             <div className="flex items-center justify-between">
               <div className="flex items-center gap-2 text-xs font-bold text-[#0F5132] dark:text-emerald-300 font-poppins">
-                <Sparkles className="w-4 h-4 text-[#D4AF37]" />
+                <Zap className="w-4 h-4 text-[#D4AF37]" />
                 <span>Did I hear your voice query correctly?</span>
               </div>
               <span className="text-[10px] font-semibold px-2 py-0.5 rounded bg-[#0F5132]/10 text-[#0F5132] dark:text-emerald-400 font-poppins">
@@ -828,7 +828,7 @@ export const VoiceMentor: React.FC = () => {
                 <div className="flex items-center justify-between">
                   <span className="text-stone-500 dark:text-emerald-400/70">Speech Engine:</span>
                   <span className="font-semibold text-[11px] text-[#0F5132] dark:text-[#34D399]">
-                    Google Cloud Chirp 2 / Gemini
+                    KRIVIO Neural Voice Engine
                   </span>
                 </div>
                 <div className="flex items-center justify-between">

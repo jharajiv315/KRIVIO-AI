@@ -11,7 +11,6 @@ import {
   User as UserIcon,
   Settings,
   LucideIcon,
-  Sparkles,
 } from 'lucide-react';
 
 export interface PrimaryNavItem {

@@ -76,7 +76,7 @@ export const LandingPage: React.FC<LandingPageProps> = ({ setCurrentTab, openPri
     {
       icon: Package,
       title: 'Input-Driven Product Studio',
-      desc: 'Provide your craft name and materials. Gemini AI generates authentic craft stories, standard HSN codes, dimensions, and marketplace keywords.',
+      desc: 'Provide your craft name and materials. KRIVIO AI generates authentic craft stories, standard HSN codes, dimensions, and marketplace keywords.',
       actionTab: 'products',
       actionText: 'Explore Product Studio',
     },

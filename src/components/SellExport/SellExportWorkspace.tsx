@@ -2,7 +2,7 @@ import React, { useState } from 'react';
 import { MarketplaceExportView } from './MarketplaceExportView';
 import { B2BQuotationView } from './B2BQuotationView';
 import { ExportHistoryView } from './ExportHistoryView';
-import { Store, FileText, History, Sparkles, Globe } from 'lucide-react';
+import { Store, FileText, History, Globe } from 'lucide-react';
 
 interface SellExportWorkspaceProps {
   onNavigateToProducts?: () => void;

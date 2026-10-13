@@ -19,7 +19,6 @@ import {
   Layers,
   Package,
   Clock,
-  Sparkles,
   DollarSign,
   ShieldCheck,
 } from 'lucide-react';
@@ -602,7 +601,7 @@ export const B2BQuotationView: React.FC<B2BQuotationViewProps> = ({ onNavigateTo
                         onClick={() => handleToggleTieredPricing(index)}
                         className="text-[11px] font-semibold text-[#0F5132] dark:text-emerald-400 hover:underline flex items-center gap-1 cursor-pointer"
                       >
-                        <Sparkles className="w-3.5 h-3.5" />
+                        <Layers className="w-3.5 h-3.5" />
                         {item.hasTiers ? 'Remove Tiered Pricing' : '+ Add Tiered Wholesale Pricing'}
                       </button>
 

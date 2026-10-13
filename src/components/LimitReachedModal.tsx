@@ -1,5 +1,5 @@
 import React from 'react';
-import { X, AlertCircle, ArrowRight, Sparkles, Package, Clock, ShieldCheck } from 'lucide-react';
+import { X, AlertCircle, ArrowRight, Zap, Package, Clock, ShieldCheck } from 'lucide-react';
 import { QuotaErrorDetails } from '../server/billing/entitlement_service';
 
 interface LimitReachedModalProps {
@@ -59,7 +59,7 @@ export const LimitReachedModal: React.FC<LimitReachedModalProps> = ({
             {isProduct ? (
               <Package className="w-6 h-6" />
             ) : isImage || isText ? (
-              <Sparkles className="w-6 h-6" />
+              <Zap className="w-6 h-6" />
             ) : (
               <AlertCircle className="w-6 h-6" />
             )}

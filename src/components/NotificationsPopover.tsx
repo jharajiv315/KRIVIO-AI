@@ -6,7 +6,7 @@ import {
   CheckCheck,
   Trash2,
   Info,
-  Sparkles,
+  Zap,
   CheckCircle2,
   X,
 } from 'lucide-react';
@@ -151,7 +151,7 @@ export const NotificationsPopover: React.FC<NotificationsPopoverProps> = ({ onSe
                       <span className="font-bold text-xs flex items-center gap-1.5 font-poppins">
                         {n.type === 'success' && <CheckCircle2 className="w-3.5 h-3.5 text-[#0F5132] dark:text-emerald-400 shrink-0" />}
                         {n.type === 'info' && <Info className="w-3.5 h-3.5 text-[#2E7D32] dark:text-teal-400 shrink-0" />}
-                        {n.type === 'mentor' && <Sparkles className="w-3.5 h-3.5 text-[#D4AF37] shrink-0" />}
+                        {n.type === 'mentor' && <Zap className="w-3.5 h-3.5 text-[#D4AF37] shrink-0" />}
                         {n.title}
                       </span>
                       <span className="text-[10px] text-stone-400 dark:text-emerald-400/60 shrink-0 font-mono">{n.time}</span>

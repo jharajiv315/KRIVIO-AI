@@ -35,7 +35,6 @@ import {
   LogOut,
   Sun,
   Moon,
-  Sparkles,
   CheckCircle2,
   Circle,
   TrendingUp,

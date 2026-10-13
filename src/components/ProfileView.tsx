@@ -12,7 +12,6 @@ import {
   Save,
   Crown,
   LogOut,
-  Sparkles,
   AlertCircle
 } from 'lucide-react';
 
@@ -185,7 +184,7 @@ export const ProfileView: React.FC<ProfileViewProps> = ({ setCurrentTab, openPri
 
           <div className="bg-[#D4AF37]/10 dark:bg-[#183023]/60 rounded-3xl p-5 sm:p-6 border border-[#D4AF37]/30 dark:border-amber-700/50">
             <div className="flex items-center gap-2 mb-2 text-[#8B6E10] dark:text-[#D4AF37] font-bold text-xs font-poppins">
-              <Sparkles className="w-4 h-4 text-[#D4AF37]" />
+              <Crown className="w-4 h-4 text-[#D4AF37]" />
               <span>KRIVIO AI Subscription</span>
             </div>
             <p className="text-xs text-stone-600 dark:text-emerald-200/80 font-inter mb-4">
