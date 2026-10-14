@@ -3949,11 +3949,13 @@ CORE BUSINESS PRINCIPLES:
    - Subsidized Schemes: Guide users on PM Vishwakarma (subsidized loans at 5% interest + \u20B915,000 modern toolkit grant), MUDRA loans (Shishu up to \u20B950k, Kishore up to \u20B95L for working capital), and SFURTI clusters.
 5. NO VAGUE PLATITUDES: Never give vague, generic, or passive advice. Give direct calculations, concrete rupee (\u20B9) estimates, and clear numbered action steps.
 6. ${langDirective}
+7. SPOKEN VOICE DELIVERY (CRITICAL): You must also generate a dedicated "spokenResponse" string. This will be spoken aloud to the artisan. It must NOT be a robotic recitation of the written response. It must sound like an empathetic human mentor speaking directly to the artisan over a phone call (2-3 concise sentences). Summarize the core recommendation, prices/margins, and next step naturally. Absolutely NO markdown syntax, NO asterisks (**), NO bullet points, NO URLs.
 
 OUTPUT FORMAT:
 Respond with a valid JSON object matching this schema:
 {
-  "response": "Detailed, encouraging, commercially sharp business guidance with clear calculations and actionable steps",
+  "response": "Detailed, encouraging, commercially sharp business guidance formatted with clear calculations and actionable steps for screen reading",
+  "spokenResponse": "Warm, natural, conversational spoken delivery in target language (2-3 sentences max). Tells the artisan the core advice and numbers naturally without markdown or bullet recitation.",
   "intent": "PRICING_ADVICE | MARKETING_ADVICE | PACKAGING_ADVICE | BOUTIQUE_OUTREACH | MARKETPLACE_LISTING | SCHEME_GUIDANCE | GENERAL_ADVICE",
   "entities": {
     "product": "identified product if any",
@@ -4221,6 +4223,16 @@ Explain this pricing structure clearly to the artisan so they feel confident quo
 };
 
 // src/server/ai/task_router.ts
+function generateSpokenSummary(text) {
+  if (!text) return "";
+  let clean = text.replace(/```[\s\S]*?```/g, "").replace(/^#+\s+/gm, "").replace(/\*\*(.*?)\*\*/g, "$1").replace(/\*(.*?)\*/g, "$1").replace(/__(.*?)__/g, "$1").replace(/_(.*?)_/g, "$1").replace(/^\s*[-*+]\s+/gm, "").replace(/^\s*\d+\.\s+/gm, "").replace(/\[(.*?)\]\(.*?\)/g, "$1").replace(/[#*_~`]/g, "").replace(/\s+/g, " ").trim();
+  const sentences = clean.split(/(?<=[.!?।])\s+/).filter(Boolean);
+  if (sentences.length > 0) {
+    const spoken = sentences.slice(0, 3).join(" ");
+    return spoken.length > 300 ? spoken.slice(0, 297) + "..." : spoken;
+  }
+  return clean.slice(0, 280);
+}
 var AITaskRouter = class {
   /**
    * Main entry point to route AI requests safely and context-aware
@@ -4297,8 +4309,11 @@ var AITaskRouter = class {
     const cleanRaw = (raw || "").replace(/^```(?:json)?\s*/i, "").replace(/\s*```$/i, "").trim();
     try {
       const parsed = JSON.parse(cleanRaw);
+      const resp = parsed.response || raw;
+      const spoken = parsed.spokenResponse || generateSpokenSummary(resp);
       return {
-        response: parsed.response || raw,
+        response: resp,
+        spokenResponse: spoken,
         intent: parsed.intent || "GENERAL_ADVICE",
         entities: parsed.entities || {},
         recommendedActions: Array.isArray(parsed.recommendedActions) ? parsed.recommendedActions : [],
@@ -4306,8 +4321,10 @@ var AITaskRouter = class {
         language: parsed.language || req.language || "en"
       };
     } catch (parseErr) {
+      const resp = raw.trim();
       return {
-        response: raw.trim(),
+        response: resp,
+        spokenResponse: generateSpokenSummary(resp),
         intent: "GENERAL_ADVICE",
         entities: {},
         recommendedActions: [],
@@ -8149,6 +8166,7 @@ app.post("/api/ai/mentor", optionalAuthenticateToken, async (req, res) => {
     }
     res.json({
       reply: replyText,
+      spokenResponse: mentorResult.spokenResponse || replyText,
       intent: mentorResult.intent,
       entities: mentorResult.entities,
       recommendedActions: mentorResult.recommendedActions,
@@ -8163,6 +8181,78 @@ app.post("/api/ai/mentor", optionalAuthenticateToken, async (req, res) => {
     }
     console.error("Failed to process AI mentorship request:", err.message || err);
     res.status(503).json({ error: "Failed to process AI mentorship request: " + (err.message || "Service error") });
+  }
+});
+function mapToTtsLanguage(lang = "en") {
+  const l = lang.toLowerCase().trim();
+  if (l.includes("hindi") || l.startsWith("hi")) return "hi";
+  if (l.includes("marathi") || l.startsWith("mr")) return "mr";
+  if (l.includes("tamil") || l.startsWith("ta")) return "ta";
+  if (l.includes("telugu") || l.startsWith("te")) return "te";
+  if (l.includes("bengali") || l.includes("bangla") || l.startsWith("bn")) return "bn";
+  if (l.includes("gujarati") || l.startsWith("gu")) return "gu";
+  if (l.includes("kannada") || l.startsWith("kn")) return "kn";
+  if (l.includes("malayalam") || l.startsWith("ml")) return "ml";
+  if (l.includes("punjabi") || l.startsWith("pa")) return "pa";
+  if (l.includes("assamese") || l.startsWith("as")) return "bn";
+  return "en";
+}
+function cleanTextForSpeech(text, langCode = "en") {
+  if (!text) return "";
+  let clean = text.replace(/```[\s\S]*?```/g, "").replace(/`[^`]*`/g, "").replace(/^#+\s+/gm, "").replace(/\*\*(.*?)\*\*/g, "$1").replace(/\*(.*?)\*/g, "$1").replace(/__(.*?)__/g, "$1").replace(/_(.*?)_/g, "$1").replace(/~~(.*?)~~/g, "$1").replace(/^\s*[-*+]\s+/gm, "").replace(/^\s*\d+\.\s+/gm, "").replace(/\[(.*?)\]\(.*?\)/g, "$1").replace(/[#*_~`]/g, "").replace(/https?:\/\/\S+/g, "");
+  if (["hi", "mr", "gu", "bn", "te", "ta", "kn"].includes(langCode)) {
+    clean = clean.replace(/₹\s*(\d+)/g, "$1 \u0930\u0941\u092A\u092F\u0947");
+  } else {
+    clean = clean.replace(/₹\s*(\d+)/g, "$1 rupees");
+  }
+  clean = clean.replace(/[\u{1F600}-\u{1F64F}\u{1F300}-\u{1F5FF}\u{1F680}-\u{1F6FF}\u{2600}-\u{26FF}\u{2700}-\u{27BF}]/gu, "");
+  clean = clean.replace(/\s+/g, " ").trim();
+  const sentences = clean.split(/(?<=[.!?।])\s+/).filter(Boolean);
+  if (sentences.length > 0) {
+    let result = "";
+    for (const s of sentences) {
+      if ((result ? result + " " + s : s).length > 280) break;
+      result = result ? result + " " + s : s;
+    }
+    return result || clean.slice(0, 260);
+  }
+  return clean.slice(0, 260);
+}
+app.all(["/api/voice/tts", "/api/voice/listen/stream"], async (req, res) => {
+  try {
+    const rawText = (req.method === "POST" ? req.body?.text : req.query.text) || "";
+    const rawLang = (req.method === "POST" ? req.body?.language || req.body?.lang : req.query.lang || req.query.language) || "hi";
+    if (!rawText.trim()) {
+      res.status(400).json({ error: "Text query or body parameter is required" });
+      return;
+    }
+    const ttsLang = mapToTtsLanguage(rawLang);
+    const speechText = cleanTextForSpeech(rawText, ttsLang);
+    if (!speechText) {
+      res.status(400).json({ error: "No readable speech text after cleaning" });
+      return;
+    }
+    const googleTtsUrl = `https://translate.google.com/translate_tts?ie=UTF-8&q=${encodeURIComponent(speechText)}&tl=${ttsLang}&client=tw-ob`;
+    const fetchResponse = await fetch(googleTtsUrl, {
+      headers: {
+        "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
+        "Accept": "audio/mpeg, audio/*"
+      }
+    });
+    if (!fetchResponse.ok) {
+      res.status(fetchResponse.status).json({ error: "TTS upstream provider returned status " + fetchResponse.status });
+      return;
+    }
+    const arrayBuffer = await fetchResponse.arrayBuffer();
+    const buffer = Buffer.from(arrayBuffer);
+    res.setHeader("Content-Type", "audio/mpeg");
+    res.setHeader("Content-Length", buffer.length);
+    res.setHeader("Cache-Control", "public, max-age=86400");
+    res.setHeader("Accept-Ranges", "bytes");
+    res.send(buffer);
+  } catch (ttsErr) {
+    console.error("[TTS Endpoint Error]:", ttsErr.message || ttsErr);
+    res.status(500).json({ error: "TTS Synthesis failed: " + (ttsErr.message || "Server error") });
   }
 });
 app.post("/api/pricing/calculate", authenticateToken, async (req, res) => {

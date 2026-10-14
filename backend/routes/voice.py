@@ -153,7 +153,8 @@ Output JSON format:
     "materials": string or null,
     "price_mentioned": string or null
   }},
-  "reply": "Warm, encouraging, practical business answer in {lang}. Be concise (2-4 sentences max), culturally relatable, and actionable."
+  "reply": "Warm, encouraging, practical business answer in {lang}. Be concise, culturally relatable, and actionable.",
+  "spoken_reply": "Natural conversational spoken advice in {lang} (2-3 sentences max) to be spoken aloud. Do NOT recite markdown or bullets."
 }}"""
             res = client.models.generate_content(
                 model="gemini-2.5-flash-image",
@@ -164,6 +165,7 @@ Output JSON format:
             intent = parsed.get("intent", "GeneralMentorship")
             entities = parsed.get("entities", {})
             reply_text = parsed.get("reply", "")
+            spoken_text = parsed.get("spoken_reply", "")
         except Exception as err:
             print("Gemini voice response note:", err)
 
@@ -180,6 +182,9 @@ Output JSON format:
             reply_text = (
                 f"नमस्ते {biz_name}! KRIVIO AI आपके {craft_type} व्यवसाय को ONDC और ऑनलाइन बाजारों पर बढ़ाने के लिए पूरी तरह तैयार है।"
             )
+
+    if not spoken_text:
+        spoken_text = reply_text.replace("**", "").replace("*", "").replace("#", "").strip()[:260]
 
     asset_id = f"vast_{uuid.uuid4().hex[:8]}"
 
@@ -216,9 +221,30 @@ Output JSON format:
         intent=intent,
         entities=entities,
         response_text=reply_text,
+        spoken_response=spoken_text,
         response_audio=None,
         language=lang
     )
+
+@router.get("/tts")
+def tts_audio_proxy(text: str, lang: str = "hi"):
+    """
+    High-fidelity Vernacular TTS Proxy delivering native audio for all Indian languages.
+    """
+    import urllib.request
+    import urllib.parse
+    from fastapi.responses import Response
+
+    clean_text = text.replace("**", "").replace("*", "").replace("#", "").strip()[:280]
+    encoded = urllib.parse.quote(clean_text)
+    tts_url = f"https://translate.google.com/translate_tts?ie=UTF-8&q={encoded}&tl={lang}&client=tw-ob"
+    req = urllib.request.Request(tts_url, headers={"User-Agent": "Mozilla/5.0"})
+    try:
+        with urllib.request.urlopen(req) as resp:
+            audio_bytes = resp.read()
+        return Response(content=audio_bytes, media_type="audio/mpeg", headers={"Cache-Control": "public, max-age=86400"})
+    except Exception as e:
+        raise HTTPException(status_code=502, detail=f"TTS synthesis error: {e}")
 
 @router.post("/listen", response_model=ListenResponse)
 def listen_audio(
@@ -230,7 +256,7 @@ def listen_audio(
     """
     return ListenResponse(
         success=True,
-        audio_data=None, # Client synthesizes via Web Speech API or Cloud TTS
+        audio_data=None, # Client synthesizes via /api/voice/tts
         format="audio/mp3",
         text=req.text,
         language=req.language or "Hindi"

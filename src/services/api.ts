@@ -201,6 +201,7 @@ export const aiMentorApi = {
     conversationHistory: MentorMessage[] = []
   ): Promise<{
     reply: string;
+    spokenResponse?: string;
     language: string;
     timestamp: string;
     intent?: string;
@@ -939,6 +940,7 @@ export const voiceApi = {
     intent: string;
     entities: Record<string, any>;
     response_text: string;
+    spoken_response?: string;
     response_audio: string | null;
     language: string;
   }> => {
@@ -972,6 +974,10 @@ export const voiceApi = {
     return await fetchWithAuth('/api/voice/history', {
       method: 'DELETE',
     });
+  },
+
+  getTtsAudioUrl: (text: string, language: string = 'hi'): string => {
+    return `/api/voice/tts?text=${encodeURIComponent(text)}&lang=${encodeURIComponent(language)}`;
   },
 };
 

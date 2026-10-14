@@ -28,6 +28,7 @@ class RespondResponse(BaseModel):
     intent: str
     entities: Dict[str, Any] = Field(default_factory=dict)
     response_text: str
+    spoken_response: Optional[str] = None
     response_audio: Optional[str] = None
     language: str
 

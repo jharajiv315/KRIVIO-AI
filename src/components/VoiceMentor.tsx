@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { aiMentorApi, voiceApi, whatsappApi, VoiceInteractionItem, WhatsAppSystemStatus } from '../services/api';
 import { MentorMessage } from '../types';
 import { useI18n } from '../i18n/LanguageContext';
@@ -25,14 +25,67 @@ import {
   Globe,
 } from 'lucide-react';
 
+export function cleanTextForSpokenDelivery(text: string): string {
+  if (!text) return '';
+  let clean = text
+    .replace(/```[\s\S]*?```/g, '')
+    .replace(/`[^`]*`/g, '')
+    .replace(/^#+\s+/gm, '')
+    .replace(/\*\*(.*?)\*\*/g, '$1')
+    .replace(/\*(.*?)\*/g, '$1')
+    .replace(/__(.*?)__/g, '$1')
+    .replace(/_(.*?)_/g, '$1')
+    .replace(/~~(.*?)~~/g, '$1')
+    .replace(/^\s*[-*+]\s+/gm, '')
+    .replace(/^\s*\d+\.\s+/gm, '')
+    .replace(/\[(.*?)\]\(.*?\)/g, '$1')
+    .replace(/[#*_~`]/g, '')
+    .replace(/https?:\/\/\S+/g, '');
+
+  clean = clean.replace(/₹\s*(\d+)/g, '$1 रुपये');
+  clean = clean.replace(/[\u{1F600}-\u{1F64F}\u{1F300}-\u{1F5FF}\u{1F680}-\u{1F6FF}\u{2600}-\u{26FF}\u{2700}-\u{27BF}]/gu, '');
+  clean = clean.replace(/\s+/g, ' ').trim();
+
+  // If there are multiple sentences, deliver the top 2-3 spoken sentences
+  const sentences = clean.split(/(?<=[.!?।])\s+/).filter(Boolean);
+  if (sentences.length > 0) {
+    let result = '';
+    for (const s of sentences) {
+      if ((result ? result + ' ' + s : s).length > 280) break;
+      result = result ? result + ' ' + s : s;
+    }
+    return result || clean.slice(0, 260);
+  }
+  return clean.slice(0, 260);
+}
+
 export const VoiceMentor: React.FC = () => {
   const { t, language, setLanguage, currentLanguageConfig, languages: supportedLanguages } = useI18n();
+
+  const getInitialGreeting = () => {
+    const raw = t('mentor.welcomeGreeting');
+    if (raw && raw !== 'welcomeGreeting') return raw;
+    const lang = language as string;
+    if (lang === 'hi') return 'नमस्ते! मैं आपका KRIVIO बिज़नेस मेंटर हूँ। अपने हस्तशिल्प उत्पाद की सही कीमत, सरकारी योजनाओं या बाज़ार में बिक्री के बारे में बेझिझक पूछें।';
+    if (lang === 'mr') return 'नमस्कार! मी तुमचा KRIVIO व्यवसाय मार्गदर्शक आहे. तुमच्या हस्तकला उत्पादनाची किंमत, सरकारी योजना किंवा ऑनलाईन विक्रीबद्दल विचारा.';
+    if (lang === 'ta') return 'வணக்கம்! நான் உங்கள் KRIVIO வணிக வழிகாட்டி. உங்கள் கைவினைப் பொருட்களுக்கான சரியான விலை மற்றும் சந்தைப்படுத்தல் பற்றி கேளுங்கள்.';
+    if (lang === 'te') return 'నమస్కారం! నేను మీ KRIVIO వ్యాపార గురువుని. మీ చేతివృత్తుల ఉత్పత్తుల ధర మరియు మార్కెటింగ్ గురించి అడగండి.';
+    if (lang === 'bn') return 'নমস্কার! আমি আপনার KRIVIO বিজনেস মেন্টর। আপনার হস্তশিল্প পণ্যের সঠিক দাম ও অনলাইন বিক্রির বিষয়ে জানতে চান?';
+    if (lang === 'gu') return 'નમસ્તે! હું તમારો KRIVIO બિઝનેસ મેન્ટર છું. તમારા હસ્તકલા ઉત્પાદનોની કિંમત અને વેચાણ વિશે પૂછો.';
+    if (lang === 'as') return 'নমস্কাৰ! মই আপোনাৰ KRIVIO ব্যৱসায় মেণ্টৰ। আপোনাৰ হস্তশিল্প সামগ্ৰীৰ সঠিক মূল্য আৰু বিক্ৰীৰ বিষয়ে সোধক।';
+    return 'Namaste! I am your KRIVIO AI Business Mentor. How can I assist you with craft pricing, cataloging, or online marketplace selling today?';
+  };
 
   const [messages, setMessages] = useState<MentorMessage[]>([
     {
       id: 'msg_init',
       sender: 'assistant',
-      text: t('mentor.welcomeGreeting'),
+      text: getInitialGreeting(),
+      spokenText: (language as string) === 'hi'
+        ? 'नमस्ते! मैं आपका KRIVIO बिज़नेस मेंटर हूँ। अपने उत्पाद की सही कीमत या बाज़ार में बिक्री के बारे में मुझसे पूछें।'
+        : (language as string) === 'mr'
+        ? 'नमस्कार! मी तुमचा KRIVIO व्यवसाय मार्गदर्शक आहे. आपल्या उत्पादनाच्या किमतीबद्दल किंवा योजनांबद्दल मला विचारा.'
+        : 'Namaste! I am your KRIVIO AI Business Mentor. How can I assist with your craft business today?',
       timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
       language: currentLanguageConfig?.name || 'English',
     },
@@ -72,10 +125,23 @@ export const VoiceMentor: React.FC = () => {
   const mediaRecorderRef = useRef<MediaRecorder | null>(null);
   const audioChunksRef = useRef<Blob[]>([]);
   const timerIntervalRef = useRef<any>(null);
+  const activeAudioRef = useRef<HTMLAudioElement | null>(null);
 
   const scrollToBottom = () => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
   };
+
+  useEffect(() => {
+    return () => {
+      if (activeAudioRef.current) {
+        activeAudioRef.current.pause();
+        activeAudioRef.current = null;
+      }
+      if ('speechSynthesis' in window) {
+        window.speechSynthesis.cancel();
+      }
+    };
+  }, []);
 
   useEffect(() => {
     scrollToBottom();
@@ -260,6 +326,7 @@ export const VoiceMentor: React.FC = () => {
 
     try {
       let reply = '';
+      let spokenResponse: string | undefined = undefined;
 
       if (isFromVoice) {
         // Use voice respond pipeline which logs intent & entities to voice_assets
@@ -270,27 +337,34 @@ export const VoiceMentor: React.FC = () => {
             language: currentLanguageConfig.name,
           });
           reply = res.response_text;
+          spokenResponse = res.spoken_response;
         } catch {
           const res = await aiMentorApi.sendMessage(query, currentLanguageConfig.name, messages);
           reply = res.reply;
+          spokenResponse = res.spokenResponse;
         }
       } else {
         const res = await aiMentorApi.sendMessage(query, currentLanguageConfig.name, messages);
         reply = res.reply;
+        spokenResponse = res.spokenResponse;
       }
+
+      // If backend didn't supply a dedicated conversational spoken summary, derive clean spoken version
+      const finalSpoken = spokenResponse?.trim() || cleanTextForSpokenDelivery(reply);
 
       const assistantMsg: MentorMessage = {
         id: `msg_a_${Date.now()}`,
         sender: 'assistant',
         text: reply,
+        spokenText: finalSpoken,
         timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
         language: currentLanguageConfig.name,
       };
 
       setMessages((prev) => [...prev, assistantMsg]);
 
-      // Spoken voice reply in user's Indic language
-      speakText(reply, assistantMsg.id);
+      // Spoken voice reply in user's Indic language - delivers natural spoken advice!
+      speakText(finalSpoken, assistantMsg.id);
     } catch (err: any) {
       console.error('Mentor error:', err);
       setMessages((prev) => [
@@ -307,26 +381,78 @@ export const VoiceMentor: React.FC = () => {
     }
   };
 
-  const speakText = (text: string, msgId: string) => {
-    if (!('speechSynthesis' in window)) return;
+  const stopActiveAudio = useCallback(() => {
+    if (activeAudioRef.current) {
+      activeAudioRef.current.pause();
+      activeAudioRef.current.currentTime = 0;
+      activeAudioRef.current = null;
+    }
+    if ('speechSynthesis' in window) {
+      window.speechSynthesis.cancel();
+    }
+    setSpeakingMessageId(null);
+  }, []);
 
-    window.speechSynthesis.cancel();
-
-    if (speakingMessageId === msgId) {
+  const fallbackSpeechSynthesis = useCallback((text: string, msgId: string) => {
+    if (!('speechSynthesis' in window)) {
       setSpeakingMessageId(null);
       return;
     }
+    try {
+      window.speechSynthesis.cancel();
+      const utterance = new SpeechSynthesisUtterance(text);
+      utterance.lang = currentLanguageConfig.speechCode || 'en-IN';
+      utterance.rate = 0.92;
+      utterance.onstart = () => setSpeakingMessageId(msgId);
+      utterance.onend = () => setSpeakingMessageId(null);
+      utterance.onerror = () => setSpeakingMessageId(null);
+      window.speechSynthesis.speak(utterance);
+    } catch {
+      setSpeakingMessageId(null);
+    }
+  }, [currentLanguageConfig.speechCode]);
 
-    const utterance = new SpeechSynthesisUtterance(text);
-    utterance.lang = currentLanguageConfig.speechCode;
-    utterance.rate = 0.92;
+  const speakText = useCallback((textToSpeak: string, msgId: string) => {
+    if (speakingMessageId === msgId) {
+      stopActiveAudio();
+      return;
+    }
 
-    utterance.onstart = () => setSpeakingMessageId(msgId);
-    utterance.onend = () => setSpeakingMessageId(null);
-    utterance.onerror = () => setSpeakingMessageId(null);
+    stopActiveAudio();
 
-    window.speechSynthesis.speak(utterance);
-  };
+    if (!textToSpeak || !textToSpeak.trim()) return;
+
+    const cleanedText = cleanTextForSpokenDelivery(textToSpeak);
+    if (!cleanedText) return;
+
+    setSpeakingMessageId(msgId);
+
+    // Primary: High-fidelity vernacular audio via server proxy (works in Hindi, Marathi, Tamil, Telugu, Bengali, Gujarati, Kannada, etc.)
+    try {
+      const audioUrl = voiceApi.getTtsAudioUrl(cleanedText, currentLanguageConfig.code);
+      const audio = new Audio(audioUrl);
+      activeAudioRef.current = audio;
+
+      audio.onended = () => {
+        if (activeAudioRef.current === audio) {
+          activeAudioRef.current = null;
+          setSpeakingMessageId(null);
+        }
+      };
+
+      audio.onerror = (e) => {
+        console.warn('Native TTS stream error, falling back to Web Speech API:', e);
+        fallbackSpeechSynthesis(cleanedText, msgId);
+      };
+
+      audio.play().catch((playErr) => {
+        console.warn('Audio play error, falling back to Web Speech API:', playErr);
+        fallbackSpeechSynthesis(cleanedText, msgId);
+      });
+    } catch (err) {
+      fallbackSpeechSynthesis(cleanedText, msgId);
+    }
+  }, [speakingMessageId, stopActiveAudio, currentLanguageConfig.code, fallbackSpeechSynthesis]);
 
   const loadVoiceHistory = async () => {
     try {
@@ -486,25 +612,50 @@ export const VoiceMentor: React.FC = () => {
 
                 <p className="whitespace-pre-wrap font-inter">{msg.text}</p>
 
-                {/* Read aloud button for assistant responses */}
+                {/* Spoken conversational takeaway callout & Audio Playback for assistant */}
                 {msg.sender === 'assistant' && (
-                  <div className="pt-1.5 flex items-center gap-2">
-                    <button
-                      onClick={() => speakText(msg.text, msg.id)}
-                      className="inline-flex items-center gap-1.5 text-xs font-semibold px-2.5 py-1 rounded-lg bg-[#0F5132]/10 dark:bg-emerald-950/60 text-[#0F5132] dark:text-[#34D399] hover:bg-[#0F5132]/20 transition-colors cursor-pointer font-poppins"
-                    >
-                      {speakingMessageId === msg.id ? (
-                        <>
-                          <Square className="w-3.5 h-3.5 text-red-500 fill-red-500" />
-                          <span>{t('mentor.stopListening') || 'Stop'}</span>
-                        </>
-                      ) : (
-                        <>
-                          <Volume2 className="w-3.5 h-3.5 text-[#0F5132] dark:text-[#34D399]" />
-                          <span>Listen Voice Reply</span>
-                        </>
-                      )}
-                    </button>
+                  <div className="pt-2 space-y-2">
+                    {msg.spokenText && (
+                      <div className="p-2.5 rounded-xl bg-emerald-500/10 dark:bg-emerald-400/10 border border-emerald-500/20 text-stone-800 dark:text-emerald-100 text-xs flex items-start gap-2">
+                        <Volume2 className="w-4 h-4 text-[#0F5132] dark:text-[#34D399] shrink-0 mt-0.5" />
+                        <div className="flex-1">
+                          <span className="font-semibold text-[#0F5132] dark:text-[#34D399] block text-[10px] uppercase tracking-wider font-poppins">
+                            🎙️ Spoken Mentor Summary ({msg.language || currentLanguageConfig.name})
+                          </span>
+                          <p className="font-inter italic text-stone-700 dark:text-emerald-200 mt-0.5 leading-snug">
+                            &ldquo;{msg.spokenText}&rdquo;
+                          </p>
+                        </div>
+                      </div>
+                    )}
+
+                    <div className="flex items-center gap-2">
+                      <button
+                        onClick={() => speakText(msg.spokenText || msg.text, msg.id)}
+                        className={`inline-flex items-center gap-2 text-xs font-semibold px-3 py-1.5 rounded-xl cursor-pointer font-poppins transition-all shadow-xs ${
+                          speakingMessageId === msg.id
+                            ? 'bg-red-500/15 text-red-600 dark:text-red-400 border border-red-500/30'
+                            : 'bg-[#0F5132]/10 dark:bg-emerald-950/60 text-[#0F5132] dark:text-[#34D399] hover:bg-[#0F5132]/20 border border-[#0F5132]/20 dark:border-emerald-800/40'
+                        }`}
+                      >
+                        {speakingMessageId === msg.id ? (
+                          <>
+                            <Square className="w-3.5 h-3.5 text-red-500 fill-red-500" />
+                            <span>Stop Voice</span>
+                            <span className="flex items-center gap-0.5 ml-1">
+                              <span className="w-1 h-3 bg-red-500 rounded-full animate-wave-1" />
+                              <span className="w-1 h-4 bg-red-500 rounded-full animate-wave-2" />
+                              <span className="w-1 h-2 bg-red-500 rounded-full animate-wave-3" />
+                            </span>
+                          </>
+                        ) : (
+                          <>
+                            <Volume2 className="w-3.5 h-3.5 text-[#0F5132] dark:text-[#34D399]" />
+                            <span>Listen Spoken Advice ({msg.language || currentLanguageConfig.name})</span>
+                          </>
+                        )}
+                      </button>
+                    </div>
                   </div>
                 )}
               </div>

@@ -106,6 +106,7 @@ export interface MentorMessage {
   id: string;
   sender: 'user' | 'assistant';
   text: string;
+  spokenText?: string;
   timestamp: string;
   language?: string;
   audioUrl?: string;

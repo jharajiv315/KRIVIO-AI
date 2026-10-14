@@ -11,6 +11,32 @@ import {
   ProductIdentityResponse,
 } from './types';
 
+function generateSpokenSummary(text: string): string {
+  if (!text) return '';
+  // Strip code blocks, markdown symbols, headers, bullets, and links
+  let clean = text
+    .replace(/```[\s\S]*?```/g, '')
+    .replace(/^#+\s+/gm, '')
+    .replace(/\*\*(.*?)\*\*/g, '$1')
+    .replace(/\*(.*?)\*/g, '$1')
+    .replace(/__(.*?)__/g, '$1')
+    .replace(/_(.*?)_/g, '$1')
+    .replace(/^\s*[-*+]\s+/gm, '')
+    .replace(/^\s*\d+\.\s+/gm, '')
+    .replace(/\[(.*?)\]\(.*?\)/g, '$1')
+    .replace(/[#*_~`]/g, '')
+    .replace(/\s+/g, ' ')
+    .trim();
+
+  // Extract first 2-3 spoken sentences
+  const sentences = clean.split(/(?<=[.!?।])\s+/).filter(Boolean);
+  if (sentences.length > 0) {
+    const spoken = sentences.slice(0, 3).join(' ');
+    return spoken.length > 300 ? spoken.slice(0, 297) + '...' : spoken;
+  }
+  return clean.slice(0, 280);
+}
+
 export class AITaskRouter {
   /**
    * Main entry point to route AI requests safely and context-aware
@@ -98,8 +124,11 @@ export class AITaskRouter {
 
     try {
       const parsed = JSON.parse(cleanRaw);
+      const resp = parsed.response || raw;
+      const spoken = parsed.spokenResponse || generateSpokenSummary(resp);
       return {
-        response: parsed.response || raw,
+        response: resp,
+        spokenResponse: spoken,
         intent: parsed.intent || 'GENERAL_ADVICE',
         entities: parsed.entities || {},
         recommendedActions: Array.isArray(parsed.recommendedActions) ? parsed.recommendedActions : [],
@@ -108,8 +137,10 @@ export class AITaskRouter {
       };
     } catch (parseErr) {
       // If output was plain text rather than JSON, wrap it cleanly
+      const resp = raw.trim();
       return {
-        response: raw.trim(),
+        response: resp,
+        spokenResponse: generateSpokenSummary(resp),
         intent: 'GENERAL_ADVICE',
         entities: {},
         recommendedActions: [],

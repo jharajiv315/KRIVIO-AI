@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useRef, useEffect } from 'react';
 import { motion } from 'motion/react';
 import {
   Mic,
@@ -25,6 +25,7 @@ import {
 } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 import { useI18n } from '../i18n/LanguageContext';
+import { voiceApi } from '../services/api';
 import { Logo } from './Logo';
 import { BeforeAfterSlider } from './common/BeforeAfterSlider';
 
@@ -37,6 +38,19 @@ export const LandingPage: React.FC<LandingPageProps> = ({ setCurrentTab, openPri
   const { user, openAuthModal } = useAuth();
   const { t, currentLanguageConfig } = useI18n();
   const [demoPlaying, setDemoPlaying] = useState(false);
+  const demoAudioRef = useRef<HTMLAudioElement | null>(null);
+
+  useEffect(() => {
+    return () => {
+      if (demoAudioRef.current) {
+        demoAudioRef.current.pause();
+        demoAudioRef.current = null;
+      }
+      if ('speechSynthesis' in window) {
+        window.speechSynthesis.cancel();
+      }
+    };
+  }, []);
 
   // Hero interactive showcase state
   const [heroTab, setHeroTab] = useState<'studio' | 'mentor'>('studio');
@@ -82,20 +96,83 @@ export const LandingPage: React.FC<LandingPageProps> = ({ setCurrentTab, openPri
     }
   };
 
-  const playDemoAudio = () => {
-    setDemoPlaying(true);
+  const fallbackDemoSpeech = (text: string) => {
     if ('speechSynthesis' in window) {
       window.speechSynthesis.cancel();
-      const demoText = t('mentor.welcomeMessage') || 'Namaste! Main aapka KRIVIO business mentor hoon. Aapke hastakala utpaad ki sahi keemat aur digital listing mein main aapki madad kar sakta hoon.';
-      const utterance = new SpeechSynthesisUtterance(demoText);
+      const utterance = new SpeechSynthesisUtterance(text);
       utterance.lang = currentLanguageConfig.speechCode || 'en-IN';
       utterance.rate = 0.95;
-      utterance.pitch = 1.0;
       utterance.onend = () => setDemoPlaying(false);
       utterance.onerror = () => setDemoPlaying(false);
       window.speechSynthesis.speak(utterance);
     } else {
       setTimeout(() => setDemoPlaying(false), 2500);
+    }
+  };
+
+  const playDemoAudio = () => {
+    if (demoPlaying) {
+      if (demoAudioRef.current) {
+        demoAudioRef.current.pause();
+        demoAudioRef.current.currentTime = 0;
+        demoAudioRef.current = null;
+      }
+      if ('speechSynthesis' in window) {
+        window.speechSynthesis.cancel();
+      }
+      setDemoPlaying(false);
+      return;
+    }
+
+    setDemoPlaying(true);
+
+    const getRegionalDemoText = () => {
+      const code = currentLanguageConfig.code as string;
+      if (code === 'hi') {
+        return 'नमस्ते! मैं आपका कृवियो बिज़नेस मेंटर हूँ। आपके हस्तशिल्प उत्पाद की सही कीमत और ऑनलाइन बिक्री में मैं आपकी पूरी मदद करूँगा।';
+      }
+      if (code === 'mr') {
+        return 'नमस्कार! मी तुमचा कृवियो व्यवसाय मार्गदर्शक आहे. आपल्या हस्तकला उत्पादनाची योग्य किंमत आणि ऑनलाइन विक्रीसाठी मी मदत करू शकतो.';
+      }
+      if (code === 'ta') {
+        return 'வணக்கம்! நான் உங்கள் கிரிவியோ வணிக வழிகாட்டி. உங்கள் கைவினைப் பொருட்களின் நியாயமான விலை மற்றும் ஆன்லைன் விற்பனைக்கு நான் உதவுவேன்.';
+      }
+      if (code === 'te') {
+        return 'నమస్కారం! నేను మీ క్రివియో వ్యాపార గురువుని. మీ చేతివృత్తుల ఉత్పత్తుల ధర మరియు ఆన్‌లైన్ అమ్మకాలలో నేను మీకు సహాయం చేస్తాను.';
+      }
+      if (code === 'bn') {
+        return 'নমস্কার! আমি আপনার ক্রিভিও বিজনেস মেন্টর। আপনার হস্তশিল্প পণ্যের সঠিক দাম ও অনলাইন বিক্রিতে আমি সাহায্য করব।';
+      }
+      if (code === 'gu') {
+        return 'નમસ્તે! હું તમારો ક્રિવિયો બિઝનેસ મેન્ટર છું. તમારા હસ્તકલા ઉત્પાદનોની સાચી કિંમત અને ઓનલાઇન વેચાણમાં મદદ કરીશ.';
+      }
+      if (code === 'as') {
+        return 'নমস্কাৰ! মই আপোনাৰ ক্ৰিভিঅ’ ব্যৱসায় মেণ্টৰ। হস্তশিল্পৰ সঠিক মূল্য আৰু ডিজিটেল বিক্ৰীৰ বাবে সহায় কৰিম।';
+      }
+      return 'Namaste! I am your KRIVIO business mentor. I can help you calculate fair craft pricing, optimize photos, and sell on ONDC and marketplaces.';
+    };
+
+    const demoText = getRegionalDemoText();
+
+    try {
+      const ttsUrl = voiceApi.getTtsAudioUrl(demoText, currentLanguageConfig.code);
+      const audio = new Audio(ttsUrl);
+      demoAudioRef.current = audio;
+
+      audio.onended = () => {
+        setDemoPlaying(false);
+        demoAudioRef.current = null;
+      };
+
+      audio.onerror = () => {
+        fallbackDemoSpeech(demoText);
+      };
+
+      audio.play().catch(() => {
+        fallbackDemoSpeech(demoText);
+      });
+    } catch {
+      fallbackDemoSpeech(demoText);
     }
   };
 

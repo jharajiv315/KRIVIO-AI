@@ -66,6 +66,7 @@ export interface AIRequestContext {
 
 export interface MentorResponse {
   response: string;
+  spokenResponse?: string;
   intent: string;
   entities: Record<string, any>;
   recommendedActions: string[];
