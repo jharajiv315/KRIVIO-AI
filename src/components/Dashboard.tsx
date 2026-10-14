@@ -17,6 +17,8 @@ import { SettingsView } from './SettingsView';
 import { BusinessProfileView } from './BusinessProfileView';
 import { ImageStudio } from './ImageStudio';
 import { PublicStorefront } from './PublicStorefront';
+import { RadialHealthGauge } from './common/RadialHealthGauge';
+import { ArtisanRoadmap } from './common/ArtisanRoadmap';
 import { getProductThumbnail, getFallbackCraftThumbnail } from '../utils/productThumbnail';
 import {
   LayoutDashboard,
@@ -345,7 +347,7 @@ export const Dashboard: React.FC<DashboardProps> = ({ currentTab, setCurrentTab,
           <div className="space-y-6 sm:space-y-8 animate-in fade-in duration-200">
             {/* Executive Workspace Banner */}
             <div className="bg-gradient-to-r from-[#0F5132] via-[#123524] to-[#0B1911] text-white p-5 sm:p-7 md:p-8 rounded-3xl shadow-xl border border-[#0F5132]/30 relative overflow-hidden">
-              <div className="flex flex-col md:flex-row md:items-center justify-between gap-5 relative z-10">
+              <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-6 relative z-10">
                 <div className="space-y-2">
                   <div className="flex flex-wrap items-center gap-2">
                     <span className="px-2.5 py-0.5 rounded-full text-xs font-bold uppercase tracking-wider bg-[#D4AF37] text-[#1A1A1A] font-poppins">
@@ -360,35 +362,45 @@ export const Dashboard: React.FC<DashboardProps> = ({ currentTab, setCurrentTab,
                     {user.businessName || 'Your Artisan Enterprise'}
                   </h1>
                   <p className="text-xs sm:text-sm text-emerald-100/90 font-inter">
-                    Marketplace Readiness:{' '}
-                    <strong className="text-[#D4AF37] font-semibold">{healthScoreDisplay}</strong>
+                    AI Business Workspace • Zero Middleman Platform
                   </p>
                 </div>
 
-                {/* 2 Primary Core Actions */}
-                <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-3 shrink-0">
-                  <button
-                    onClick={() => setCurrentTab('products')}
-                    className="inline-flex items-center justify-center gap-2 px-5 py-3 bg-white text-[#0F5132] hover:bg-stone-100 font-bold text-xs sm:text-sm rounded-xl shadow-md transition-all font-poppins active:scale-98 cursor-pointer min-h-[44px]"
-                  >
-                    <Plus className="w-4 h-4 text-[#0F5132]" />
-                    <span>{t('product.addProduct')}</span>
-                  </button>
+                {/* Health Dial & Actions Combo */}
+                <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-4 shrink-0">
+                  <RadialHealthGauge
+                    score={stats?.healthScore || 85}
+                    size={84}
+                    strokeWidth={7}
+                    label="Readiness Index"
+                    className="bg-black/25 p-2.5 rounded-2xl backdrop-blur-xs border border-white/10"
+                  />
 
-                  <button
-                    onClick={() => setCurrentTab('storefront')}
-                    className="inline-flex items-center justify-center gap-2 px-5 py-3 bg-[#D4AF37] hover:bg-[#C29F2B] text-[#1A1A1A] font-bold text-xs sm:text-sm rounded-xl shadow-md transition-all font-poppins active:scale-98 cursor-pointer min-h-[44px]"
-                  >
-                    <Store className="w-4 h-4" />
-                    <span>{t('dashboard.viewStorefront')}</span>
-                  </button>
+                  {/* 2 Primary Core Actions */}
+                  <div className="flex flex-col sm:flex-row items-stretch gap-2.5">
+                    <button
+                      onClick={() => setCurrentTab('products')}
+                      className="inline-flex items-center justify-center gap-2 px-5 py-3 bg-white text-[#0F5132] hover:bg-stone-100 font-bold text-xs sm:text-sm rounded-xl shadow-md transition-all font-poppins active:scale-98 cursor-pointer hover-shimmer relative overflow-hidden min-h-[44px]"
+                    >
+                      <Plus className="w-4 h-4 text-[#0F5132]" />
+                      <span>{t('product.addProduct')}</span>
+                    </button>
+
+                    <button
+                      onClick={() => setCurrentTab('storefront')}
+                      className="inline-flex items-center justify-center gap-2 px-5 py-3 bg-[#D4AF37] hover:bg-[#C29F2B] text-[#1A1A1A] font-bold text-xs sm:text-sm rounded-xl shadow-md transition-all font-poppins active:scale-98 cursor-pointer hover-shimmer relative overflow-hidden min-h-[44px]"
+                    >
+                      <Store className="w-4 h-4" />
+                      <span>{t('dashboard.viewStorefront')}</span>
+                    </button>
+                  </div>
                 </div>
               </div>
             </div>
 
-            {/* 3 Focused Core Metric Cards */}
+            {/* 3 Focused Core Metric Cards with Specular Highlight */}
             <div className="grid grid-cols-1 sm:grid-cols-3 gap-3.5 sm:gap-4">
-              <div className="bg-white dark:bg-[#13251B] p-5 rounded-2xl border border-[#0F5132]/15 dark:border-emerald-800/60 shadow-2xs space-y-2">
+              <div className="krivio-card-specular bg-white dark:bg-[#13251B] p-5 rounded-2xl border border-[#0F5132]/15 dark:border-emerald-800/60 shadow-2xs space-y-2 hover:border-[#0F5132]/35 transition-all">
                 <div className="flex items-center justify-between">
                   <span className="text-xs sm:text-sm font-semibold text-stone-600 dark:text-emerald-200/80">
                     {t('dashboard.totalProducts')}
@@ -397,13 +409,13 @@ export const Dashboard: React.FC<DashboardProps> = ({ currentTab, setCurrentTab,
                     <Package className="w-4 h-4" />
                   </div>
                 </div>
-                <div className="text-2xl font-extrabold text-stone-900 dark:text-white font-poppins">
+                <div className="text-2xl font-extrabold text-stone-900 dark:text-white font-poppins tabular-nums">
                   {formatNumber(stats?.totalProducts || recentProducts.length)}
                 </div>
                 <p className="text-xs text-stone-500 dark:text-emerald-300/70">In your catalog</p>
               </div>
 
-              <div className="bg-white dark:bg-[#13251B] p-5 rounded-2xl border border-[#0F5132]/15 dark:border-emerald-800/60 shadow-2xs space-y-2">
+              <div className="krivio-card-specular bg-white dark:bg-[#13251B] p-5 rounded-2xl border border-[#0F5132]/15 dark:border-emerald-800/60 shadow-2xs space-y-2 hover:border-[#0F5132]/35 transition-all">
                 <div className="flex items-center justify-between">
                   <span className="text-xs sm:text-sm font-semibold text-stone-600 dark:text-emerald-200/80">
                     {t('dashboard.marketplaceReady')}
@@ -412,13 +424,13 @@ export const Dashboard: React.FC<DashboardProps> = ({ currentTab, setCurrentTab,
                     <Store className="w-4 h-4" />
                   </div>
                 </div>
-                <div className="text-2xl font-extrabold text-stone-900 dark:text-white font-poppins">
+                <div className="text-2xl font-extrabold text-stone-900 dark:text-white font-poppins tabular-nums">
                   {formatNumber(stats?.marketplaceReadyProducts || 0)}
                 </div>
                 <p className="text-xs text-[#2E7D32] dark:text-emerald-400 font-medium">Ready for Amazon, Meesho & ONDC</p>
               </div>
 
-              <div className="bg-white dark:bg-[#13251B] p-5 rounded-2xl border border-[#0F5132]/15 dark:border-emerald-800/60 shadow-2xs space-y-2">
+              <div className="krivio-card-specular bg-white dark:bg-[#13251B] p-5 rounded-2xl border border-[#0F5132]/15 dark:border-emerald-800/60 shadow-2xs space-y-2 hover:border-[#0F5132]/35 transition-all">
                 <div className="flex items-center justify-between">
                   <span className="text-xs sm:text-sm font-semibold text-stone-600 dark:text-emerald-200/80">
                     {t('dashboard.estimatedRevenue')}
@@ -427,12 +439,23 @@ export const Dashboard: React.FC<DashboardProps> = ({ currentTab, setCurrentTab,
                     <TrendingUp className="w-4 h-4" />
                   </div>
                 </div>
-                <div className="text-2xl font-extrabold text-stone-900 dark:text-white font-poppins">
+                <div className="text-2xl font-extrabold text-stone-900 dark:text-white font-poppins tabular-nums">
                   {formatCurrency(stats?.estimatedMonthlyRevenue ?? 0)}
                 </div>
                 <p className="text-xs text-stone-500 dark:text-emerald-300/70">Estimated catalog value</p>
               </div>
             </div>
+
+            {/* Artisan Commercial Milestone Roadmap */}
+            <ArtisanRoadmap
+              completedSteps={{
+                profile: !!(user.businessName && user.location),
+                product: (stats?.totalProducts || recentProducts.length) > 0,
+                photo: recentProducts.some((p) => !!p.imageUrl),
+                storefront: (stats?.marketplaceReadyProducts || 0) > 0,
+              }}
+              onNavigateTab={setCurrentTab}
+            />
 
             {/* Recent Products Shelf & Action Tasks */}
             <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 sm:gap-8">

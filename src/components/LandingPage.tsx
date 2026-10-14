@@ -16,10 +16,17 @@ import {
   FileSpreadsheet,
   Landmark,
   BadgeCheck,
+  Calculator,
+  TrendingUp,
+  Coins,
+  Palette,
+  Wand2,
+  Layers,
 } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 import { useI18n } from '../i18n/LanguageContext';
 import { Logo } from './Logo';
+import { BeforeAfterSlider } from './common/BeforeAfterSlider';
 
 interface LandingPageProps {
   setCurrentTab: (tab: string) => void;
@@ -30,6 +37,34 @@ export const LandingPage: React.FC<LandingPageProps> = ({ setCurrentTab, openPri
   const { user, openAuthModal } = useAuth();
   const { t, currentLanguageConfig } = useI18n();
   const [demoPlaying, setDemoPlaying] = useState(false);
+
+  // Hero interactive showcase state
+  const [heroTab, setHeroTab] = useState<'studio' | 'mentor'>('studio');
+  const [craftPreset, setCraftPreset] = useState<'pottery' | 'textile'>('pottery');
+
+  // Interactive craft pricing calculator state
+  const [calcMaterial, setCalcMaterial] = useState<number>(850);
+  const [calcHours, setCalcHours] = useState<number>(14);
+  const [calcWage, setCalcWage] = useState<number>(120);
+
+  const calcLabor = calcHours * calcWage;
+  const calcCogs = calcMaterial + calcLabor;
+  const calcWholesale = Math.round(calcCogs * 1.3);
+  const calcRetail = Math.round(calcCogs * 1.65);
+  const middlemanOffer = Math.round(calcCogs * 0.68);
+  const artisanGain = calcRetail - middlemanOffer;
+
+  const craftClusters = [
+    { city: 'Varanasi', state: 'Uttar Pradesh', craft: 'Pure Katan Silk Handloom', gi: 'GI Tag' },
+    { city: 'Channapatna', state: 'Karnataka', craft: 'Lacquerware Wooden Toys', gi: 'GI Tag' },
+    { city: 'Kutch', state: 'Gujarat', craft: 'Ajrakh Natural Dye Block Print', gi: 'GI Tag' },
+    { city: 'Jaipur', state: 'Rajasthan', craft: 'Cobalt Blue Glazed Pottery', gi: 'GI Tag' },
+    { city: 'Srinagar', state: 'Kashmir', craft: 'Hand-spun Pashmina & Sozni', gi: 'GI Tag' },
+    { city: 'Madhubani', state: 'Bihar', craft: 'Mithila Folk Painting', gi: 'GI Tag' },
+    { city: 'Bastar', state: 'Chhattisgarh', craft: 'Dhokra Lost-Wax Bell Metal', gi: 'GI Tag' },
+    { city: 'Pochampally', state: 'Telangana', craft: 'Double Ikat Handloom', gi: 'GI Tag' },
+    { city: 'Tanjore', state: 'Tamil Nadu', craft: '22k Gold Foil Sacred Art', gi: 'GI Tag' },
+  ];
 
   const handlePrimaryCTA = () => {
     if (user) {
@@ -123,11 +158,10 @@ export const LandingPage: React.FC<LandingPageProps> = ({ setCurrentTab, openPri
                 <BadgeCheck className="w-4 h-4 text-[#0F5132] dark:text-emerald-400" />
                 <span className="font-poppins">{t('landing.heroBadge') || 'Vocal for Local • Digital Business Mentor'}</span>
               </div>
-
-              <h1 className="text-2xl sm:text-4xl lg:text-5xl font-extrabold tracking-tight text-[#0F5132] dark:text-white leading-[1.2] font-poppins">
-                {t('landing.heroTitle1')}{' '}
-                <span className="text-[#0F5132] dark:text-emerald-400 underline decoration-[#D4AF37] decoration-4 underline-offset-8">
-                  {t('landing.heroTitle2')}
+              <h1 className="text-3xl sm:text-5xl lg:text-6xl font-normal tracking-tight text-[#0F5132] dark:text-white leading-[1.15] font-editorial">
+                Empowering India's Artisans with{' '}
+                <span className="italic text-[#0F5132] dark:text-emerald-300 underline decoration-[#D4AF37] decoration-4 underline-offset-8">
+                  Voice-Guided Commerce
                 </span>
               </h1>
 
@@ -140,7 +174,7 @@ export const LandingPage: React.FC<LandingPageProps> = ({ setCurrentTab, openPri
                 <button
                   id="btn-hero-start-journey"
                   onClick={handlePrimaryCTA}
-                  className="w-full sm:w-auto inline-flex items-center justify-center gap-2 px-6 py-3.5 bg-[#0F5132] hover:bg-[#0B3D26] text-white font-poppins font-bold text-sm rounded-xl shadow-md transition-all active:scale-98 cursor-pointer"
+                  className="w-full sm:w-auto inline-flex items-center justify-center gap-2 px-6 py-3.5 bg-[#0F5132] hover:bg-[#0B3D26] text-white font-poppins font-bold text-sm rounded-xl shadow-md transition-all active:scale-98 cursor-pointer hover-shimmer relative overflow-hidden"
                 >
                   <Package className="w-4 h-4 text-[#D4AF37]" />
                   <span>Prepare Your First Product</span>
@@ -186,66 +220,175 @@ export const LandingPage: React.FC<LandingPageProps> = ({ setCurrentTab, openPri
               </div>
             </div>
 
-            {/* Right Visual: Interactive Voice Mentor Preview */}
+            {/* Right Visual: Interactive Craft Showcase & Studio Preview */}
             <div className="lg:col-span-5">
-              <div className="bg-white dark:bg-[#13251B] rounded-2xl p-4 sm:p-6 shadow-xl border border-[#0F5132]/15 dark:border-emerald-800/60 max-w-md mx-auto space-y-4">
-                {/* Header */}
+              <div className="krivio-card-specular bg-white dark:bg-[#13251B] rounded-3xl p-4 sm:p-5 shadow-xl border border-[#0F5132]/15 dark:border-emerald-800/60 max-w-md mx-auto space-y-4">
+                {/* Dual Mode Switcher Header */}
                 <div className="flex items-center justify-between pb-3 border-b border-stone-100 dark:border-emerald-900/40">
-                  <Logo variant="horizontal" size="xs" showTagline={false} />
-                  <span className="inline-flex items-center gap-1.5 text-[11px] font-semibold text-[#0F5132] dark:text-emerald-300 bg-[#0F5132]/10 dark:bg-emerald-950 px-2.5 py-0.5 rounded-full font-poppins">
-                    <span className="w-2 h-2 rounded-full bg-emerald-500" />
-                    Live Voice Interface
+                  <div className="flex items-center p-1 bg-stone-100 dark:bg-[#0E2016] rounded-xl border border-stone-200/60 dark:border-emerald-900/40">
+                    <button
+                      onClick={() => setHeroTab('studio')}
+                      className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-bold font-poppins transition-all cursor-pointer ${
+                        heroTab === 'studio'
+                          ? 'bg-[#0F5132] text-white shadow-xs'
+                          : 'text-stone-600 dark:text-emerald-200 hover:text-stone-900'
+                      }`}
+                    >
+                      <Camera className="w-3.5 h-3.5 text-[#D4AF37]" />
+                      <span>Studio Quality</span>
+                    </button>
+                    <button
+                      onClick={() => setHeroTab('mentor')}
+                      className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-bold font-poppins transition-all cursor-pointer ${
+                        heroTab === 'mentor'
+                          ? 'bg-[#0F5132] text-white shadow-xs'
+                          : 'text-stone-600 dark:text-emerald-200 hover:text-stone-900'
+                      }`}
+                    >
+                      <Mic className="w-3.5 h-3.5 text-[#D4AF37]" />
+                      <span>Voice Mentor</span>
+                    </button>
+                  </div>
+                  <span className="inline-flex items-center gap-1.5 text-[11px] font-semibold text-[#0F5132] dark:text-emerald-300 bg-[#0F5132]/10 dark:bg-emerald-950 px-2.5 py-1 rounded-full font-poppins">
+                    <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" />
+                    Interactive
                   </span>
                 </div>
 
-                {/* Practical Sample Exchange */}
-                <div className="space-y-3 text-xs font-inter">
-                  <div className="flex items-start gap-2.5">
-                    <div className="w-7 h-7 rounded-full bg-[#D4AF37]/20 text-[#8B6E10] font-bold flex items-center justify-center shrink-0 text-xs font-poppins">
-                      A
-                    </div>
-                    <div className="bg-[#F8F9F5] dark:bg-[#0E2016] p-3 rounded-2xl rounded-tl-xs text-stone-800 dark:text-emerald-100 border border-stone-100 dark:border-emerald-900/30">
-                      <p className="font-semibold text-[10px] text-[#0F5132] dark:text-emerald-300 mb-0.5 font-poppins">
-                        Artisan (Varanasi, UP)
-                      </p>
-                      "How should I price a pure silk Banarasi dupatta with Zari border so I make a fair profit on ONDC?"
-                    </div>
-                  </div>
-
-                  <div className="flex items-start gap-2.5">
-                    <div className="w-7 h-7 rounded-full bg-[#0F5132] text-white font-bold flex items-center justify-center shrink-0 text-xs font-poppins">
-                      K
-                    </div>
-                    <div className="bg-[#0F5132]/5 dark:bg-emerald-950/60 p-3 rounded-2xl rounded-tr-xs text-stone-800 dark:text-emerald-100 border border-[#0F5132]/15 dark:border-emerald-800/60 space-y-1.5">
-                      <div className="flex items-center justify-between">
-                        <span className="font-bold text-[11px] text-[#0F5132] dark:text-emerald-300 font-poppins">
-                          KRIVIO AI Mentor
-                        </span>
-                        <span className="text-[10px] text-[#0F5132] dark:text-emerald-400 font-medium">
-                          Hindi / English Voice
-                        </span>
+                {heroTab === 'studio' ? (
+                  <div className="space-y-3">
+                    {/* Preset Switcher */}
+                    <div className="flex items-center justify-between gap-2">
+                      <span className="text-[11px] font-semibold text-stone-500 dark:text-emerald-300/70 font-poppins">
+                        Drag handle to wipe:
+                      </span>
+                      <div className="flex gap-1.5">
+                        <button
+                          onClick={() => setCraftPreset('pottery')}
+                          className={`px-2.5 py-1 rounded-full text-[11px] font-semibold font-poppins transition-all cursor-pointer ${
+                            craftPreset === 'pottery'
+                              ? 'bg-[#0F5132]/15 text-[#0F5132] dark:bg-emerald-900/60 dark:text-emerald-200 border border-[#0F5132]/30'
+                              : 'text-stone-500 hover:bg-stone-100 dark:hover:bg-emerald-950'
+                          }`}
+                        >
+                          Pottery
+                        </button>
+                        <button
+                          onClick={() => setCraftPreset('textile')}
+                          className={`px-2.5 py-1 rounded-full text-[11px] font-semibold font-poppins transition-all cursor-pointer ${
+                            craftPreset === 'textile'
+                              ? 'bg-[#0F5132]/15 text-[#0F5132] dark:bg-emerald-900/60 dark:text-emerald-200 border border-[#0F5132]/30'
+                              : 'text-stone-500 hover:bg-stone-100 dark:hover:bg-emerald-950'
+                          }`}
+                        >
+                          Handloom Saree
+                        </button>
                       </div>
-                      <p className="leading-relaxed text-xs break-words">
-                        "For pure silk with hand-woven Zari, standard raw material cost is ~₹1,200 and weaving labor is ~₹800. Adding 40% artisan margin and platform fee yields a retail price of ₹3,250. This protects your craftsmanship and remains competitive with metro boutiques."
-                      </p>
                     </div>
-                  </div>
-                </div>
 
-                {/* Primary Trigger */}
-                <button
-                  onClick={() => setCurrentTab('mentor')}
-                  className="w-full py-2.5 bg-[#0F5132] hover:bg-[#0B3D26] text-white font-poppins font-bold text-xs rounded-xl flex items-center justify-center gap-2 transition-all cursor-pointer shadow-xs"
-                >
-                  <Mic className="w-3.5 h-3.5 text-[#D4AF37]" />
-                  <span>{t('dashboard.actionVoiceMentor') || 'Open Voice Mentor'}</span>
-                  <ArrowRight className="w-3.5 h-3.5" />
-                </button>
+                    {/* Interactive 60fps Wipe Slider */}
+                    <BeforeAfterSlider
+                      beforeImage={
+                        craftPreset === 'pottery'
+                          ? 'https://images.unsplash.com/photo-1610030469983-98e550d6193c?auto=format&fit=crop&w=800&q=80'
+                          : 'https://images.unsplash.com/photo-1605651202774-7d573fd3f12d?auto=format&fit=crop&w=800&q=80'
+                      }
+                      afterImage={
+                        craftPreset === 'pottery'
+                          ? 'https://images.unsplash.com/photo-1565193566173-7a0ee3dbe261?auto=format&fit=crop&w=800&q=80'
+                          : 'https://images.unsplash.com/photo-1617627143750-d86bc21e42bb?auto=format&fit=crop&w=800&q=80'
+                      }
+                      beforeLabel="Workshop Phone Photo"
+                      afterLabel="Amazon/ONDC Studio Standard"
+                      aspectRatioClass="aspect-4/3"
+                    />
+
+                    <div className="p-2.5 rounded-xl bg-stone-50 dark:bg-[#0E2016] border border-stone-200/60 dark:border-emerald-900/40 text-[11px] text-stone-600 dark:text-emerald-200/80 font-inter flex items-center justify-between">
+                      <span>✓ Studio lighting normalization</span>
+                      <span className="font-semibold text-[#0F5132] dark:text-emerald-300">Amazon & ONDC Ready</span>
+                    </div>
+
+                    <button
+                      onClick={() => setCurrentTab('images')}
+                      className="w-full py-2.5 bg-[#0F5132] hover:bg-[#0B3D26] text-white font-poppins font-bold text-xs rounded-xl flex items-center justify-center gap-2 hover-shimmer shadow-xs transition-all cursor-pointer"
+                    >
+                      <Camera className="w-3.5 h-3.5 text-[#D4AF37]" />
+                      <span>Launch Image Studio on Your Photos</span>
+                      <ArrowRight className="w-3.5 h-3.5" />
+                    </button>
+                  </div>
+                ) : (
+                  <div className="space-y-3">
+                    {/* Practical Sample Exchange */}
+                    <div className="space-y-3 text-xs font-inter">
+                      <div className="flex items-start gap-2.5">
+                        <div className="w-7 h-7 rounded-full bg-[#D4AF37]/20 text-[#8B6E10] font-bold flex items-center justify-center shrink-0 text-xs font-poppins">
+                          A
+                        </div>
+                        <div className="bg-[#F8F9F5] dark:bg-[#0E2016] p-3 rounded-2xl rounded-tl-xs text-stone-800 dark:text-emerald-100 border border-stone-100 dark:border-emerald-900/30">
+                          <p className="font-semibold text-[10px] text-[#0F5132] dark:text-emerald-300 mb-0.5 font-poppins">
+                            Artisan (Varanasi, UP)
+                          </p>
+                          "How should I price a pure silk Banarasi dupatta with Zari border so I make a fair profit on ONDC?"
+                        </div>
+                      </div>
+
+                      <div className="flex items-start gap-2.5">
+                        <div className="w-7 h-7 rounded-full bg-[#0F5132] text-white font-bold flex items-center justify-center shrink-0 text-xs font-poppins">
+                          K
+                        </div>
+                        <div className="bg-[#0F5132]/5 dark:bg-emerald-950/60 p-3 rounded-2xl rounded-tr-xs text-stone-800 dark:text-emerald-100 border border-[#0F5132]/15 dark:border-emerald-800/60 space-y-1.5">
+                          <div className="flex items-center justify-between">
+                            <span className="font-bold text-[11px] text-[#0F5132] dark:text-emerald-300 font-poppins">
+                              KRIVIO AI Mentor
+                            </span>
+                            <span className="text-[10px] text-[#0F5132] dark:text-emerald-400 font-medium">
+                              Hindi / English Voice
+                            </span>
+                          </div>
+                          <p className="leading-relaxed text-xs break-words">
+                            "For pure silk with hand-woven Zari, standard raw material cost is ~₹1,200 and weaving labor is ~₹800. Adding 40% artisan margin and platform fee yields a retail price of ₹3,250. This protects your craftsmanship and remains competitive with metro boutiques."
+                          </p>
+                        </div>
+                      </div>
+                    </div>
+
+                    {/* Primary Trigger */}
+                    <button
+                      onClick={() => setCurrentTab('mentor')}
+                      className="w-full py-2.5 bg-[#0F5132] hover:bg-[#0B3D26] text-white font-poppins font-bold text-xs rounded-xl flex items-center justify-center gap-2 hover-shimmer shadow-xs transition-all cursor-pointer"
+                    >
+                      <Mic className="w-3.5 h-3.5 text-[#D4AF37]" />
+                      <span>{t('dashboard.actionVoiceMentor') || 'Open Voice Mentor'}</span>
+                      <ArrowRight className="w-3.5 h-3.5" />
+                    </button>
+                  </div>
+                )}
               </div>
             </div>
           </div>
         </div>
       </section>
+
+      {/* Indian Craft Clusters Infinite Marquee */}
+      <div className="relative py-3.5 bg-stone-100/90 dark:bg-[#08150D] border-b border-[#0F5132]/10 dark:border-emerald-900/40 overflow-hidden select-none">
+        <div className="animate-marquee items-center gap-5 text-xs font-poppins">
+          {[...craftClusters, ...craftClusters].map((cluster, i) => (
+            <div
+              key={i}
+              className="inline-flex items-center gap-2 px-3 py-1.5 rounded-full bg-white dark:bg-[#13251B] border border-stone-200 dark:border-emerald-800/60 shadow-2xs whitespace-nowrap"
+            >
+              <span className="w-1.5 h-1.5 rounded-full bg-[#D4AF37]" />
+              <span className="font-bold text-[#0F5132] dark:text-emerald-300">{cluster.city}, {cluster.state}</span>
+              <span className="text-stone-300 dark:text-emerald-500/40">•</span>
+              <span className="text-stone-700 dark:text-emerald-100/90 text-[11px]">{cluster.craft}</span>
+              <span className="text-[9px] font-bold text-[#D4AF37] bg-[#D4AF37]/10 px-1.5 py-0.5 rounded">
+                {cluster.gi}
+              </span>
+            </div>
+          ))}
+        </div>
+      </div>
 
       {/* 6 Real Platform Capabilities */}
       <section id="product" className="py-14 lg:py-20 bg-white dark:bg-[#0E2016] border-b border-[#0F5132]/10 dark:border-emerald-900/30 scroll-mt-20">
@@ -367,6 +510,180 @@ export const LandingPage: React.FC<LandingPageProps> = ({ setCurrentTab, openPri
                 <Store className="w-3.5 h-3.5" />
                 <span>Direct customer connection</span>
               </div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      {/* Interactive Fair Pricing & Margin Protection Calculator */}
+      <section id="calculator" className="py-14 lg:py-20 bg-stone-50/70 dark:bg-[#07130C] border-b border-[#0F5132]/10 dark:border-emerald-900/30 scroll-mt-20">
+        <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8">
+          <div className="text-center max-w-2xl mx-auto mb-12 space-y-2">
+            <span className="text-xs font-bold text-[#D4AF37] uppercase tracking-wider font-poppins flex items-center justify-center gap-1.5">
+              <Calculator className="w-3.5 h-3.5" />
+              Transparent Economics
+            </span>
+            <h2 className="text-2xl sm:text-3xl lg:text-4xl font-normal font-editorial text-stone-900 dark:text-white">
+              Fair Artisan Pricing & Margin Calculator
+            </h2>
+            <p className="text-xs sm:text-sm text-stone-600 dark:text-emerald-200/80 font-inter">
+              Calculate genuine material and labor costs. See how direct digital selling protects your margins compared to traditional middleman exploitation.
+            </p>
+          </div>
+
+          <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 items-center">
+            {/* Sliders Input Panel */}
+            <div className="lg:col-span-7 bg-white dark:bg-[#13251B] p-6 sm:p-8 rounded-3xl border border-stone-200 dark:border-emerald-800/60 shadow-xs space-y-6">
+              <div className="flex items-center justify-between pb-2 border-b border-stone-100 dark:border-emerald-900/40">
+                <h3 className="text-base font-bold font-poppins text-stone-900 dark:text-white flex items-center gap-2">
+                  <Coins className="w-4 h-4 text-[#D4AF37]" />
+                  <span>Input Crafting Realities</span>
+                </h3>
+                <span className="text-xs font-semibold text-[#0F5132] dark:text-emerald-400 font-inter bg-[#0F5132]/10 dark:bg-emerald-950 px-2.5 py-0.5 rounded-full">
+                  Live Calculator
+                </span>
+              </div>
+
+              {/* Slider 1: Material Cost */}
+              <div className="space-y-2">
+                <div className="flex justify-between items-center text-xs font-poppins">
+                  <label htmlFor="calc-material-slider" className="font-semibold text-stone-700 dark:text-emerald-200">
+                    Raw Material Cost (Clay, Silk, Brass, Dyes)
+                  </label>
+                  <span className="font-bold text-[#0F5132] dark:text-emerald-400 tabular-nums text-sm">
+                    ₹{calcMaterial.toLocaleString('en-IN')}
+                  </span>
+                </div>
+                <input
+                  id="calc-material-slider"
+                  type="range"
+                  min="200"
+                  max="4000"
+                  step="50"
+                  value={calcMaterial}
+                  onChange={(e) => setCalcMaterial(Number(e.target.value))}
+                  aria-label="Raw Material Cost in Rupees"
+                  className="w-full accent-[#0F5132] dark:accent-[#34D399] cursor-pointer"
+                />
+                <div className="flex justify-between text-[10px] text-stone-400 font-inter">
+                  <span>₹200 (Earthenware / Jute)</span>
+                  <span>₹4,000 (Pure Silk / Silver Zari)</span>
+                </div>
+              </div>
+
+              {/* Slider 2: Crafting Hours */}
+              <div className="space-y-2">
+                <div className="flex justify-between items-center text-xs font-poppins">
+                  <label htmlFor="calc-hours-slider" className="font-semibold text-stone-700 dark:text-emerald-200">
+                    Dedicated Crafting Time
+                  </label>
+                  <span className="font-bold text-[#0F5132] dark:text-emerald-400 tabular-nums text-sm">
+                    {calcHours} Hours
+                  </span>
+                </div>
+                <input
+                  id="calc-hours-slider"
+                  type="range"
+                  min="2"
+                  max="40"
+                  step="1"
+                  value={calcHours}
+                  onChange={(e) => setCalcHours(Number(e.target.value))}
+                  aria-label="Dedicated Crafting Time in Hours"
+                  className="w-full accent-[#0F5132] dark:accent-[#34D399] cursor-pointer"
+                />
+                <div className="flex justify-between text-[10px] text-stone-400 font-inter">
+                  <span>2 hrs (Quick Item)</span>
+                  <span>40 hrs (Masterpiece Weave)</span>
+                </div>
+              </div>
+
+              {/* Slider 3: Hourly Wage */}
+              <div className="space-y-2">
+                <div className="flex justify-between items-center text-xs font-poppins">
+                  <label htmlFor="calc-wage-slider" className="font-semibold text-stone-700 dark:text-emerald-200">
+                    Artisan Fair Hourly Wage
+                  </label>
+                  <span className="font-bold text-[#0F5132] dark:text-emerald-400 tabular-nums text-sm">
+                    ₹{calcWage}/hr
+                  </span>
+                </div>
+                <input
+                  id="calc-wage-slider"
+                  type="range"
+                  min="60"
+                  max="250"
+                  step="10"
+                  value={calcWage}
+                  onChange={(e) => setCalcWage(Number(e.target.value))}
+                  aria-label="Artisan Fair Hourly Wage in Rupees per hour"
+                  className="w-full accent-[#0F5132] dark:accent-[#34D399] cursor-pointer"
+                />
+                <div className="flex justify-between text-[10px] text-stone-400 font-inter">
+                  <span>₹60/hr (Base wage)</span>
+                  <span>₹250/hr (Master Craftsman)</span>
+                </div>
+              </div>
+            </div>
+
+            {/* Live Calculation Output Card */}
+            <div className="lg:col-span-5 krivio-card-specular bg-white dark:bg-[#13251B] p-6 sm:p-7 rounded-3xl border border-stone-200 dark:border-emerald-800/60 shadow-lg space-y-5">
+              <div className="flex items-center justify-between pb-3 border-b border-stone-100 dark:border-emerald-900/40">
+                <span className="text-xs font-bold uppercase tracking-wider text-[#D4AF37] font-poppins">
+                  Value Breakdown
+                </span>
+                <span className="text-[11px] font-semibold text-emerald-700 dark:text-emerald-300 bg-emerald-100 dark:bg-emerald-950 px-2 py-0.5 rounded-full">
+                  Zero Middleman Loss
+                </span>
+              </div>
+
+              <div className="space-y-2.5 font-inter text-xs">
+                <div className="flex justify-between py-1 border-b border-stone-100 dark:border-emerald-900/30">
+                  <span className="text-stone-500 dark:text-emerald-300/70">Raw Material:</span>
+                  <span className="font-semibold text-stone-800 dark:text-white tabular-nums">₹{calcMaterial.toLocaleString('en-IN')}</span>
+                </div>
+                <div className="flex justify-between py-1 border-b border-stone-100 dark:border-emerald-900/30">
+                  <span className="text-stone-500 dark:text-emerald-300/70">Fair Artisan Labor ({calcHours}h × ₹{calcWage}):</span>
+                  <span className="font-semibold text-stone-800 dark:text-white tabular-nums">₹{calcLabor.toLocaleString('en-IN')}</span>
+                </div>
+                <div className="flex justify-between py-1 border-b border-stone-100 dark:border-emerald-900/30 font-bold">
+                  <span className="text-stone-700 dark:text-emerald-200">Total True COGS:</span>
+                  <span className="text-stone-900 dark:text-white tabular-nums">₹{calcCogs.toLocaleString('en-IN')}</span>
+                </div>
+                <div className="flex justify-between py-1 border-b border-stone-100 dark:border-emerald-900/30">
+                  <span className="text-stone-500 dark:text-emerald-300/70">Recommended B2B Wholesale:</span>
+                  <span className="font-semibold text-stone-800 dark:text-white tabular-nums">₹{calcWholesale.toLocaleString('en-IN')}</span>
+                </div>
+              </div>
+
+              {/* Comparison Box */}
+              <div className="p-4 rounded-2xl bg-stone-50 dark:bg-[#0E2016] border border-stone-200 dark:border-emerald-900/50 space-y-3">
+                <div className="flex justify-between items-center text-xs">
+                  <span className="text-stone-500 dark:text-stone-400">Traditional Trader Payout:</span>
+                  <span className="font-bold text-red-600 dark:text-red-400 line-through tabular-nums">~₹{middlemanOffer.toLocaleString('en-IN')}</span>
+                </div>
+                <div className="flex justify-between items-center text-sm font-poppins font-bold pt-1 border-t border-stone-200/60 dark:border-emerald-900/40">
+                  <span className="text-[#0F5132] dark:text-emerald-400">Direct Retail / ONDC Price:</span>
+                  <span className="text-xl text-[#0F5132] dark:text-emerald-300 tabular-nums font-black">₹{calcRetail.toLocaleString('en-IN')}</span>
+                </div>
+                <div className="p-2.5 rounded-xl bg-emerald-50 dark:bg-emerald-950/60 border border-emerald-200 dark:border-emerald-800/60 text-center">
+                  <p className="text-xs font-bold text-[#0F5132] dark:text-emerald-300 font-poppins flex items-center justify-center gap-1">
+                    <TrendingUp className="w-3.5 h-3.5 text-[#D4AF37]" />
+                    Artisan Gains +₹{artisanGain.toLocaleString('en-IN')} More Per Piece
+                  </p>
+                  <p className="text-[10px] text-stone-500 dark:text-emerald-400/80 font-inter">
+                    100% retained by your workshop on ONDC / Direct channels
+                  </p>
+                </div>
+              </div>
+
+              <button
+                onClick={() => setCurrentTab('products')}
+                className="w-full py-3 bg-[#0F5132] hover:bg-[#0B3D26] text-white font-poppins font-bold text-xs rounded-xl flex items-center justify-center gap-2 hover-shimmer shadow-md transition-all cursor-pointer"
+              >
+                <span>Price & List Your Craft with KRIVIO</span>
+                <ArrowRight className="w-4 h-4 text-[#D4AF37]" />
+              </button>
             </div>
           </div>
         </div>

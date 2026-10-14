@@ -1,6 +1,7 @@
 import React from 'react';
 import { RefreshCw, Image as ImageIcon, Wand2, Eye, Columns2 } from 'lucide-react';
 import { ImageStudioGeneratedAsset } from '../../services/api';
+import { BeforeAfterSlider } from '../common/BeforeAfterSlider';
 
 export type ViewMode = 'split' | 'enhanced' | 'original';
 
@@ -116,29 +117,15 @@ export const StudioPreview: React.FC<StudioPreviewProps> = ({
         {/* View Mode Rendering */}
         {currentAsset ? (
           viewMode === 'split' ? (
-            <div className="grid grid-cols-2 w-full h-full">
-              {/* Left: Original Photo */}
-              <div className="relative h-full border-r border-white/20 dark:border-emerald-900/60 overflow-hidden bg-stone-900/5 group">
-                <img
-                  src={originalImage || currentAsset.originalImage}
-                  alt="Original Craft Photo"
-                  className="w-full h-full object-cover"
-                />
-                <span className="absolute bottom-3 left-3 bg-black/75 backdrop-blur-xs text-white text-[10px] font-bold px-2.5 py-1 rounded-md font-poppins shadow-xs">
-                  Original
-                </span>
-              </div>
-              {/* Right: Enhanced Result */}
-              <div className="relative h-full overflow-hidden bg-stone-900/5">
-                <img
-                  src={currentAsset.generatedImage}
-                  alt="Enhanced Studio Result"
-                  className="w-full h-full object-cover"
-                />
-                <span className="absolute bottom-3 right-3 bg-[#0F5132] text-[#D4AF37] text-[10px] font-bold px-2.5 py-1 rounded-md font-poppins shadow-xs border border-[#D4AF37]/30">
-                  Enhanced
-                </span>
-              </div>
+            <div className="w-full h-full relative">
+              <BeforeAfterSlider
+                beforeImage={originalImage || currentAsset.originalImage}
+                afterImage={currentAsset.generatedImage}
+                beforeLabel="Original Workshop"
+                afterLabel="Enhanced Studio"
+                aspectRatioClass="w-full h-full"
+                className="rounded-none border-0 shadow-none h-full w-full"
+              />
             </div>
           ) : viewMode === 'enhanced' ? (
             <img

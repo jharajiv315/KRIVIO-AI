@@ -5,6 +5,7 @@
 @theme {
   --font-poppins: 'Poppins', 'Noto Sans Devanagari', 'Noto Sans Gujarati', 'Noto Sans Tamil', 'Noto Sans Bengali', sans-serif;
   --font-inter: 'Inter', 'Noto Sans', 'Noto Sans Devanagari', 'Noto Sans Gujarati', 'Noto Sans Tamil', 'Noto Sans Bengali', sans-serif;
+  --font-editorial: 'Playfair Display', Georgia, 'Times New Roman', serif;
 
   --color-forest: #0F5132;
   --color-forest-hover: #0B3D26;
@@ -14,8 +15,9 @@
   --color-gold: #D4AF37;
   --color-gold-hover: #C29F2B;
   --color-gold-text: #8B6E10;
+  --color-terracotta: #C85A32;
   --color-brand-dark: #1A1A1A;
-  --color-brand-bg-light: #F8F9F5;
+  --color-brand-bg-light: #FAF8F3;
   --color-brand-bg-dark: #0B1911;
   --color-card-dark: #13251B;
   --color-card-elevated-dark: #183023;
@@ -29,11 +31,11 @@ html {
 :root, html {
   font-family: 'Inter', 'Noto Sans', 'Noto Sans Devanagari', 'Noto Sans Gujarati', 'Noto Sans Tamil', 'Noto Sans Bengali', sans-serif;
   color-scheme: light dark;
-  --bg-page: #F7F8F4;
+  --bg-page: #FAF8F3;
   --bg-card: #FFFFFF;
-  --bg-card-elevated: #F1F4EE;
-  --bg-card-subtle: #FAFBF8;
-  --bg-input: #F7F8F4;
+  --bg-card-elevated: #F3F1EB;
+  --bg-card-subtle: #FAF9F5;
+  --bg-input: #FAF8F3;
   --border-card: rgba(15, 81, 50, 0.10);
   --border-card-hover: rgba(15, 81, 50, 0.24);
   --border-card-active: #0F5132;
@@ -246,11 +248,104 @@ body {
   background: rgba(15, 81, 50, 0.6);
 }
 
+.font-editorial {
+  font-family: var(--font-editorial);
+}
+
+/* Specular border luxury card with directional rim highlight */
+.krivio-card-specular {
+  background-color: #FFFFFF;
+  border: 1px solid rgba(15, 81, 50, 0.12);
+  color: #1A1A1A;
+  position: relative;
+  transition: transform 0.22s cubic-bezier(0.16, 1, 0.3, 1), box-shadow 0.22s cubic-bezier(0.16, 1, 0.3, 1), border-color 0.22s ease;
+}
+.krivio-card-specular:hover {
+  transform: translateY(-2px);
+  border-color: rgba(212, 175, 55, 0.45);
+  box-shadow: 0 12px 28px -6px rgba(15, 81, 50, 0.08), 0 3px 8px -2px rgba(0, 0, 0, 0.03);
+}
+.dark .krivio-card-specular {
+  background-color: #13251B;
+  border-color: rgba(52, 211, 153, 0.18);
+  color: #E2F1E7;
+}
+.dark .krivio-card-specular:hover {
+  transform: translateY(-2px);
+  border-color: rgba(212, 175, 55, 0.45);
+  box-shadow: 0 14px 32px -6px rgba(0, 0, 0, 0.65), 0 0 0 1px rgba(212, 175, 55, 0.2);
+}
+
+/* Subtle handloom / artisan woven grid background pattern */
+.krivio-textile-pattern {
+  background-image: radial-gradient(rgba(15, 81, 50, 0.045) 1px, transparent 1px);
+  background-size: 24px 24px;
+}
+.dark .krivio-textile-pattern {
+  background-image: radial-gradient(rgba(52, 211, 153, 0.06) 1px, transparent 1px);
+  background-size: 24px 24px;
+}
+
+/* Light reflex sweep on hover for primary CTA buttons */
+.hover-shimmer {
+  position: relative;
+  overflow: hidden;
+}
+.hover-shimmer::after {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: -100%;
+  width: 50%;
+  height: 100%;
+  background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.2), transparent);
+  transform: skewX(-20deg);
+  transition: none;
+}
+.hover-shimmer:hover::after {
+  left: 200%;
+  transition: left 0.75s ease-in-out;
+}
+
+/* Tabular figures for stable numeric formatting */
+.tabular-nums {
+  font-variant-numeric: tabular-nums;
+}
+
+/* Infinite smooth ticker for Indian craft clusters */
+@keyframes marquee {
+  0% { transform: translateX(0%); }
+  100% { transform: translateX(-50%); }
+}
+.animate-marquee {
+  display: flex;
+  width: max-content;
+  animation: marquee 40s linear infinite;
+  will-change: transform;
+}
+.animate-marquee:hover {
+  animation-play-state: paused;
+}
+
+/* Fluid audio waveform equalizer bars */
+@keyframes wave-pulse {
+  0%, 100% { height: 6px; }
+  50% { height: 26px; }
+}
+.animate-wave-1 { animation: wave-pulse 1.1s ease-in-out infinite 0.1s; }
+.animate-wave-2 { animation: wave-pulse 1.1s ease-in-out infinite 0.25s; }
+.animate-wave-3 { animation: wave-pulse 1.1s ease-in-out infinite 0.4s; }
+.animate-wave-4 { animation: wave-pulse 1.1s ease-in-out infinite 0.2s; }
+.animate-wave-5 { animation: wave-pulse 1.1s ease-in-out infinite 0.35s; }
+
 @media (prefers-reduced-motion: reduce) {
   *, ::before, ::after {
     animation-duration: 0.01ms !important;
     animation-iteration-count: 1 !important;
     transition-duration: 0.01ms !important;
     scroll-behavior: auto !important;
+  }
+  .animate-marquee {
+    animation: none !important;
   }
 }
