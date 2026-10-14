@@ -24,6 +24,11 @@ import {
   ChevronDown,
   ArrowLeft,
   ArrowRight,
+  Tag,
+  Printer,
+  Layers,
+  QrCode,
+  Sparkles,
 } from 'lucide-react';
 import {
   getProductThumbnail,
@@ -77,6 +82,18 @@ export const ProductStudio: React.FC = () => {
   const [formError, setFormError] = useState('');
   const [warningMsg, setWarningMsg] = useState('');
   const [fetchError, setFetchError] = useState<string | null>(null);
+
+  // Variant cloning states
+  const [variantModalOpen, setVariantModalOpen] = useState(false);
+  const [variantBaseProduct, setVariantBaseProduct] = useState<Product | null>(null);
+  const [variantName, setVariantName] = useState('');
+  const [variantType, setVariantType] = useState<'Color' | 'Size' | 'Material'>('Color');
+  const [variantPrice, setVariantPrice] = useState<number>(0);
+  const [variantStock, setVariantStock] = useState<number>(10);
+  const [creatingVariant, setCreatingVariant] = useState(false);
+
+  // Printable Craft Hangtag Modal
+  const [tagModalProduct, setTagModalProduct] = useState<Product | null>(null);
 
   const fetchProducts = async () => {
     try {
@@ -343,6 +360,43 @@ export const ProductStudio: React.FC = () => {
     if (confirm('Are you sure you want to delete this product listing?')) {
       await productsApi.delete(id);
       fetchProducts();
+    }
+  };
+
+  const handleOpenVariantModal = (p: Product) => {
+    setVariantBaseProduct(p);
+    setVariantName('');
+    setVariantType('Color');
+    setVariantPrice(p.price);
+    setVariantStock(10);
+    setVariantModalOpen(true);
+  };
+
+  const handleCreateVariant = async () => {
+    if (!variantBaseProduct || !variantName.trim()) return;
+    try {
+      setCreatingVariant(true);
+      const newSku = `${variantBaseProduct.sku || 'SKU'}-V${Date.now().toString().slice(-4)}`;
+      const newTitle = `${variantBaseProduct.title} (${variantName.trim()})`;
+
+      await productsApi.create({
+        ...variantBaseProduct,
+        id: undefined as any,
+        title: newTitle,
+        sku: newSku,
+        price: Number(variantPrice) || variantBaseProduct.price,
+        stock: Number(variantStock) || 10,
+        status: 'published',
+        keywords: [...(variantBaseProduct.keywords || []), variantName.trim().toLowerCase()],
+      });
+
+      setVariantModalOpen(false);
+      setVariantBaseProduct(null);
+      await fetchProducts();
+    } catch (err: any) {
+      alert(err?.message || 'Failed to create variant');
+    } finally {
+      setCreatingVariant(false);
     }
   };
 
@@ -674,6 +728,22 @@ export const ProductStudio: React.FC = () => {
                   </div>
 
                   <div className="flex items-center gap-1">
+                    <button
+                      onClick={() => handleOpenVariantModal(p)}
+                      title="Clone as Color/Size Variant"
+                      aria-label="Clone Variant"
+                      className="p-2 text-stone-400 hover:text-emerald-700 hover:bg-emerald-50 dark:hover:bg-emerald-950 rounded-lg transition-colors cursor-pointer"
+                    >
+                      <Layers className="w-4 h-4 text-emerald-600 dark:text-emerald-400" />
+                    </button>
+                    <button
+                      onClick={() => setTagModalProduct(p)}
+                      title="Print Craft Hangtag & Price Tag"
+                      aria-label="Print Hangtag"
+                      className="p-2 text-stone-400 hover:text-[#D4AF37] hover:bg-amber-50 dark:hover:bg-amber-950 rounded-lg transition-colors cursor-pointer"
+                    >
+                      <Tag className="w-4 h-4 text-[#D4AF37]" />
+                    </button>
                     <button
                       onClick={() => handleDuplicateProduct(p.id)}
                       title="Duplicate Product"
@@ -1268,6 +1338,190 @@ export const ProductStudio: React.FC = () => {
                   </button>
                 )}
               </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ========================================================================= */}
+      {/* 1. CLONE AS VARIANT MODAL                                                 */}
+      {/* ========================================================================= */}
+      {variantModalOpen && variantBaseProduct && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-xs animate-in fade-in">
+          <div className="bg-white dark:bg-[#13251B] w-full max-w-md rounded-3xl border border-[#0F5132]/20 dark:border-emerald-800/60 shadow-2xl p-6 space-y-4">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-2">
+                <div className="w-9 h-9 rounded-xl bg-emerald-100 dark:bg-emerald-950 text-emerald-800 dark:text-emerald-300 flex items-center justify-center">
+                  <Layers className="w-5 h-5" />
+                </div>
+                <div>
+                  <h3 className="font-bold text-sm text-stone-900 dark:text-white font-poppins">Create Product Variant</h3>
+                  <p className="text-[11px] text-stone-500 dark:text-emerald-300/70">Clone with new color, size or material</p>
+                </div>
+              </div>
+              <button onClick={() => setVariantModalOpen(false)} className="p-1 hover:bg-stone-100 dark:hover:bg-emerald-900/40 rounded-lg text-stone-500">
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+
+            <div className="p-3 rounded-xl bg-stone-50 dark:bg-[#0E2016] text-xs text-stone-600 dark:text-emerald-200 border border-stone-200/60 dark:border-emerald-900/40">
+              <span className="font-semibold block font-poppins text-stone-900 dark:text-white">Base Product:</span>
+              <span className="line-clamp-1">{variantBaseProduct.title}</span>
+            </div>
+
+            <div className="space-y-3">
+              <div>
+                <label className="text-xs font-semibold text-stone-700 dark:text-emerald-200 block mb-1 font-poppins">Variant Type</label>
+                <div className="grid grid-cols-3 gap-2">
+                  {(['Color', 'Size', 'Material'] as const).map((vt) => (
+                    <button
+                      key={vt}
+                      type="button"
+                      onClick={() => setVariantType(vt)}
+                      className={`py-2 text-xs font-semibold rounded-xl border transition-all cursor-pointer font-poppins ${
+                        variantType === vt
+                          ? 'bg-[#0F5132] text-white border-[#0F5132]'
+                          : 'bg-white dark:bg-[#0E2016] text-stone-700 dark:text-emerald-200 border-stone-200 dark:border-emerald-900/60'
+                      }`}
+                    >
+                      {vt}
+                    </button>
+                  ))}
+                </div>
+              </div>
+
+              <div>
+                <label className="text-xs font-semibold text-stone-700 dark:text-emerald-200 block mb-1 font-poppins">
+                  {variantType} Name
+                </label>
+                <input
+                  type="text"
+                  value={variantName}
+                  onChange={(e) => setVariantName(e.target.value)}
+                  placeholder={variantType === 'Color' ? 'e.g. Royal Indigo Blue, Mustard Yellow' : variantType === 'Size' ? 'e.g. Large 14-inch, Medium' : 'e.g. Raw Jute, Pure Silk'}
+                  className="w-full px-3.5 py-2 text-xs bg-white dark:bg-[#0E2016] border border-stone-200 dark:border-emerald-800/60 rounded-xl outline-none focus:ring-2 focus:ring-[#0F5132] text-stone-900 dark:text-white font-inter"
+                />
+              </div>
+
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="text-xs font-semibold text-stone-700 dark:text-emerald-200 block mb-1 font-poppins">Price (₹)</label>
+                  <input
+                    type="number"
+                    value={variantPrice}
+                    onChange={(e) => setVariantPrice(Number(e.target.value))}
+                    className="w-full px-3.5 py-2 text-xs bg-white dark:bg-[#0E2016] border border-stone-200 dark:border-emerald-800/60 rounded-xl outline-none focus:ring-2 focus:ring-[#0F5132] text-stone-900 dark:text-white font-mono"
+                  />
+                </div>
+                <div>
+                  <label className="text-xs font-semibold text-stone-700 dark:text-emerald-200 block mb-1 font-poppins">Initial Stock</label>
+                  <input
+                    type="number"
+                    value={variantStock}
+                    onChange={(e) => setVariantStock(Number(e.target.value))}
+                    className="w-full px-3.5 py-2 text-xs bg-white dark:bg-[#0E2016] border border-stone-200 dark:border-emerald-800/60 rounded-xl outline-none focus:ring-2 focus:ring-[#0F5132] text-stone-900 dark:text-white font-mono"
+                  />
+                </div>
+              </div>
+            </div>
+
+            <div className="flex items-center justify-end gap-2 pt-2 border-t border-stone-100 dark:border-emerald-900/40">
+              <button
+                type="button"
+                onClick={() => setVariantModalOpen(false)}
+                className="px-4 py-2 text-xs font-semibold text-stone-600 dark:text-emerald-300 hover:bg-stone-100 dark:hover:bg-emerald-950 rounded-xl cursor-pointer font-poppins"
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                disabled={creatingVariant || !variantName.trim()}
+                onClick={handleCreateVariant}
+                className="px-5 py-2 bg-[#0F5132] hover:bg-[#0B3D26] disabled:opacity-50 text-white text-xs font-bold rounded-xl shadow-xs transition-all cursor-pointer font-poppins flex items-center gap-1.5"
+              >
+                {creatingVariant ? 'Creating...' : 'Create Variant'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ========================================================================= */}
+      {/* 2. PRINTABLE CRAFT HANGTAG / PRICE TAG MODAL                               */}
+      {/* ========================================================================= */}
+      {tagModalProduct && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-xs animate-in fade-in">
+          <div className="bg-white dark:bg-[#13251B] w-full max-w-lg rounded-3xl border border-[#0F5132]/20 dark:border-emerald-800/60 shadow-2xl p-6 space-y-5">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-2">
+                <div className="w-9 h-9 rounded-xl bg-amber-100 dark:bg-amber-950 text-amber-800 dark:text-amber-300 flex items-center justify-center">
+                  <Tag className="w-5 h-5 text-[#D4AF37]" />
+                </div>
+                <div>
+                  <h3 className="font-bold text-sm text-stone-900 dark:text-white font-poppins">Print Craft Hangtag</h3>
+                  <p className="text-[11px] text-stone-500 dark:text-emerald-300/70">Boutique & exhibition price tag with QR authenticity</p>
+                </div>
+              </div>
+              <button onClick={() => setTagModalProduct(null)} className="p-1 hover:bg-stone-100 dark:hover:bg-emerald-900/40 rounded-lg text-stone-500">
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+
+            {/* Hangtag Card Preview */}
+            <div id="printable-craft-hangtag" className="p-6 bg-[#FCFBF7] dark:bg-[#0B1A12] border-2 border-dashed border-[#D4AF37] rounded-3xl relative overflow-hidden shadow-inner font-inter text-stone-900 dark:text-white space-y-4">
+              {/* Hole punch circle */}
+              <div className="w-5 h-5 rounded-full bg-stone-300 dark:bg-stone-800 mx-auto border-2 border-stone-400 dark:border-stone-700 shadow-inner" />
+
+              <div className="text-center space-y-1">
+                <span className="text-[10px] uppercase tracking-widest font-extrabold text-[#0F5132] dark:text-[#34D399] block font-poppins">
+                  ✦ AUTHENTIC INDIAN HANDCRAFTED ✦
+                </span>
+                <h4 className="font-extrabold text-base sm:text-lg font-poppins text-stone-900 dark:text-white leading-tight">
+                  {tagModalProduct.title}
+                </h4>
+                <div className="flex items-center justify-center gap-2 text-[11px] text-stone-500 dark:text-emerald-300/80">
+                  <span>{tagModalProduct.category}</span>
+                  <span>•</span>
+                  <span>{tagModalProduct.material || 'Natural Materials'}</span>
+                </div>
+              </div>
+
+              <div className="flex items-center justify-between p-3.5 bg-white dark:bg-[#13251B] rounded-2xl border border-stone-200/80 dark:border-emerald-900/50">
+                <div>
+                  <span className="text-[10px] text-stone-400 block font-medium font-poppins uppercase">Fair Artisan Price (MRP)</span>
+                  <span className="text-2xl font-black text-[#0F5132] dark:text-[#34D399] font-poppins">
+                    {formatCurrency(tagModalProduct.price)}
+                  </span>
+                  <span className="text-[10px] text-stone-400 block font-mono">SKU: {tagModalProduct.sku || 'SKU-NONE'}</span>
+                </div>
+
+                <div className="text-center">
+                  <img
+                    src={`https://api.qrserver.com/v1/create-qr-code/?size=72x72&data=https://krivio.ai/p/${tagModalProduct.id}`}
+                    alt="Authenticity QR"
+                    className="w-16 h-16 rounded-lg border border-stone-200 dark:border-emerald-800/60 p-1 bg-white"
+                  />
+                  <span className="text-[9px] text-stone-400 block mt-0.5 font-poppins">Scan for Story</span>
+                </div>
+              </div>
+
+              <p className="text-[10px] text-center text-stone-500 dark:text-emerald-300/60 italic font-inter leading-relaxed">
+                Handmade with care by rural artisans. 100% of proceeds empower traditional craft families.
+              </p>
+            </div>
+
+            <div className="flex items-center justify-between pt-2 border-t border-stone-100 dark:border-emerald-900/40">
+              <span className="text-xs text-stone-400">Fits standard A4 hangtag sheets or thermal stickers</span>
+              <button
+                type="button"
+                onClick={() => {
+                  window.print();
+                }}
+                className="px-5 py-2.5 bg-[#0F5132] hover:bg-[#0B3D26] text-white text-xs font-bold rounded-xl shadow-md transition-all cursor-pointer font-poppins flex items-center gap-2 active:scale-95"
+              >
+                <Printer className="w-4 h-4 text-[#D4AF37]" />
+                <span>Print / Save PDF</span>
+              </button>
             </div>
           </div>
         </div>

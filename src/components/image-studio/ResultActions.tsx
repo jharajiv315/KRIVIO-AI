@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Package, Download, RefreshCw, ChevronRight, Wand2, ArrowRight } from 'lucide-react';
+import { Package, Download, RefreshCw, ChevronRight, Wand2, ArrowRight, ShieldCheck } from 'lucide-react';
 import { ImageStudioGeneratedAsset } from '../../services/api';
 
 export interface ResultActionsProps {
@@ -20,6 +20,76 @@ export const ResultActions: React.FC<ResultActionsProps> = ({
   onApplyFollowUpEdit,
 }) => {
   const [customEditInput, setCustomEditInput] = useState('');
+  const [addingWatermark, setAddingWatermark] = useState(false);
+
+  const downloadWatermarkedImage = async () => {
+    try {
+      setAddingWatermark(true);
+      const img = new Image();
+      img.crossOrigin = 'anonymous';
+      img.src = currentAsset.generatedImage;
+      await new Promise((res, rej) => {
+        img.onload = res;
+        img.onerror = rej;
+      });
+
+      const canvas = document.createElement('canvas');
+      canvas.width = img.width;
+      canvas.height = img.height;
+      const ctx = canvas.getContext('2d');
+      if (!ctx) return;
+
+      // Draw original image
+      ctx.drawImage(img, 0, 0);
+
+      // Watermark dimensions
+      const pad = Math.max(16, Math.floor(img.width * 0.03));
+      const badgeH = Math.max(32, Math.floor(img.height * 0.065));
+      const fontSize = Math.max(11, Math.floor(badgeH * 0.38));
+
+      // Draw elegant bottom watermark pill
+      const text = '✦ KRIVIO AUTHENTIC HANDCRAFTED ✦';
+      ctx.font = `bold ${fontSize}px sans-serif`;
+      const textWidth = ctx.measureText(text).width;
+      const badgeW = textWidth + pad * 2;
+
+      const x = img.width - badgeW - pad;
+      const y = img.height - badgeH - pad;
+
+      // Pill Background with subtle shadow
+      ctx.shadowColor = 'rgba(0,0,0,0.4)';
+      ctx.shadowBlur = 10;
+      ctx.fillStyle = 'rgba(15, 81, 50, 0.9)'; // Signature Emerald
+      ctx.beginPath();
+      ctx.roundRect(x, y, badgeW, badgeH, badgeH / 2);
+      ctx.fill();
+
+      // Border in Gold
+      ctx.lineWidth = 1.5;
+      ctx.strokeStyle = '#D4AF37'; // Signature Gold
+      ctx.stroke();
+
+      // Text
+      ctx.shadowColor = 'transparent';
+      ctx.fillStyle = '#FFFFFF';
+      ctx.textAlign = 'center';
+      ctx.textBaseline = 'middle';
+      ctx.fillText(text, x + badgeW / 2, y + badgeH / 2);
+
+      // Trigger download
+      const watermarkedDataUrl = canvas.toDataURL('image/png');
+      const a = document.createElement('a');
+      a.href = watermarkedDataUrl;
+      a.download = `krivio-authentic-seal-${Date.now()}.png`;
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+    } catch (err) {
+      console.error('Failed to create watermarked image', err);
+    } finally {
+      setAddingWatermark(false);
+    }
+  };
 
   const handleCustomSubmit = (e?: React.FormEvent) => {
     if (e) e.preventDefault();
@@ -44,7 +114,7 @@ export const ResultActions: React.FC<ResultActionsProps> = ({
             <span>Save to Product</span>
           </button>
 
-          {/* Download Action */}
+          {/* Download Clean Action */}
           <a
             href={currentAsset.generatedImage}
             download={`krivio-craft-${Date.now()}.png`}
@@ -53,6 +123,18 @@ export const ResultActions: React.FC<ResultActionsProps> = ({
             <Download className="w-4 h-4 text-[#0F5132] dark:text-emerald-400" />
             <span>Download</span>
           </a>
+
+          {/* Download with Craft Authenticity Seal */}
+          <button
+            type="button"
+            onClick={downloadWatermarkedImage}
+            disabled={addingWatermark}
+            className="px-3.5 py-2.5 min-h-[40px] bg-amber-500/10 hover:bg-amber-500/20 text-amber-800 dark:text-amber-300 text-xs font-semibold rounded-xl border border-amber-500/30 flex items-center justify-center gap-1.5 transition-all font-poppins cursor-pointer"
+            title="Download with anti-copycat Handcrafted Authenticity Seal"
+          >
+            <ShieldCheck className="w-4 h-4 text-[#D4AF37]" />
+            <span>{addingWatermark ? 'Applying Seal...' : 'Download with Craft Seal'}</span>
+          </button>
 
           {/* Regenerate Action */}
           <button

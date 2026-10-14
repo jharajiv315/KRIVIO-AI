@@ -19,6 +19,10 @@ import {
   Copy,
   ShieldCheck,
   Award,
+  QrCode,
+  FileText,
+  Download,
+  CreditCard,
 } from 'lucide-react';
 
 interface PublicStorefrontProps {
@@ -38,6 +42,8 @@ export const PublicStorefront: React.FC<PublicStorefrontProps> = ({
   const [searchQuery, setSearchQuery] = useState<string>('');
   const [selectedCategory, setSelectedCategory] = useState<string>('all');
   const [copiedLink, setCopiedLink] = useState<boolean>(false);
+  const [upiModalProduct, setUpiModalProduct] = useState<Product | null>(null);
+  const [copiedUpi, setCopiedUpi] = useState<boolean>(false);
   const [copiedProduct, setCopiedProduct] = useState<string | null>(null);
   const [selectedProductPreview, setSelectedProductPreview] = useState<Product | null>(null);
 
@@ -317,7 +323,7 @@ export const PublicStorefront: React.FC<PublicStorefrontProps> = ({
                 {artisan?.story}
               </p>
 
-              {/* Direct WhatsApp & Contact CTA */}
+              {/* Direct WhatsApp, Catalog & Contact CTA */}
               <div className="pt-2 flex flex-wrap items-center justify-center md:justify-start gap-3">
                 <button
                   onClick={() => openInquiryModal(undefined, 'question')}
@@ -325,6 +331,15 @@ export const PublicStorefront: React.FC<PublicStorefrontProps> = ({
                 >
                   <MessageCircle className="w-4 h-4 fill-white" />
                   <span>{t('storefront.contactArtisan')}</span>
+                </button>
+
+                <button
+                  onClick={() => window.print()}
+                  className="inline-flex items-center gap-2 px-4 py-2.5 bg-white/10 hover:bg-white/20 text-white font-semibold text-xs rounded-xl backdrop-blur-xs transition-all font-poppins cursor-pointer"
+                  title="Print or Save Mini-Catalog as PDF"
+                >
+                  <FileText className="w-3.5 h-3.5 text-[#D4AF37]" />
+                  <span>Download Catalog PDF</span>
                 </button>
 
                 {artisan?.phone && (
@@ -461,7 +476,7 @@ export const PublicStorefront: React.FC<PublicStorefrontProps> = ({
                       </div>
                     </div>
 
-                    {/* WhatsApp Action Button */}
+                    {/* WhatsApp & UPI QR Actions */}
                     <div className="flex items-center gap-2 pt-1">
                       <button
                         type="button"
@@ -473,6 +488,18 @@ export const PublicStorefront: React.FC<PublicStorefrontProps> = ({
                       >
                         <MessageCircle className="w-3.5 h-3.5 fill-white" />
                         <span>{t('storefront.orderOnWhatsApp')}</span>
+                      </button>
+
+                      <button
+                        type="button"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          setUpiModalProduct(prod);
+                        }}
+                        title="Instant UPI Payment QR"
+                        className="p-2.5 bg-amber-500/10 hover:bg-amber-500/20 text-amber-900 border border-amber-500/30 rounded-xl transition-colors shrink-0 cursor-pointer"
+                      >
+                        <QrCode className="w-4 h-4 text-amber-700" />
                       </button>
 
                       <button
@@ -819,6 +846,94 @@ export const PublicStorefront: React.FC<PublicStorefrontProps> = ({
                 <span>Open in WhatsApp</span>
               </button>
             </div>
+          </div>
+        </div>
+      )}
+
+      {/* ========================================================================= */}
+      {/* INSTANT DYNAMIC UPI QR PAYMENT MODAL                                      */}
+      {/* ========================================================================= */}
+      {upiModalProduct && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-xs animate-in fade-in">
+          <div className="bg-white rounded-3xl border border-[#0F5132]/20 shadow-2xl p-6 w-full max-w-sm space-y-4 text-center font-inter">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-2">
+                <div className="w-8 h-8 rounded-xl bg-amber-100 text-amber-800 flex items-center justify-center">
+                  <QrCode className="w-4 h-4 text-amber-700" />
+                </div>
+                <div className="text-left">
+                  <h3 className="font-bold text-xs font-poppins text-stone-900">Direct UPI Payment</h3>
+                  <span className="text-[10px] text-stone-500">Zero middleman deduction</span>
+                </div>
+              </div>
+              <button onClick={() => setUpiModalProduct(null)} className="p-1 hover:bg-stone-100 rounded-lg text-stone-500">
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+
+            <div className="p-3 bg-[#F8F9F5] rounded-2xl border border-stone-200/60 text-left">
+              <span className="text-[10px] text-stone-400 block font-poppins uppercase">Paying For:</span>
+              <h4 className="font-bold text-xs text-[#0F5132] line-clamp-1">{upiModalProduct.title}</h4>
+              <div className="flex items-baseline justify-between mt-1">
+                <span className="text-xl font-extrabold text-[#0F5132] font-poppins">₹{upiModalProduct.price}</span>
+                <span className="text-[10px] text-stone-500 font-medium">To: {artisan?.name || 'Artisan'}</span>
+              </div>
+            </div>
+
+            {/* Dynamic UPI QR Code */}
+            {(() => {
+              const artisanVpa = artisan?.phone ? `${artisan.phone}@upi` : 'krivio.artisan@okhdfcbank';
+              const upiUri = `upi://pay?pa=${artisanVpa}&pn=${encodeURIComponent(artisan?.name || 'Artisan')}&am=${upiModalProduct.price}&cu=INR&tn=${encodeURIComponent(upiModalProduct.title.slice(0, 30))}`;
+              const qrUrl = `https://api.qrserver.com/v1/create-qr-code/?size=200x200&data=${encodeURIComponent(upiUri)}`;
+
+              return (
+                <div className="space-y-3">
+                  <div className="p-3 bg-white rounded-2xl border-2 border-dashed border-[#0F5132]/30 inline-block shadow-sm">
+                    <img src={qrUrl} alt="UPI Payment QR Code" className="w-44 h-44 mx-auto rounded-lg" />
+                  </div>
+
+                  <div className="text-[11px] text-stone-600 space-y-1">
+                    <p className="font-medium">Scan with Google Pay, PhonePe, Paytm, or BHIM</p>
+                    <div className="flex items-center justify-center gap-1.5 text-[10px] font-mono text-stone-500">
+                      <span>UPI ID: {artisanVpa}</span>
+                      <button
+                        onClick={() => {
+                          navigator.clipboard.writeText(artisanVpa);
+                          setCopiedUpi(true);
+                          setTimeout(() => setCopiedUpi(false), 2000);
+                        }}
+                        className="text-[#0F5132] font-bold hover:underline"
+                      >
+                        {copiedUpi ? 'Copied!' : 'Copy'}
+                      </button>
+                    </div>
+                  </div>
+
+                  {/* Direct Mobile App Intent Link */}
+                  <div className="pt-1 flex flex-col gap-2">
+                    <a
+                      href={upiUri}
+                      className="w-full py-2.5 px-4 bg-[#0F5132] hover:bg-[#0B3D26] text-white font-bold text-xs rounded-xl shadow-md transition-all font-poppins flex items-center justify-center gap-2 active:scale-95"
+                    >
+                      <CreditCard className="w-3.5 h-3.5 text-[#D4AF37]" />
+                      <span>Open in UPI App (Mobile)</span>
+                    </a>
+
+                    <button
+                      onClick={() => {
+                        const targetProd = upiModalProduct;
+                        setUpiModalProduct(null);
+                        openInquiryModal(targetProd, 'order');
+                      }}
+                      className="w-full py-2 px-3 bg-[#25D366]/10 hover:bg-[#25D366]/20 text-[#1EBE5D] font-bold text-[11px] rounded-xl transition-colors font-poppins flex items-center justify-center gap-1.5"
+                    >
+                      <MessageCircle className="w-3.5 h-3.5 fill-[#1EBE5D]" />
+                      <span>Sent Payment? Notify on WhatsApp</span>
+                    </button>
+                  </div>
+                </div>
+              );
+            })()}
           </div>
         </div>
       )}

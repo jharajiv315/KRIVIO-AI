@@ -58,6 +58,7 @@ export const B2BQuotationView: React.FC<B2BQuotationViewProps> = ({ onNavigateTo
     'Handcrafted items may carry natural slight variations in finish, reflecting authentic artisanal craftsmanship.'
   );
   const [taxRatePercent, setTaxRatePercent] = useState<number>(0);
+  const [selectedCurrency, setSelectedCurrency] = useState<'INR' | 'USD' | 'EUR'>('INR');
 
   const [successMessage, setSuccessMessage] = useState<string | null>(null);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
@@ -726,21 +727,55 @@ export const B2BQuotationView: React.FC<B2BQuotationViewProps> = ({ onNavigateTo
 
           {/* Step 4: Summary Card & Action */}
           <div className="p-6 rounded-3xl bg-[#0F5132]/5 dark:bg-emerald-950/40 border border-[#0F5132]/20 dark:border-emerald-800 flex flex-col sm:flex-row items-center justify-between gap-6">
-            <div className="space-y-1.5 text-center sm:text-left w-full sm:w-auto">
-              <div className="text-xs text-stone-500 dark:text-emerald-300/70">
-                Subtotal: ₹{subtotal.toLocaleString('en-IN', { minimumFractionDigits: 2 })}
-                {taxAmount > 0 && (
-                  <span>
-                    {' '}
-                    + Tax ({taxRatePercent}%): ₹
-                    {taxAmount.toLocaleString('en-IN', { minimumFractionDigits: 2 })}
-                  </span>
-                )}
+            <div className="space-y-2 text-center sm:text-left w-full sm:w-auto">
+              <div className="flex items-center gap-2">
+                <span className="text-[10px] text-stone-400 font-bold uppercase font-poppins">Quotation Currency:</span>
+                <div className="inline-flex rounded-xl p-0.5 bg-stone-200/80 dark:bg-emerald-900/60 text-xs">
+                  {(['INR', 'USD', 'EUR'] as const).map((c) => (
+                    <button
+                      key={c}
+                      type="button"
+                      onClick={() => setSelectedCurrency(c)}
+                      className={`px-2.5 py-1 rounded-lg text-xs font-bold transition-all cursor-pointer font-poppins ${
+                        selectedCurrency === c
+                          ? 'bg-[#0F5132] text-white shadow-xs'
+                          : 'text-stone-700 dark:text-emerald-200 hover:text-stone-900'
+                      }`}
+                    >
+                      {c === 'INR' ? '₹ INR' : c === 'USD' ? '$ USD' : '€ EUR'}
+                    </button>
+                  ))}
+                </div>
               </div>
-              <div className="text-2xl font-bold font-poppins text-stone-900 dark:text-white flex items-center justify-center sm:justify-start gap-1">
-                <span className="text-[#0F5132] dark:text-emerald-400">Total:</span> ₹
-                {grandTotal.toLocaleString('en-IN', { minimumFractionDigits: 2 })}
-              </div>
+
+              {(() => {
+                const currencyRate = selectedCurrency === 'USD' ? 1 / 86 : selectedCurrency === 'EUR' ? 1 / 93 : 1;
+                const currencySymbol = selectedCurrency === 'USD' ? '$' : selectedCurrency === 'EUR' ? '€' : '₹';
+
+                return (
+                  <>
+                    <div className="text-xs text-stone-500 dark:text-emerald-300/70">
+                      Subtotal: {currencySymbol}{(subtotal * currencyRate).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                      {taxAmount > 0 && (
+                        <span>
+                          {' '}
+                          + Tax ({taxRatePercent}%): {currencySymbol}
+                          {(taxAmount * currencyRate).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                        </span>
+                      )}
+                    </div>
+                    <div className="text-2xl font-bold font-poppins text-stone-900 dark:text-white flex items-center justify-center sm:justify-start gap-1">
+                      <span className="text-[#0F5132] dark:text-emerald-400">Total:</span> {currencySymbol}
+                      {(grandTotal * currencyRate).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                      {selectedCurrency !== 'INR' && (
+                        <span className="text-xs font-normal text-stone-400 font-inter ml-2">
+                          (₹{grandTotal.toLocaleString('en-IN')})
+                        </span>
+                      )}
+                    </div>
+                  </>
+                );
+              })()}
             </div>
 
             <button
