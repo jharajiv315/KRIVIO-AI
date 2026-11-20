@@ -75,6 +75,11 @@ export const Dashboard: React.FC<DashboardProps> = ({ currentTab, setCurrentTab,
   const { theme, toggleTheme } = useTheme();
   const { t, formatCurrency, formatNumber } = useI18n();
 
+  const [initialProduct, setInitialProduct] = useState<Product | null>(null);
+  useEffect(() => {
+    if (currentTab !== 'products') setInitialProduct(null);
+  }, [currentTab, user?.id]);
+
   const [stats, setStats] = useState<BusinessHealthStats | null>(null);
   const [tasks, setTasks] = useState<TaskItem[]>([]);
   const [recentProducts, setRecentProducts] = useState<Product[]>([]);
@@ -197,7 +202,7 @@ export const Dashboard: React.FC<DashboardProps> = ({ currentTab, setCurrentTab,
       case 'business-profile':
         return <BusinessProfileView />;
       case 'products':
-        return <ProductStudio />;
+        return <ProductStudio initialProduct={initialProduct} />;
       case 'mentor':
         return <VoiceMentor />;
       case 'images':
@@ -476,10 +481,11 @@ export const Dashboard: React.FC<DashboardProps> = ({ currentTab, setCurrentTab,
 
                 <div className="space-y-3">
                   {recentProducts.slice(0, 4).map((prod) => (
-                    <div
+                    <button
+                      type="button"
                       key={prod.id}
-                      onClick={() => setCurrentTab('products')}
-                      className="p-3.5 bg-stone-50 dark:bg-[#183023]/60 rounded-xl border border-stone-200/80 dark:border-emerald-900/40 flex items-center justify-between gap-3 cursor-pointer hover:border-[#0F5132] dark:hover:border-emerald-400 transition-all font-inter"
+                      onClick={() => { setInitialProduct(prod); setCurrentTab('products'); }}
+                      className="w-full text-left p-3.5 bg-stone-50 dark:bg-[#183023]/60 rounded-xl border border-stone-200/80 dark:border-emerald-900/40 flex items-center justify-between gap-3 cursor-pointer hover:border-[#0F5132] dark:hover:border-emerald-400 transition-all font-inter"
                     >
                       <div className="flex items-center gap-3 min-w-0">
                         <img
@@ -510,7 +516,7 @@ export const Dashboard: React.FC<DashboardProps> = ({ currentTab, setCurrentTab,
                       }`}>
                         {prod.status || 'published'}
                       </span>
-                    </div>
+                    </button>
                   ))}
                 </div>
               </div>
