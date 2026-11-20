@@ -1,4 +1,5 @@
 import React, { useEffect, useState } from 'react';
+import { ProductDetails } from './ProductDetails';
 import { productsApi } from '../services/api';
 import { Product } from '../types';
 import { useI18n } from '../i18n/LanguageContext';
@@ -37,7 +38,8 @@ import {
   getDirectProductPhoto,
 } from '../utils/productThumbnail';
 
-export const ProductStudio: React.FC = () => {
+export const ProductStudio = ({ initialProduct = null }: { initialProduct?: Product | null }) => {
+  const [selectedProduct, setSelectedProduct] = useState<Product | null>(initialProduct);
   const { t, formatCurrency, currentLanguageConfig } = useI18n();
   const { user, openAuthModal } = useAuth();
   const isAuthenticated = !!user;
@@ -150,6 +152,7 @@ export const ProductStudio: React.FC = () => {
     setShowAdvancedLogistics(Boolean(p.sku || p.weight || p.dimensions));
     setShowAiHelper(false);
     setTitle(p.title);
+    setMaterials(p.material || '');
     setRawCraftInput(p.title);
     setCraftType(p.category);
     setDescription(p.description || '');
@@ -595,23 +598,23 @@ export const ProductStudio: React.FC = () => {
           {products.map((p) => (
             <div
               key={p.id}
-              className="bg-white dark:bg-[#13251B] rounded-2xl border border-[#0F5132]/15 dark:border-emerald-800/60 overflow-hidden shadow-xs hover:border-[#0F5132] dark:hover:border-emerald-400 transition-all flex flex-col group"
+              onDragOver={(e) => {
+                e.preventDefault();
+                setDragOverProductId(p.id);
+              }}
+              onDragLeave={() => setDragOverProductId(null)}
+              onDrop={(e) => {
+                e.preventDefault();
+                setDragOverProductId(null);
+                if (e.dataTransfer.files && e.dataTransfer.files[0]) {
+                  handleDirectCardUpload(p.id, e.dataTransfer.files[0]);
+                }
+              }}
+              className="relative min-w-0 bg-white dark:bg-[#13251B] rounded-2xl border border-[#0F5132]/15 dark:border-emerald-800/60 overflow-hidden shadow-xs hover:border-[#0F5132] dark:hover:border-emerald-400 transition-all flex flex-col group"
             >
               {/* Image Thumbnail */}
               <div
                 className="relative h-48 bg-[#F8F9F5] dark:bg-[#0E2016] overflow-hidden flex items-center justify-center group/thumbnail cursor-pointer"
-                onDragOver={(e) => {
-                  e.preventDefault();
-                  setDragOverProductId(p.id);
-                }}
-                onDragLeave={() => setDragOverProductId(null)}
-                onDrop={(e) => {
-                  e.preventDefault();
-                  setDragOverProductId(null);
-                  if (e.dataTransfer.files && e.dataTransfer.files[0]) {
-                    handleDirectCardUpload(p.id, e.dataTransfer.files[0]);
-                  }
-                }}
               >
                 <img
                   src={getProductThumbnail(p)}
@@ -626,17 +629,18 @@ export const ProductStudio: React.FC = () => {
                 />
 
                 {/* Direct Upload Overlay on Hover */}
-                <div className="absolute inset-0 bg-gradient-to-t from-black/70 via-black/20 to-transparent opacity-0 group-hover/thumbnail:opacity-100 transition-opacity flex items-end justify-between p-3 z-10">
+                <div className="absolute inset-0 bg-gradient-to-t from-black/70 via-black/20 to-transparent pointer-events-none flex items-end justify-between p-3 z-10">
                   <label
                     onClick={(e) => e.stopPropagation()}
-                    className="cursor-pointer px-2.5 py-1.5 bg-black/70 hover:bg-black/90 backdrop-blur-md text-white rounded-lg text-[10px] font-semibold flex items-center gap-1.5 transition-all shadow-md active:scale-95 font-poppins border border-white/20"
+                    className="pointer-events-auto cursor-pointer relative min-h-11 px-2.5 py-1.5 bg-black/70 hover:bg-black/90 backdrop-blur-md text-white rounded-lg text-[10px] font-semibold flex items-center gap-1.5 transition-all shadow-md active:scale-95 font-poppins border border-white/20"
                   >
                     <Camera className="w-3.5 h-3.5" />
                     <span>{getDirectProductPhoto(p) ? 'Change Photo' : 'Upload Photo'}</span>
                     <input
                       type="file"
                       accept="image/*"
-                      className="hidden"
+                      aria-label={"Upload photo: " + p.title}
+                      className="absolute inset-0 h-full w-full opacity-0 cursor-pointer"
                       onChange={(e) => {
                         if (e.target.files && e.target.files[0]) {
                           handleDirectCardUpload(p.id, e.target.files[0]);
@@ -718,6 +722,12 @@ export const ProductStudio: React.FC = () => {
                   </div>
                 </div>
 
+                <button type="button" onClick={() => setSelectedProduct(p)}
+                  aria-label={t('common.details') + ' · ' + p.title}
+                  className="flex min-h-11 items-center justify-between rounded-xl bg-emerald-50 px-3 text-sm font-semibold text-[#0F5132] dark:bg-emerald-950 dark:text-emerald-200 cursor-pointer after:absolute after:inset-0 after:rounded-2xl focus-visible:after:ring-2 focus-visible:after:ring-inset focus-visible:after:ring-emerald-600">
+                  {t('common.details')}<ChevronRight size={16} aria-hidden="true" />
+                </button>
+
                 {/* Footer / Actions */}
                 <div className="pt-3 border-t border-stone-100 dark:border-emerald-900/40 flex flex-wrap items-center justify-between gap-2">
                   <div>
@@ -727,7 +737,7 @@ export const ProductStudio: React.FC = () => {
                     </span>
                   </div>
 
-                  <div className="flex items-center gap-1">
+                  <div className="relative z-10 flex flex-wrap items-center gap-1">
                     <button
                       onClick={() => handleOpenVariantModal(p)}
                       title="Clone as Color/Size Variant"
@@ -782,6 +792,11 @@ export const ProductStudio: React.FC = () => {
             </div>
           ))}
         </div>
+      )}
+
+      {selectedProduct && (
+        <ProductDetails product={selectedProduct} onClose={() => setSelectedProduct(null)}
+          onEdit={() => { openEditModal(selectedProduct); setSelectedProduct(null); }} />
       )}
 
       {/* Add / Edit Product Modal - Progressive 3-Step Wizard */}
